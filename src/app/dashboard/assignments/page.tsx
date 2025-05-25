@@ -153,11 +153,11 @@ export default function AssignmentsPage() {
                       <div className="flex items-center gap-1">
                         <Clock className="h-3 w-3 text-muted-foreground" />
                         Due: {formatDate(assignment.dueDate)} 
-                        {assignment.status === "Pending" && <span className="text-red-500 ml-1">({daysLeft(assignment.dueDate)})</span>}
+                        {assignment.status === "Pending" && <span className="text-destructive ml-1">({daysLeft(assignment.dueDate)})</span>}
                       </div>
                       {assignment.submittedDate && (
                         <div className="flex items-center gap-1">
-                          <CheckCircle className="h-3 w-3 text-green-600" />
+                          <CheckCircle className="h-3 w-3 text-primary" />
                           Submitted: {formatDate(assignment.submittedDate)}
                         </div>
                       )}

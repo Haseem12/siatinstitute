@@ -87,7 +87,7 @@ export default function DashboardPage() {
                 {pendingAssignments.map((item) => (
                   <li key={item.id} className="text-sm border-l-2 border-accent pl-2">
                     <p className="font-medium">{item.title}</p>
-                    <p className="text-xs text-red-500">{item.dueDate}</p>
+                    <p className="text-xs text-destructive">{item.dueDate}</p>
                   </li>
                 ))}
               </ul>

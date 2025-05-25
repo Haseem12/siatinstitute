@@ -162,7 +162,7 @@ export default function CourseRegistrationPage() {
          <Card>
           <CardHeader className="pb-2">
             <CardDescription>Status</CardDescription>
-             <CardTitle className={`text-xl ${canProceedToPrint ? 'text-green-600' : 'text-red-600'}`}>
+             <CardTitle className={`text-xl ${canProceedToPrint ? 'text-primary' : 'text-destructive'}`}>
               {canProceedToPrint ? "Ready to Print" : `Select ${MAX_COURSES_TO_REGISTER - selectedCourses.length} more`}
             </CardTitle>
           </CardHeader>

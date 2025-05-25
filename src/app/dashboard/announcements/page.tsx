@@ -19,9 +19,9 @@ const mockAnnouncements: Announcement[] = [
 
 const getCategoryIcon = (category?: Announcement["category"]) => {
   switch (category) {
-    case "Academic": return <Info className="h-4 w-4 text-blue-500" />;
-    case "Events": return <CalendarDays className="h-4 w-4 text-green-500" />;
-    default: return <BellRing className="h-4 w-4 text-gray-500" />;
+    case "Academic": return <Info className="h-4 w-4 text-primary" />;
+    case "Events": return <CalendarDays className="h-4 w-4 text-accent" />;
+    default: return <BellRing className="h-4 w-4 text-muted-foreground" />;
   }
 };
 
