@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, BookOpen, CalendarCheck, CheckSquare, Megaphone, UserCircle } from "lucide-react";
@@ -31,7 +32,7 @@ export default function DashboardPage() {
       <Card className="shadow-lg border-primary/10">
         <CardHeader className="relative p-0 overflow-hidden rounded-t-lg">
             <Image 
-                src="https://placehold.co/1200x300.png"
+                src="/assets/slider/slide-2.jpg"
                 alt="Zaria Landscape"
                 width={1200}
                 height={300}
