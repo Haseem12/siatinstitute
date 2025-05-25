@@ -74,19 +74,20 @@ const newsItems = [
 ];
 
 const carouselImages = [
-  { src: "/assets/slider/slide-1.jpg", alt: "Scenic view of SIAT campus", title: "Empowering Future Leaders", subtitle: "Join a community dedicated to knowledge and innovation.", dataAiHint: "campus view" },
-  { src: "/assets/slider/slide-2.jpg", alt: "Students collaborating in a modern classroom", title: "Excellence in Education", subtitle: "Discover your potential with our state-of-the-art facilities.", dataAiHint: "students classroom" },
-  { src: "/assets/slider/slide-3.jpg", alt: "SIAT graduation ceremony", title: "Your Journey Starts Here", subtitle: "Scholars Institute of Arts & Technology, Zaria.", dataAiHint: "graduation event" },
-  { src: "/assets/slider/slide-4.jpg", alt: "Well-equipped science laboratory", title: "Innovation & Discovery", subtitle: "Explore the frontiers of science and technology.", dataAiHint: "science lab" },
-  { src: "/assets/slider/slide-5.jpg", alt: "Library interior with students studying", title: "Hub of Knowledge", subtitle: "Access a vast collection of resources in our library.", dataAiHint: "library interior" },
-  { src: "/assets/slider/slide-6.jpg", alt: "Students engaged in a workshop", title: "Hands-On Learning", subtitle: "Gain practical skills for real-world challenges.", dataAiHint: "student workshop" },
-  { src: "/assets/slider/slide-7.jpg", alt: "Architectural detail of a SIAT building", title: "Inspiring Architecture", subtitle: "Learn in an environment designed for inspiration.", dataAiHint: "campus architecture" },
-  { src: "/assets/slider/slide-8.jpg", alt: "Sports facilities at SIAT", title: "Holistic Development", subtitle: "Excel in academics, sports, and extracurriculars.", dataAiHint: "sports field" },
-  { src: "/assets/slider/slide-9.jpg", alt: "Art and design studio", title: "Creative Expression", subtitle: "Unleash your creativity in our dedicated studios.", dataAiHint: "art studio" },
-  { src: "/assets/slider/slide-10.jpg", alt: "Students presenting a project", title: "Collaborate & Innovate", subtitle: "Work together to solve complex problems.", dataAiHint: "student presentation" },
-  { src: "/assets/slider/slide-11.jpg", alt: "Campus green spaces", title: "Serene Learning Environment", subtitle: "Focus and grow in our peaceful campus.", dataAiHint: "campus garden" },
-  { src: "/assets/slider/slide-12.jpg", alt: "SIAT main entrance", title: "Welcome to SIAT", subtitle: "Your gateway to a brighter future.", dataAiHint: "school entrance" },
+  { src: "/slide-1.jpg", alt: "Scenic view of SIAT campus", title: "Empowering Future Leaders", subtitle: "Join a community dedicated to knowledge and innovation.", dataAiHint: "campus view" },
+  { src: "/slide-2.jpg", alt: "Students collaborating in a modern classroom", title: "Excellence in Education", subtitle: "Discover your potential with our state-of-the-art facilities.", dataAiHint: "students classroom" },
+  { src: "/slide-3.jpg", alt: "SIAT graduation ceremony", title: "Your Journey Starts Here", subtitle: "Scholars Institute of Arts & Technology, Zaria.", dataAiHint: "graduation event" },
+  { src: "/slide-4.jpg", alt: "Well-equipped science laboratory", title: "Innovation & Discovery", subtitle: "Explore the frontiers of science and technology.", dataAiHint: "science lab" },
+  { src: "/slide-5.jpg", alt: "Library interior with students studying", title: "Hub of Knowledge", subtitle: "Access a vast collection of resources in our library.", dataAiHint: "library interior" },
+  { src: "/slide-6.jpg", alt: "Students engaged in a workshop", title: "Hands-On Learning", subtitle: "Gain practical skills for real-world challenges.", dataAiHint: "student workshop" },
+  { src: "/slide-7.jpg", alt: "Architectural detail of a SIAT building", title: "Inspiring Architecture", subtitle: "Learn in an environment designed for inspiration.", dataAiHint: "campus architecture" },
+  { src: "/slide-8.jpg", alt: "Sports facilities at SIAT", title: "Holistic Development", subtitle: "Excel in academics, sports, and extracurriculars.", dataAiHint: "sports field" },
+  { src: "/slide-9.jpg", alt: "Art and design studio", title: "Creative Expression", subtitle: "Unleash your creativity in our dedicated studios.", dataAiHint: "art studio" },
+  { src: "/slide-10.jpg", alt: "Students presenting a project", title: "Collaborate & Innovate", subtitle: "Work together to solve complex problems.", dataAiHint: "student presentation" },
+  { src: "/slide-11.jpg", alt: "Campus green spaces", title: "Serene Learning Environment", subtitle: "Focus and grow in our peaceful campus.", dataAiHint: "campus garden" },
+  { src: "/slide-12.jpg", alt: "SIAT main entrance", title: "Welcome to SIAT", subtitle: "Your gateway to a brighter future.", dataAiHint: "school entrance" },
 ];
+
 
 const navLinks = [
     { href: "#auth-section", label: "Apply / Login" },
@@ -393,7 +394,3 @@ export default function LandingPage() {
     </div>
   );
 }
-
-    
-
-    
