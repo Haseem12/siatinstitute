@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BookOpen, CalendarCheck, CheckSquare, Megaphone } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarCheck, CheckSquare, Megaphone, UserCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from 'next';
