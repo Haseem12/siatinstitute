@@ -36,7 +36,8 @@ import { useToast } from "@/hooks/use-toast";
 import ArewaLogo from "@/components/arewa-logo";
 import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, Lightbulb, Users, Award, Newspaper, Phone, Mail, LogIn, UserPlus } from "lucide-react";
+import { BookOpen, Lightbulb, Users, Award, Newspaper, Phone, Mail, LogIn, UserPlus, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 // Removed NewIntakeFormData type as it's now handled in /registration/new-intake
 
 const loginFormSchema = z.object({
@@ -87,11 +88,19 @@ const carouselImages = [
   { src: "/assets/slider/slide-12.jpg", alt: "SIAT main entrance", title: "Welcome to SIAT", subtitle: "Your gateway to a brighter future.", dataAiHint: "school entrance" },
 ];
 
+const navLinks = [
+    { href: "#auth-section", label: "Apply / Login" },
+    { href: "#features", label: "Features" },
+    { href: "#news", label: "News & Events" },
+    { href: "#contact", label: "Contact Us" },
+];
+
 
 export default function LandingPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoadingLogin, setIsLoadingLogin] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -111,183 +120,258 @@ export default function LandingPage() {
       loginForm.setError("password", { type: "manual", message: result.message });
     }
   }
+  
+  const handleNavLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
+    const targetId = href.substring(1);
+    const targetElement = document.getElementById(targetId);
+    if (targetElement) {
+      const headerOffset = 80; // Approximate height of the sticky header
+      const elementPosition = targetElement.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
+    }
+    setIsMobileMenuOpen(false); // Close mobile menu on click
+  };
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* Hero Section with Carousel */}
-      <section id="hero" className="relative h-[60vh] md:h-[70vh] w-full text-white">
-        <Carousel
-          opts={{ loop: true }}
-          plugins={[Autoplay({ delay: 5000 })]}
-          className="w-full h-full"
-        >
-          <CarouselContent>
-            {carouselImages.map((item, index) => (
-              <CarouselItem key={index} className="relative h-[60vh] md:h-[70vh]">
-                <Image
-                  src={item.src}
-                  alt={item.alt}
-                  fill
-                  objectFit="cover"
-                  className="brightness-50"
-                  data-ai-hint={item.dataAiHint}
-                  priority={index < 3} // Prioritize loading the first few images
-                />
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-black/40">
-                  <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4" />
-                  <h1 className="text-4xl md:text-6xl font-bold mb-2">{item.title}</h1>
-                  <p className="text-lg md:text-2xl max-w-2xl">{item.subtitle}</p>
-                  {index === carouselImages.length -1 && <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}>Get Started</Button>}
-                </div>
-              </CarouselItem>
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-md shadow-md">
+        <div className="container mx-auto px-4 h-20 flex items-center justify-between">
+          <Link href="#hero" onClick={(e) => handleNavLinkClick(e, '#hero')} className="flex items-center gap-2">
+            <ArewaLogo className="h-10 w-10 text-primary" />
+            <span className="font-bold text-xl text-primary hidden sm:block">Arewa Scholar Hub</span>
+          </Link>
+          
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-1">
+            {navLinks.map((link) => (
+              <Button key={link.label} variant="ghost" asChild className="text-foreground hover:bg-primary/10 hover:text-primary">
+                <Link href={link.href} onClick={(e) => handleNavLinkClick(e, link.href)}>{link.label}</Link>
+              </Button>
             ))}
-          </CarouselContent>
-          <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 hidden md:flex text-white bg-black/30 hover:bg-black/50 border-white/50" />
-          <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex text-white bg-black/30 hover:bg-black/50 border-white/50" />
-        </Carousel>
-      </section>
+          </nav>
 
-       {/* Auth Section: Login and New Intake CTA */}
-      <section id="auth-section" className="py-16 lg:py-24 bg-muted/20">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            {/* New Intake Call to Action */}
-            <div className="order-2 md:order-1">
-              <Card className="shadow-xl border-2 border-primary/10 p-6">
-                <CardHeader className="text-center md:text-left">
-                  <UserPlus className="h-12 w-12 text-primary mx-auto md:mx-0 mb-3" />
-                  <CardTitle className="text-2xl lg:text-3xl font-bold text-primary">New to SIAT?</CardTitle>
-                  <CardDescription className="text-lg text-muted-foreground mt-1">
-                    Begin your academic journey with us. Apply for admission into our diverse programs.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="mb-4 text-muted-foreground">
-                    Our streamlined application process makes it easy to get started. Click the button below to access the new intake registration portal.
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 text-muted-foreground text-sm mb-6">
-                    <li>Comprehensive bio-data form.</li>
-                    <li>Upload academic qualifications.</li>
-                    <li>Showcase relevant experience (optional).</li>
-                    <li>Choose your desired program and campus.</li>
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3">
-                    <Link href="/registration/new-intake">
-                      <UserPlus className="mr-2 h-5 w-5" /> Apply for Admission
-                    </Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-
-            {/* Student Login Form */}
-            <div className="order-1 md:order-2">
-              <Card className="shadow-xl border-2 border-primary/10">
-                <CardHeader className="text-center">
-                  <ArewaLogo className="h-12 w-12 text-primary mx-auto mb-2" />
-                  <CardTitle className="text-2xl font-bold text-primary">Student Portal Login</CardTitle>
-                  <CardDescription>Welcome back! Access your dashboard.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...loginForm}>
-                    <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-6">
-                      <FormField
-                        control={loginForm.control}
-                        name="studentId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Student ID</FormLabel>
-                            <FormControl><Input placeholder="e.g., SIAT/001" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={loginForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoadingLogin}>
-                        <LogIn className="mr-2 h-5 w-5" />
-                        {isLoadingLogin ? "Logging in..." : "Login to Portal"}
+          {/* Mobile Navigation Trigger */}
+          <div className="md:hidden">
+            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Toggle Menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[280px] p-0">
+                <div className="flex flex-col h-full">
+                    <div className="p-6 border-b">
+                         <Link href="#hero" onClick={(e) => handleNavLinkClick(e, '#hero')} className="flex items-center gap-2">
+                            <ArewaLogo className="h-8 w-8 text-primary" />
+                            <span className="font-bold text-lg text-primary">Arewa Scholar Hub</span>
+                        </Link>
+                    </div>
+                    <nav className="flex-grow p-6 space-y-2">
+                    {navLinks.map((link) => (
+                      <Button key={link.label} variant="ghost" asChild className="w-full justify-start text-lg py-3">
+                        <Link href={link.href} onClick={(e) => handleNavLinkClick(e, link.href)}>{link.label}</Link>
                       </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-                <CardFooter className="text-center text-xs text-muted-foreground">
-                    <p>Forgot your password? Contact support.</p>
-                </CardFooter>
-              </Card>
+                    ))}
+                    </nav>
+                     <div className="p-6 border-t">
+                        <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => {document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' }); setIsMobileMenuOpen(false);}}>
+                            <LogIn className="mr-2 h-5 w-5"/> Login / Apply
+                        </Button>
+                    </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content - Add pt-20 to offset sticky header height */}
+      <main className="flex-grow">
+        {/* Hero Section with Carousel */}
+        <section id="hero" className="relative h-[calc(60vh-80px)] md:h-[calc(70vh-80px)] w-full text-white -mt-20 pt-20"> {/* Adjust height and add padding top */}
+          <Carousel
+            opts={{ loop: true }}
+            plugins={[Autoplay({ delay: 5000 })]}
+            className="w-full h-full"
+          >
+            <CarouselContent>
+              {carouselImages.map((item, index) => (
+                <CarouselItem key={index} className="relative h-full">
+                  <Image
+                    src={item.src}
+                    alt={item.alt}
+                    fill
+                    sizes="100vw"
+                    style={{objectFit: 'cover'}}
+                    className="brightness-50"
+                    data-ai-hint={item.dataAiHint}
+                    priority={index < 3} // Prioritize loading the first few images
+                  />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-black/40">
+                    <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4" />
+                    <h1 className="text-4xl md:text-6xl font-bold mb-2">{item.title}</h1>
+                    <p className="text-lg md:text-2xl max-w-2xl">{item.subtitle}</p>
+                    {index === carouselImages.length -1 && <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}>Get Started</Button>}
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 hidden md:flex text-white bg-black/30 hover:bg-black/50 border-white/50" />
+            <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex text-white bg-black/30 hover:bg-black/50 border-white/50" />
+          </Carousel>
+        </section>
+
+        {/* Auth Section: Login and New Intake CTA */}
+        <section id="auth-section" className="py-16 lg:py-24 bg-muted/20 scroll-mt-20">
+          <div className="container mx-auto px-4">
+            <div className="grid md:grid-cols-2 gap-12 items-center">
+              {/* New Intake Call to Action */}
+              <div className="order-2 md:order-1">
+                <Card className="shadow-xl border-2 border-primary/10 p-6">
+                  <CardHeader className="text-center md:text-left">
+                    <UserPlus className="h-12 w-12 text-primary mx-auto md:mx-0 mb-3" />
+                    <CardTitle className="text-2xl lg:text-3xl font-bold text-primary">New to SIAT?</CardTitle>
+                    <CardDescription className="text-lg text-muted-foreground mt-1">
+                      Begin your academic journey with us. Apply for admission into our diverse programs.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="mb-4 text-muted-foreground">
+                      Our streamlined application process makes it easy to get started. Click the button below to access the new intake registration portal.
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-muted-foreground text-sm mb-6">
+                      <li>Comprehensive bio-data form.</li>
+                      <li>Upload academic qualifications.</li>
+                      <li>Showcase relevant experience (optional).</li>
+                      <li>Choose your desired program and campus.</li>
+                    </ul>
+                  </CardContent>
+                  <CardFooter>
+                    <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3">
+                      <Link href="/registration/new-intake">
+                        <UserPlus className="mr-2 h-5 w-5" /> Apply for Admission
+                      </Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </div>
+
+              {/* Student Login Form */}
+              <div className="order-1 md:order-2">
+                <Card className="shadow-xl border-2 border-primary/10">
+                  <CardHeader className="text-center">
+                    <ArewaLogo className="h-12 w-12 text-primary mx-auto mb-2" />
+                    <CardTitle className="text-2xl font-bold text-primary">Student Portal Login</CardTitle>
+                    <CardDescription>Welcome back! Access your dashboard.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...loginForm}>
+                      <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-6">
+                        <FormField
+                          control={loginForm.control}
+                          name="studentId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Student ID</FormLabel>
+                              <FormControl><Input placeholder="e.g., SIAT/001" {...field} /></FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={loginForm.control}
+                          name="password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Password</FormLabel>
+                              <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoadingLogin}>
+                          <LogIn className="mr-2 h-5 w-5" />
+                          {isLoadingLogin ? "Logging in..." : "Login to Portal"}
+                        </Button>
+                      </form>
+                    </Form>
+                  </CardContent>
+                  <CardFooter className="text-center text-xs text-muted-foreground">
+                      <p>Forgot your password? Contact support.</p>
+                  </CardFooter>
+                </Card>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
 
-      {/* Features Section */}
-      <section id="features" className="py-16 lg:py-24">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl lg:text-4xl font-bold text-primary">Why Choose SIAT?</h2>
-            <p className="text-muted-foreground mt-2 text-lg">Discover the advantages of studying with us.</p>
+        {/* Features Section */}
+        <section id="features" className="py-16 lg:py-24 scroll-mt-20">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl lg:text-4xl font-bold text-primary">Why Choose SIAT?</h2>
+              <p className="text-muted-foreground mt-2 text-lg">Discover the advantages of studying with us.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {schoolFeatures.map((feature) => (
+                <Card key={feature.title} className="text-center shadow-lg hover:shadow-xl transition-shadow">
+                  <CardHeader>
+                    <div className="mx-auto p-4 bg-primary/10 rounded-full w-fit mb-2">
+                      <feature.icon className="h-10 w-10 text-primary" />
+                    </div>
+                    <CardTitle className="text-xl text-primary">{feature.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {schoolFeatures.map((feature) => (
-              <Card key={feature.title} className="text-center shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="mx-auto p-4 bg-primary/10 rounded-full w-fit mb-2">
-                    <feature.icon className="h-10 w-10 text-primary" />
-                  </div>
-                  <CardTitle className="text-xl text-primary">{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* News & Events Section */}
-      <section id="news" className="py-16 lg:py-24 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl lg:text-4xl font-bold text-primary">Latest News & Events</h2>
-            <p className="text-muted-foreground mt-2 text-lg">Stay updated with happenings at SIAT.</p>
+        {/* News & Events Section */}
+        <section id="news" className="py-16 lg:py-24 bg-muted/30 scroll-mt-20">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl lg:text-4xl font-bold text-primary">Latest News & Events</h2>
+              <p className="text-muted-foreground mt-2 text-lg">Stay updated with happenings at SIAT.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {newsItems.map((item) => (
+                <Card key={item.id} className="shadow-lg hover:shadow-xl transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-center text-sm text-muted-foreground mb-1">
+                      <Newspaper className="h-4 w-4 mr-2 text-primary" />
+                      <span>{item.date}</span>
+                    </div>
+                    <CardTitle className="text-xl text-primary">{item.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground text-sm line-clamp-3">{item.excerpt}</p>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="link" className="text-accent p-0">Read More &rarr;</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {newsItems.map((item) => (
-              <Card key={item.id} className="shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center text-sm text-muted-foreground mb-1">
-                    <Newspaper className="h-4 w-4 mr-2 text-primary" />
-                    <span>{item.date}</span>
-                  </div>
-                  <CardTitle className="text-xl text-primary">{item.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground text-sm line-clamp-3">{item.excerpt}</p>
-                </CardContent>
-                <CardFooter>
-                  <Button variant="link" className="text-accent p-0">Read More &rarr;</Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
       {/* Footer */}
-      <footer className="py-12 bg-primary text-primary-foreground">
+      <footer id="contact" className="py-12 bg-primary text-primary-foreground scroll-mt-20">
         <div className="container mx-auto px-4 text-center">
           <ArewaLogo className="h-12 w-12 mx-auto mb-4" />
           <p className="text-lg font-semibold">Scholars Institute of Arts & Technology, Zaria</p>
@@ -309,3 +393,5 @@ export default function LandingPage() {
     </div>
   );
 }
+
+    
