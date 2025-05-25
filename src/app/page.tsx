@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -10,9 +11,9 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,15 +24,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Carousel,
   CarouselContent,
@@ -43,8 +35,9 @@ import Autoplay from "embla-carousel-autoplay";
 import { useToast } from "@/hooks/use-toast";
 import ArewaLogo from "@/components/arewa-logo";
 import Image from "next/image";
-import { BookOpen, Lightbulb, Users, Award, Newspaper, Phone, Mail } from "lucide-react";
-import type { NewIntakeFormData } from "@/types";
+import Link from "next/link";
+import { BookOpen, Lightbulb, Users, Award, Newspaper, Phone, Mail, LogIn, UserPlus } from "lucide-react";
+// Removed NewIntakeFormData type as it's now handled in /registration/new-intake
 
 const loginFormSchema = z.object({
   studentId: z.string().min(1, { message: "Student ID is required." }),
@@ -53,37 +46,17 @@ const loginFormSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
-const intakeFormSchema = z.object({
-  fullName: z.string().min(3, { message: "Full name must be at least 3 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  phoneNumber: z.string().min(10, { message: "Please enter a valid phone number." }),
-  preferredProgram: z.string().min(1, { message: "Please select a program." }),
-  previousQualification: z.string().optional(),
-});
-
-type IntakeFormValues = z.infer<typeof intakeFormSchema>;
-
 // Mock login action
 async function handleLogin(data: LoginFormValues): Promise<{ success: boolean; message: string }> {
   await new Promise(resolve => setTimeout(resolve, 1000));
   if (data.studentId && data.password) {
+    // Simulate successful login
     if (typeof window !== 'undefined') {
       localStorage.setItem('isLoggedIn', 'true');
     }
     return { success: true, message: "Login successful!" };
   }
   return { success: false, message: "Invalid Student ID or Password." };
-}
-
-// Mock new intake registration action
-async function handleNewIntakeRegistration(data: IntakeFormValues): Promise<{ success: boolean; message: string }> {
-  console.log("New Intake Registration Data:", data);
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  // Simulate success or failure
-  if (data.email.includes("test")) { // Simple mock failure condition
-    return { success: false, message: "Registration failed. Please try a different email." };
-  }
-  return { success: true, message: `Thank you, ${data.fullName}! Your application has been received.` };
 }
 
 const schoolFeatures = [
@@ -99,31 +72,14 @@ const newsItems = [
   { id: 3, title: "New Library Wing Inaugurated", date: "June 28, 2024", excerpt: "Our library has been expanded with a new wing, offering more resources and study spaces..." },
 ];
 
-const availablePrograms = [
-    "Computer Science",
-    "Software Engineering",
-    "Mass Communication",
-    "Business Administration",
-    "Accounting",
-    "Electrical Engineering Technology",
-    "Public Administration"
-];
-
-
 export default function LandingPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoadingLogin, setIsLoadingLogin] = React.useState(false);
-  const [isLoadingIntake, setIsLoadingIntake] = React.useState(false);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: { studentId: "", password: "" },
-  });
-
-  const intakeForm = useForm<IntakeFormValues>({
-    resolver: zodResolver(intakeFormSchema),
-    defaultValues: { fullName: "", email: "", phoneNumber: "", preferredProgram: "", previousQualification: "" },
   });
 
   async function onLoginSubmit(data: LoginFormValues) {
@@ -135,27 +91,15 @@ export default function LandingPage() {
       router.push("/dashboard");
     } else {
       toast({ variant: "destructive", title: "Login Failed", description: result.message });
-      loginForm.setError("studentId", { type: "manual", message: " " });
+      loginForm.setError("studentId", { type: "manual", message: " " }); // Clear previous specific error if any
       loginForm.setError("password", { type: "manual", message: result.message });
-    }
-  }
-
-  async function onIntakeSubmit(data: IntakeFormValues) {
-    setIsLoadingIntake(true);
-    const result = await handleNewIntakeRegistration(data);
-    setIsLoadingIntake(false);
-    if (result.success) {
-      toast({ title: "Registration Successful", description: result.message, duration: 5000 });
-      intakeForm.reset();
-    } else {
-      toast({ variant: "destructive", title: "Registration Failed", description: result.message, duration: 5000 });
     }
   }
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Hero Section with Carousel */}
-      <section id="hero" className="relative h-[60vh] md:h-[80vh] w-full text-white">
+      <section id="hero" className="relative h-[60vh] md:h-[70vh] w-full text-white">
         <Carousel
           opts={{ loop: true }}
           plugins={[Autoplay({ delay: 5000 })]}
@@ -167,20 +111,21 @@ export default function LandingPage() {
               { src: "https://placehold.co/1920x1080.png", alt: "Modern library", title: "Excellence in Education", subtitle: "Discover your potential with our state-of-the-art facilities.", dataAiHint: "modern library"},
               { src: "https://placehold.co/1920x1080.png", alt: "Graduation ceremony", title: "Your Journey Starts Here", subtitle: "Scholars Institute of Arts & Technology, Zaria.", dataAiHint: "graduation ceremony" },
             ].map((item, index) => (
-              <CarouselItem key={index} className="relative h-[60vh] md:h-[80vh]">
+              <CarouselItem key={index} className="relative h-[60vh] md:h-[70vh]">
                 <Image
                   src={item.src}
                   alt={item.alt}
-                  layout="fill"
+                  fill // Changed layout to fill for better responsiveness
                   objectFit="cover"
                   className="brightness-50"
                   data-ai-hint={item.dataAiHint}
+                  priority={index === 0} // Prioritize loading the first image
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-black/40">
                   <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4" />
                   <h1 className="text-4xl md:text-6xl font-bold mb-2">{item.title}</h1>
                   <p className="text-lg md:text-2xl max-w-2xl">{item.subtitle}</p>
-                  {index === 2 && <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => document.getElementById('auth')?.scrollIntoView({ behavior: 'smooth' })}>Apply Now</Button>}
+                  {index === 2 && <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}>Get Started</Button>}
                 </div>
               </CarouselItem>
             ))}
@@ -190,40 +135,43 @@ export default function LandingPage() {
         </Carousel>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-16 lg:py-24 bg-muted/30">
+       {/* Auth Section: Login and New Intake CTA */}
+      <section id="auth-section" className="py-16 lg:py-24 bg-muted/20">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl lg:text-4xl font-bold text-primary">Why Choose SIAT?</h2>
-            <p className="text-muted-foreground mt-2 text-lg">Discover the advantages of studying with us.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {schoolFeatures.map((feature) => (
-              <Card key={feature.title} className="text-center shadow-lg hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="mx-auto p-4 bg-primary/10 rounded-full w-fit mb-2">
-                    <feature.icon className="h-10 w-10 text-primary" />
-                  </div>
-                  <CardTitle className="text-xl text-primary">{feature.title}</CardTitle>
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            {/* New Intake Call to Action */}
+            <div className="order-2 md:order-1">
+              <Card className="shadow-xl border-2 border-primary/10 p-6">
+                <CardHeader className="text-center md:text-left">
+                  <UserPlus className="h-12 w-12 text-primary mx-auto md:mx-0 mb-3" />
+                  <CardTitle className="text-2xl lg:text-3xl font-bold text-primary">New to SIAT?</CardTitle>
+                  <CardDescription className="text-lg text-muted-foreground mt-1">
+                    Begin your academic journey with us. Apply for admission into our diverse programs.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">{feature.description}</p>
+                  <p className="mb-4 text-muted-foreground">
+                    Our streamlined application process makes it easy to get started. Click the button below to access the new intake registration portal.
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground text-sm mb-6">
+                    <li>Comprehensive bio-data form.</li>
+                    <li>Upload academic qualifications.</li>
+                    <li>Showcase relevant experience (optional).</li>
+                    <li>Choose your desired program and campus.</li>
+                  </ul>
                 </CardContent>
+                <CardFooter>
+                  <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground text-lg py-3">
+                    <Link href="/registration/new-intake">
+                      <UserPlus className="mr-2 h-5 w-5" /> Apply for Admission
+                    </Link>
+                  </Button>
+                </CardFooter>
               </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+            </div>
 
-      {/* Login/Register Tabs Section */}
-      <section id="auth" className="py-16 lg:py-24">
-        <div className="container mx-auto px-4 flex justify-center">
-          <Tabs defaultValue="login" className="w-full max-w-xl">
-            <TabsList className="grid w-full grid-cols-2 bg-muted">
-              <TabsTrigger value="login" className="py-3 text-base data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-md">Student Login</TabsTrigger>
-              <TabsTrigger value="register" className="py-3 text-base data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-md">New Intake Registration</TabsTrigger>
-            </TabsList>
-            <TabsContent value="login">
+            {/* Student Login Form */}
+            <div className="order-1 md:order-2">
               <Card className="shadow-xl border-2 border-primary/10">
                 <CardHeader className="text-center">
                   <ArewaLogo className="h-12 w-12 text-primary mx-auto mb-2" />
@@ -255,97 +203,45 @@ export default function LandingPage() {
                           </FormItem>
                         )}
                       />
-                      <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoadingLogin}>
-                        {isLoadingLogin ? "Logging in..." : "Login"}
+                      <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoadingLogin}>
+                        <LogIn className="mr-2 h-5 w-5" />
+                        {isLoadingLogin ? "Logging in..." : "Login to Portal"}
                       </Button>
                     </form>
                   </Form>
                 </CardContent>
+                <CardFooter className="text-center text-xs text-muted-foreground">
+                    <p>Forgot your password? Contact support.</p>
+                </CardFooter>
               </Card>
-            </TabsContent>
-            <TabsContent value="register">
-              <Card className="shadow-xl border-2 border-primary/10">
-                <CardHeader className="text-center">
-                 <ArewaLogo className="h-12 w-12 text-primary mx-auto mb-2" />
-                  <CardTitle className="text-2xl font-bold text-primary">New Student Application</CardTitle>
-                  <CardDescription>Start your academic journey with us. Fill the form below.</CardDescription>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      {/* Features Section */}
+      <section id="features" className="py-16 lg:py-24">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl lg:text-4xl font-bold text-primary">Why Choose SIAT?</h2>
+            <p className="text-muted-foreground mt-2 text-lg">Discover the advantages of studying with us.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {schoolFeatures.map((feature) => (
+              <Card key={feature.title} className="text-center shadow-lg hover:shadow-xl transition-shadow">
+                <CardHeader>
+                  <div className="mx-auto p-4 bg-primary/10 rounded-full w-fit mb-2">
+                    <feature.icon className="h-10 w-10 text-primary" />
+                  </div>
+                  <CardTitle className="text-xl text-primary">{feature.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Form {...intakeForm}>
-                    <form onSubmit={intakeForm.handleSubmit(onIntakeSubmit)} className="space-y-4">
-                      <FormField
-                        control={intakeForm.control}
-                        name="fullName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Full Name</FormLabel>
-                            <FormControl><Input placeholder="Your full name" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={intakeForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email Address</FormLabel>
-                            <FormControl><Input type="email" placeholder="your.email@example.com" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={intakeForm.control}
-                        name="phoneNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
-                            <FormControl><Input type="tel" placeholder="08012345678" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={intakeForm.control}
-                        name="preferredProgram"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Preferred Program of Study</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {availablePrograms.map(program => (
-                                    <SelectItem key={program} value={program}>{program}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={intakeForm.control}
-                        name="previousQualification"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Previous Qualification (Optional)</FormLabel>
-                            <FormControl><Textarea placeholder="e.g., SSCE, Diploma in..." {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoadingIntake}>
-                        {isLoadingIntake ? "Submitting..." : "Submit Application"}
-                      </Button>
-                    </form>
-                  </Form>
+                  <p className="text-muted-foreground">{feature.description}</p>
                 </CardContent>
               </Card>
-            </TabsContent>
-          </Tabs>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -360,8 +256,6 @@ export default function LandingPage() {
             {newsItems.map((item) => (
               <Card key={item.id} className="shadow-lg hover:shadow-xl transition-shadow">
                 <CardHeader>
-                  {/* Optional: Placeholder image for news */}
-                  {/* <Image src="https://placehold.co/600x400.png" alt={item.title} width={600} height={400} className="rounded-t-lg mb-4" data-ai-hint="news event related"/> */}
                   <div className="flex items-center text-sm text-muted-foreground mb-1">
                     <Newspaper className="h-4 w-4 mr-2 text-primary" />
                     <span>{item.date}</span>

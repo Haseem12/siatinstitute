@@ -14,12 +14,6 @@ export type Course = {
   code: string; // e.g. CSC101
   name: string; // e.g. Introduction to Computer Science
   credits: number; // e.g. 3
-  // Optional fields if needed later
-  // description?: string;
-  // department?: string;
-  // level?: string; // e.g. "100"
-  // semester?: "First" | "Second";
-  // prerequisites?: string[]; // Array of course codes
 };
 
 export type TimetableEntry = {
@@ -43,7 +37,7 @@ export type Assignment = {
   submittedDate?: string; // ISO date string
   grade?: string; // e.g., "A", "75/100"
   feedback?: string;
-  fileUrl?: string; 
+  fileUrl?: string;
   status: "Pending" | "Submitted" | "Graded" | "Overdue";
 };
 
@@ -76,10 +70,65 @@ export type CalendarEvent = {
   description?: string;
 };
 
-export type NewIntakeFormData = {
+// Types for New Intake Registration
+export type FileUploadInfo = {
+  name: string;
+  type: string;
+  size: number;
+};
+
+export type QualificationUpload = {
+  id: string; // for client-side list key, e.g., uuid
+  type: string; // e.g., SSCE, Diploma, NCE, Degree
+  institution: string;
+  yearAwarded: string;
+  file?: FileUploadInfo; // Mocked file info
+  fileInput?: FileList | null; // To hold the actual FileList temporarily
+};
+
+export type ExperienceUpload = {
+  id: string; // for client-side list key
+  organization: string;
+  role: string;
+  startDate: string;
+  endDate: string;
+  file?: FileUploadInfo;
+  fileInput?: FileList | null;
+};
+
+export type NewIntakeApplicationData = {
+  // Step 1: Bio-data
   fullName: string;
   email: string;
   phoneNumber: string;
+  dateOfBirth?: Date; // Use Date type for better handling with date picker
+  gender: "Male" | "Female" | "Other" | "";
+  address: string;
+  city: string;
+  stateOfOrigin: string;
+  nationality: string;
+  nextOfKinName: string;
+  nextOfKinPhone: string;
+  nextOfKinRelationship: string;
+
+  // Step 2: Qualifications
+  qualifications: QualificationUpload[];
+
+  // Step 3: Experience (optional)
+  experiences: ExperienceUpload[];
+
+  // Step 4: Program and Campus
   preferredProgram: string;
-  previousQualification?: string;
+  preferredCampus: string; // e.g., "Main Campus", "City Campus"
+  entryMode: "UTME" | "Direct Entry" | "Transfer" | "";
 };
+
+// This was the old type for the simple form on the landing page,
+// it's being replaced by NewIntakeApplicationData for the multi-step form.
+// export type NewIntakeFormData = {
+//   fullName: string;
+//   email: string;
+//   phoneNumber: string;
+//   preferredProgram: string;
+//   previousQualification?: string;
+// };
