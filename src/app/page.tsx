@@ -31,7 +31,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-// import Autoplay from "embla-carousel-autoplay"; // Temporarily removed for debugging
+import Autoplay from "embla-carousel-autoplay";
 import { useToast } from "@/hooks/use-toast";
 import ArewaLogo from "@/components/arewa-logo";
 import Image from "next/image";
@@ -200,20 +200,26 @@ export default function LandingPage() {
         <section id="hero" className="relative h-[calc(60vh-80px)] md:h-[calc(70vh-80px)] w-full text-white -mt-20 pt-20">
           <Carousel
             opts={{ loop: true }}
-            // plugins={[Autoplay({ delay: 5000 })]} // Temporarily removed for debugging
+            plugins={[Autoplay({ delay: 5000 })]}
             className="w-full h-full"
           >
             <CarouselContent>
-              {carouselImages.map((item, index) => {
-                console.log("Rendering carousel item, image src:", item.src); 
-                const bgColor = index % 3 === 0 ? 'bg-red-500/30' : index % 3 === 1 ? 'bg-blue-500/30' : 'bg-green-500/30';
-                return (
+              {carouselImages.map((item, index) => (
                   <CarouselItem key={index} className="relative h-full">
-                    {/* Simplified content for debugging */}
-                    <div className={`w-full h-full flex items-center justify-center text-center p-4 ${bgColor}`}>
+                    <Image
+                      src={item.src}
+                      alt={item.alt || `Slide ${index + 1}`}
+                      fill
+                      className="object-cover brightness-75"
+                      data-ai-hint={item.dataAiHint}
+                      priority={index === 0}
+                      onError={(e) => console.error(`Image failed to load: ${item.src}`, (e.target as HTMLImageElement).naturalWidth)}
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 50vw"
+                    />
+                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-center p-4">
                       <div className="text-white">
                         <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4 mx-auto" />
-                        <h1 className="text-3xl md:text-5xl font-bold mb-2">Slide {index + 1}: {item.title}</h1>
+                        <h1 className="text-3xl md:text-5xl font-bold mb-2">{item.title}</h1>
                         <p className="text-lg md:text-xl max-w-2xl">{item.subtitle}</p>
                          <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => {
                             const authSection = document.getElementById('auth-section');
@@ -227,15 +233,14 @@ export default function LandingPage() {
                       </div>
                     </div>
                   </CarouselItem>
-                );
-              })}
+                ))}
             </CarouselContent>
             <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 hidden md:flex text-white bg-black/30 hover:bg-black/50 border-white/50" />
             <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex text-white bg-black/30 hover:bg-black/50 border-white/50" />
           </Carousel>
         </section>
 
-        <section id="auth-section" className="py-16 lg:py-24 bg-muted/20 scroll-mt-20">
+        <section id="auth-section" className="pt-24 lg:pt-32 pb-16 lg:pb-24 bg-muted/20 scroll-mt-20">
           <div className="container mx-auto px-4">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div className="order-2 md:order-1">
