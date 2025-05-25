@@ -31,7 +31,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import Autoplay from "embla-carousel-autoplay";
+// import Autoplay from "embla-carousel-autoplay"; // Temporarily removed for debugging
 import { useToast } from "@/hooks/use-toast";
 import ArewaLogo from "@/components/arewa-logo";
 import Image from "next/image";
@@ -200,38 +200,31 @@ export default function LandingPage() {
         <section id="hero" className="relative h-[calc(60vh-80px)] md:h-[calc(70vh-80px)] w-full text-white -mt-20 pt-20">
           <Carousel
             opts={{ loop: true }}
-            plugins={[Autoplay({ delay: 5000 })]}
+            // plugins={[Autoplay({ delay: 5000 })]} // Temporarily removed for debugging
             className="w-full h-full"
           >
             <CarouselContent>
               {carouselImages.map((item, index) => {
-                console.log("Rendering carousel item, image src:", item.src); // Diagnostic log
+                console.log("Rendering carousel item, image src:", item.src); 
+                const bgColor = index % 3 === 0 ? 'bg-red-500/30' : index % 3 === 1 ? 'bg-blue-500/30' : 'bg-green-500/30';
                 return (
                   <CarouselItem key={index} className="relative h-full">
-                    <Image
-                      src={item.src}
-                      alt={item.alt}
-                      fill
-                      sizes="100vw"
-                      style={{objectFit: 'cover'}}
-                      className="brightness-50"
-                      data-ai-hint={item.dataAiHint}
-                      priority={index < 3}
-                      onError={(e) => console.error("Image failed to load:", item.src, e)} // Diagnostic log for image error
-                    />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-black/40">
-                      <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4" />
-                      <h1 className="text-4xl md:text-6xl font-bold mb-2">{item.title}</h1>
-                      <p className="text-lg md:text-2xl max-w-2xl">{item.subtitle}</p>
-                      <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => {
-                          const authSection = document.getElementById('auth-section');
-                          if (authSection) {
-                            const headerOffset = 80;
-                            const elementPosition = authSection.getBoundingClientRect().top;
-                            const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                            window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-                          }
-                        }}>Get Started</Button>
+                    {/* Simplified content for debugging */}
+                    <div className={`w-full h-full flex items-center justify-center text-center p-4 ${bgColor}`}>
+                      <div className="text-white">
+                        <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4 mx-auto" />
+                        <h1 className="text-3xl md:text-5xl font-bold mb-2">Slide {index + 1}: {item.title}</h1>
+                        <p className="text-lg md:text-xl max-w-2xl">{item.subtitle}</p>
+                         <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => {
+                            const authSection = document.getElementById('auth-section');
+                            if (authSection) {
+                              const headerOffset = 80;
+                              const elementPosition = authSection.getBoundingClientRect().top;
+                              const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                              window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+                            }
+                          }}>Get Started</Button>
+                      </div>
                     </div>
                   </CarouselItem>
                 );
@@ -398,6 +391,4 @@ export default function LandingPage() {
     </div>
   );
 }
-
-
     
