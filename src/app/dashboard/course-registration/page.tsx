@@ -97,7 +97,7 @@ export default function CourseRegistrationPage() {
         // Include Tailwind styles or a specific print stylesheet if needed
         // For simplicity, basic table styling will rely on browser defaults or simple inline styles.
         // A more robust solution would involve linking a print-specific CSS.
-        printWindow.document.write(\`
+        printWindow.document.write(`
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
@@ -111,7 +111,7 @@ export default function CourseRegistrationPage() {
             .footer .signature { margin-top: 40px; border-top: 1px solid #000; padding-top: 5px; width: 200px; text-align: center;}
             .no-print { display: none; }
           </style>
-        \`);
+        `);
         printWindow.document.write('</head><body>');
         printWindow.document.write(content.innerHTML);
         printWindow.document.write('</body></html>');
