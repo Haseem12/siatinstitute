@@ -85,15 +85,13 @@ const carouselImages = [
   { src: "/assets/slider/slide-12.jpg", alt: "SIAT main entrance", title: "Welcome to SIAT", subtitle: "Your gateway to a brighter future.", dataAiHint: "school entrance" },
 ];
 
+
 const navLinks = [
     { href: "#auth-section", label: "Apply / Login" },
     { href: "#features", label: "Features" },
     { href: "#news", label: "News & Events" },
     { href: "#contact", label: "Contact Us" },
 ];
-
-// Helper for alternating background colors for diagnostics
-const diagnosticColors = ["bg-red-500/20", "bg-blue-500/20", "bg-green-500/20"];
 
 export default function LandingPage() {
   const router = useRouter();
@@ -209,7 +207,7 @@ export default function LandingPage() {
               {carouselImages.map((item, index) => {
                 console.log("Rendering carousel item, image src:", item.src); // Diagnostic log
                 return (
-                  <CarouselItem key={index} className={`relative h-full ${diagnosticColors[index % diagnosticColors.length]}`}>
+                  <CarouselItem key={index} className="relative h-full">
                     <Image
                       src={item.src}
                       alt={item.alt}
@@ -400,3 +398,6 @@ export default function LandingPage() {
     </div>
   );
 }
+
+
+    
