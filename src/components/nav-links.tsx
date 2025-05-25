@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -9,6 +10,7 @@ import {
   GraduationCap,
   Megaphone,
   UserCircle,
+  ClipboardList, // Added for Course Registration
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -29,6 +31,7 @@ const navLinks: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tooltip: "Dashboard" },
   { href: "/dashboard/timetable", label: "Timetable", icon: CalendarDays, tooltip: "Timetable & Calendar" },
   { href: "/dashboard/assignments", label: "Assignments", icon: FileText, tooltip: "Assignments & Grades" },
+  { href: "/dashboard/course-registration", label: "Course Registration", icon: ClipboardList, tooltip: "Register Courses" },
   { href: "/dashboard/results", label: "Results", icon: GraduationCap, tooltip: "Academic Results" },
   { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone, tooltip: "Notifications & News" },
   { href: "/dashboard/profile", label: "Profile", icon: UserCircle, tooltip: "Profile Settings" },

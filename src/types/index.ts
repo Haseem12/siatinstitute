@@ -1,3 +1,4 @@
+
 export type User = {
   id: string;
   name: string;
@@ -10,10 +11,15 @@ export type User = {
 
 export type Course = {
   id: string;
-  code: string;
-  name: string;
-  credits: number;
-  lecturer: string;
+  code: string; // e.g. CSC101
+  name: string; // e.g. Introduction to Computer Science
+  credits: number; // e.g. 3
+  // Optional fields if needed later
+  // description?: string;
+  // department?: string;
+  // level?: string; // e.g. "100"
+  // semester?: "First" | "Second";
+  // prerequisites?: string[]; // Array of course codes
 };
 
 export type TimetableEntry = {
