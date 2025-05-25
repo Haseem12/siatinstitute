@@ -210,13 +210,13 @@ export default function LandingPage() {
                       src={item.src}
                       alt={item.alt || `Slide ${index + 1}`}
                       fill
-                      className="object-cover brightness-75"
+                      className="object-cover brightness-50"
                       data-ai-hint={item.dataAiHint}
                       priority={index === 0}
                       onError={(e) => console.error(`Image failed to load: ${item.src}`, (e.target as HTMLImageElement).naturalWidth)}
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 50vw"
                     />
-                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-center p-4">
+                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-4">
                       <div className="text-white">
                         <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4 mx-auto" />
                         <h1 className="text-3xl md:text-5xl font-bold mb-2">{item.title}</h1>
@@ -240,7 +240,7 @@ export default function LandingPage() {
           </Carousel>
         </section>
 
-        <section id="auth-section" className="pt-24 lg:pt-32 pb-16 lg:pb-24 bg-muted/20 scroll-mt-20">
+        <section id="auth-section" className="py-16 lg:py-24 bg-muted/20 scroll-mt-20">
           <div className="container mx-auto px-4">
             <div className="grid md:grid-cols-2 gap-12 items-center">
               <div className="order-2 md:order-1">
@@ -396,4 +396,6 @@ export default function LandingPage() {
     </div>
   );
 }
+    
+
     
