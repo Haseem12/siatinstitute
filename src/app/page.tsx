@@ -38,7 +38,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { BookOpen, Lightbulb, Users, Award, Newspaper, Phone, Mail, LogIn, UserPlus, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-// Removed NewIntakeFormData type as it's now handled in /registration/new-intake
 
 const loginFormSchema = z.object({
   studentId: z.string().min(1, { message: "Student ID is required." }),
@@ -47,11 +46,9 @@ const loginFormSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
-// Mock login action
 async function handleLogin(data: LoginFormValues): Promise<{ success: boolean; message: string }> {
   await new Promise(resolve => setTimeout(resolve, 1000));
   if (data.studentId && data.password) {
-    // Simulate successful login
     if (typeof window !== 'undefined') {
       localStorage.setItem('isLoggedIn', 'true');
     }
@@ -88,7 +85,6 @@ const carouselImages = [
   { src: "/assets/slider/slide-12.jpg", alt: "SIAT main entrance", title: "Welcome to SIAT", subtitle: "Your gateway to a brighter future.", dataAiHint: "school entrance" },
 ];
 
-
 const navLinks = [
     { href: "#auth-section", label: "Apply / Login" },
     { href: "#features", label: "Features" },
@@ -96,6 +92,8 @@ const navLinks = [
     { href: "#contact", label: "Contact Us" },
 ];
 
+// Helper for alternating background colors for diagnostics
+const diagnosticColors = ["bg-red-500/20", "bg-blue-500/20", "bg-green-500/20"];
 
 export default function LandingPage() {
   const router = useRouter();
@@ -117,7 +115,7 @@ export default function LandingPage() {
       router.push("/dashboard");
     } else {
       toast({ variant: "destructive", title: "Login Failed", description: result.message });
-      loginForm.setError("studentId", { type: "manual", message: " " }); // Clear previous specific error if any
+      loginForm.setError("studentId", { type: "manual", message: " " });
       loginForm.setError("password", { type: "manual", message: result.message });
     }
   }
@@ -127,7 +125,7 @@ export default function LandingPage() {
     const targetId = href.substring(1);
     const targetElement = document.getElementById(targetId);
     if (targetElement) {
-      const headerOffset = 80; // Approximate height of the sticky header
+      const headerOffset = 80; 
       const elementPosition = targetElement.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
@@ -136,13 +134,11 @@ export default function LandingPage() {
         behavior: "smooth"
       });
     }
-    setIsMobileMenuOpen(false); // Close mobile menu on click
+    setIsMobileMenuOpen(false);
   };
-
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      {/* Sticky Header */}
       <header className="sticky top-0 z-50 w-full bg-background/80 backdrop-blur-md shadow-md">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
           <Link href="#hero" onClick={(e) => handleNavLinkClick(e, '#hero')} className="flex items-center gap-2">
@@ -150,7 +146,6 @@ export default function LandingPage() {
             <span className="font-bold text-xl text-primary hidden sm:block">Arewa Scholar Hub</span>
           </Link>
           
-          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
               <Button key={link.label} variant="ghost" asChild className="text-foreground hover:bg-primary/10 hover:text-primary">
@@ -159,7 +154,6 @@ export default function LandingPage() {
             ))}
           </nav>
 
-          {/* Mobile Navigation Trigger */}
           <div className="md:hidden">
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
@@ -204,55 +198,55 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Main Content - Add pt-20 to offset sticky header height */}
       <main className="flex-grow">
-        {/* Hero Section with Carousel */}
-        <section id="hero" className="relative h-[calc(60vh-80px)] md:h-[calc(70vh-80px)] w-full text-white -mt-20 pt-20"> {/* Adjust height and add padding top */}
+        <section id="hero" className="relative h-[calc(60vh-80px)] md:h-[calc(70vh-80px)] w-full text-white -mt-20 pt-20">
           <Carousel
             opts={{ loop: true }}
             plugins={[Autoplay({ delay: 5000 })]}
             className="w-full h-full"
           >
             <CarouselContent>
-              {carouselImages.map((item, index) => (
-                <CarouselItem key={index} className="relative h-full">
-                  <Image
-                    src={item.src}
-                    alt={item.alt}
-                    fill
-                    sizes="100vw"
-                    style={{objectFit: 'cover'}}
-                    className="brightness-50"
-                    data-ai-hint={item.dataAiHint}
-                    priority={index < 3} // Prioritize loading the first few images
-                  />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-black/40">
-                    <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4" />
-                    <h1 className="text-4xl md:text-6xl font-bold mb-2">{item.title}</h1>
-                    <p className="text-lg md:text-2xl max-w-2xl">{item.subtitle}</p>
-                    <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => {
-                        const authSection = document.getElementById('auth-section');
-                        if (authSection) {
-                          const headerOffset = 80;
-                          const elementPosition = authSection.getBoundingClientRect().top;
-                          const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-                          window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-                        }
-                      }}>Get Started</Button>
-                  </div>
-                </CarouselItem>
-              ))}
+              {carouselImages.map((item, index) => {
+                console.log("Rendering carousel item, image src:", item.src); // Diagnostic log
+                return (
+                  <CarouselItem key={index} className={`relative h-full ${diagnosticColors[index % diagnosticColors.length]}`}>
+                    <Image
+                      src={item.src}
+                      alt={item.alt}
+                      fill
+                      sizes="100vw"
+                      style={{objectFit: 'cover'}}
+                      className="brightness-50"
+                      data-ai-hint={item.dataAiHint}
+                      priority={index < 3}
+                      onError={(e) => console.error("Image failed to load:", item.src, e)} // Diagnostic log for image error
+                    />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-black/40">
+                      <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4" />
+                      <h1 className="text-4xl md:text-6xl font-bold mb-2">{item.title}</h1>
+                      <p className="text-lg md:text-2xl max-w-2xl">{item.subtitle}</p>
+                      <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => {
+                          const authSection = document.getElementById('auth-section');
+                          if (authSection) {
+                            const headerOffset = 80;
+                            const elementPosition = authSection.getBoundingClientRect().top;
+                            const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                            window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+                          }
+                        }}>Get Started</Button>
+                    </div>
+                  </CarouselItem>
+                );
+              })}
             </CarouselContent>
             <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 hidden md:flex text-white bg-black/30 hover:bg-black/50 border-white/50" />
             <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex text-white bg-black/30 hover:bg-black/50 border-white/50" />
           </Carousel>
         </section>
 
-        {/* Auth Section: Login and New Intake CTA */}
         <section id="auth-section" className="py-16 lg:py-24 bg-muted/20 scroll-mt-20">
           <div className="container mx-auto px-4">
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              {/* New Intake Call to Action */}
               <div className="order-2 md:order-1">
                 <Card className="shadow-xl border-2 border-primary/10 p-6">
                   <CardHeader className="text-center md:text-left">
@@ -283,7 +277,6 @@ export default function LandingPage() {
                 </Card>
               </div>
 
-              {/* Student Login Form */}
               <div className="order-1 md:order-2">
                 <Card className="shadow-xl border-2 border-primary/10">
                   <CardHeader className="text-center">
@@ -332,8 +325,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-
-        {/* Features Section */}
         <section id="features" className="py-16 lg:py-24 scroll-mt-20">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
@@ -358,7 +349,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* News & Events Section */}
         <section id="news" className="py-16 lg:py-24 bg-muted/30 scroll-mt-20">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
@@ -388,7 +378,6 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
       <footer id="contact" className="py-12 bg-primary text-primary-foreground scroll-mt-20">
         <div className="container mx-auto px-4 text-center">
           <ArewaLogo className="h-12 w-12 mx-auto mb-4" />
