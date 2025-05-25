@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react"; // Added this line
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
