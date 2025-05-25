@@ -220,7 +220,7 @@ export default function LandingPage() {
                     <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4" />
                     <h1 className="text-4xl md:text-6xl font-bold mb-2">{item.title}</h1>
                     <p className="text-lg md:text-2xl max-w-2xl">{item.subtitle}</p>
-                    {index === carouselImages.length -1 && <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}>Get Started</Button>}
+                    <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}>Get Started</Button>
                   </div>
                 </CarouselItem>
               ))}
@@ -393,5 +393,7 @@ export default function LandingPage() {
     </div>
   );
 }
+
+    
 
     
