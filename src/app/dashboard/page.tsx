@@ -231,57 +231,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Quick Actions */}
-      <Card className="shadow-md hover:shadow-lg transition-shadow">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-primary">More Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Button
-            variant="outline"
-            asChild
-            className="text-center py-6 h-auto flex-col gap-1 border-accent/50 hover:bg-accent/10"
-          >
-            <Link href="/dashboard/course-registration">
-              <CheckSquare className="h-6 w-6 mb-1 text-accent" />
-              Course Registration
-            </Link>
-          </Button>
-          <Button
-            variant="outline"
-            asChild
-            className="text-center py-6 h-auto flex-col gap-1 border-accent/50 hover:bg-accent/10"
-          >
-            <Link href="/dashboard/timetable#calendar">
-              <CalendarCheck className="h-6 w-6 mb-1 text-accent" />
-              Academic Calendar
-            </Link>
-          </Button>
-           <Button
-            variant="outline"
-            asChild
-            className="text-center py-6 h-auto flex-col gap-1 border-accent/50 hover:bg-accent/10"
-          >
-            <Link href="/dashboard/announcements">
-              <Megaphone className="h-6 w-6 mb-1 text-accent" />
-              All Announcements
-            </Link>
-          </Button>
-          <Button
-            variant="outline"
-            asChild
-            className="text-center py-6 h-auto flex-col gap-1 border-accent/50 hover:bg-accent/10"
-          >
-            <Link href="/dashboard/profile#settings">
-              <UserCircle className="h-6 w-6 mb-1 text-accent" />
-              Account Settings
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }
-
-    
