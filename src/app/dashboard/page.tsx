@@ -67,9 +67,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Hero Section with Slider and Auth Actions */}
+      {/* Hero Section with Static Image and Auth Actions */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Slider Section */}
+        {/* Static Image Section */}
         <Card className="lg:col-span-2 shadow-lg border-primary/10 overflow-hidden">
           <div className="relative">
             <div className="relative h-64 md:h-80 overflow-hidden">
@@ -95,7 +95,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Placeholder Slider Navigation Dots (non-functional) */}
+            {/* Placeholder Slider Navigation Dots (non-functional for static image) */}
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
               {sliderImages.map((_, index) => (
                 <button
@@ -104,14 +104,13 @@ export default function DashboardPage() {
                     index === 0 ? "bg-white" : "bg-white/50 hover:bg-white/75"
                   }`}
                   aria-label={`Go to slide ${index + 1}`}
-                  // onClick={() => setCurrentSlideIndex(index)} // Requires state management
                 />
               ))}
             </div>
           </div>
         </Card>
 
-        {/* Login and Apply Container */}
+        {/* Student Quick Access Container */}
         <Card className="shadow-lg border-primary/10">
           <CardHeader className="text-center">
             <CardTitle className="text-xl font-bold text-primary">Student Quick Access</CardTitle>
