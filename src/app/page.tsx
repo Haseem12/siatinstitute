@@ -72,6 +72,22 @@ const newsItems = [
   { id: 3, title: "New Library Wing Inaugurated", date: "June 28, 2024", excerpt: "Our library has been expanded with a new wing, offering more resources and study spaces..." },
 ];
 
+const carouselImages = [
+  { src: "/assets/slider/slide-1.jpg", alt: "Scenic view of SIAT campus", title: "Empowering Future Leaders", subtitle: "Join a community dedicated to knowledge and innovation.", dataAiHint: "campus view" },
+  { src: "/assets/slider/slide-2.jpg", alt: "Students collaborating in a modern classroom", title: "Excellence in Education", subtitle: "Discover your potential with our state-of-the-art facilities.", dataAiHint: "students classroom" },
+  { src: "/assets/slider/slide-3.jpg", alt: "SIAT graduation ceremony", title: "Your Journey Starts Here", subtitle: "Scholars Institute of Arts & Technology, Zaria.", dataAiHint: "graduation event" },
+  { src: "/assets/slider/slide-4.jpg", alt: "Well-equipped science laboratory", title: "Innovation & Discovery", subtitle: "Explore the frontiers of science and technology.", dataAiHint: "science lab" },
+  { src: "/assets/slider/slide-5.jpg", alt: "Library interior with students studying", title: "Hub of Knowledge", subtitle: "Access a vast collection of resources in our library.", dataAiHint: "library interior" },
+  { src: "/assets/slider/slide-6.jpg", alt: "Students engaged in a workshop", title: "Hands-On Learning", subtitle: "Gain practical skills for real-world challenges.", dataAiHint: "student workshop" },
+  { src: "/assets/slider/slide-7.jpg", alt: "Architectural detail of a SIAT building", title: "Inspiring Architecture", subtitle: "Learn in an environment designed for inspiration.", dataAiHint: "campus architecture" },
+  { src: "/assets/slider/slide-8.jpg", alt: "Sports facilities at SIAT", title: "Holistic Development", subtitle: "Excel in academics, sports, and extracurriculars.", dataAiHint: "sports field" },
+  { src: "/assets/slider/slide-9.jpg", alt: "Art and design studio", title: "Creative Expression", subtitle: "Unleash your creativity in our dedicated studios.", dataAiHint: "art studio" },
+  { src: "/assets/slider/slide-10.jpg", alt: "Students presenting a project", title: "Collaborate & Innovate", subtitle: "Work together to solve complex problems.", dataAiHint: "student presentation" },
+  { src: "/assets/slider/slide-11.jpg", alt: "Campus green spaces", title: "Serene Learning Environment", subtitle: "Focus and grow in our peaceful campus.", dataAiHint: "campus garden" },
+  { src: "/assets/slider/slide-12.jpg", alt: "SIAT main entrance", title: "Welcome to SIAT", subtitle: "Your gateway to a brighter future.", dataAiHint: "school entrance" },
+];
+
+
 export default function LandingPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -106,26 +122,22 @@ export default function LandingPage() {
           className="w-full h-full"
         >
           <CarouselContent>
-            {[
-              { src: "https://placehold.co/1920x1080.png", alt: "Students on campus", title: "Empowering Future Leaders", subtitle: "Join a community dedicated to knowledge and innovation.", dataAiHint: "students campus" },
-              { src: "https://placehold.co/1920x1080.png", alt: "Modern library", title: "Excellence in Education", subtitle: "Discover your potential with our state-of-the-art facilities.", dataAiHint: "modern library"},
-              { src: "https://placehold.co/1920x1080.png", alt: "Graduation ceremony", title: "Your Journey Starts Here", subtitle: "Scholars Institute of Arts & Technology, Zaria.", dataAiHint: "graduation ceremony" },
-            ].map((item, index) => (
+            {carouselImages.map((item, index) => (
               <CarouselItem key={index} className="relative h-[60vh] md:h-[70vh]">
                 <Image
                   src={item.src}
                   alt={item.alt}
-                  fill // Changed layout to fill for better responsiveness
+                  fill
                   objectFit="cover"
                   className="brightness-50"
                   data-ai-hint={item.dataAiHint}
-                  priority={index === 0} // Prioritize loading the first image
+                  priority={index < 3} // Prioritize loading the first few images
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-black/40">
                   <ArewaLogo className="h-16 w-16 md:h-20 md:w-20 text-white mb-4" />
                   <h1 className="text-4xl md:text-6xl font-bold mb-2">{item.title}</h1>
                   <p className="text-lg md:text-2xl max-w-2xl">{item.subtitle}</p>
-                  {index === 2 && <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}>Get Started</Button>}
+                  {index === carouselImages.length -1 && <Button size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-6" onClick={() => document.getElementById('auth-section')?.scrollIntoView({ behavior: 'smooth' })}>Get Started</Button>}
                 </div>
               </CarouselItem>
             ))}
