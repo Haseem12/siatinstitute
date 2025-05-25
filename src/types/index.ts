@@ -75,3 +75,11 @@ export type CalendarEvent = {
   type: "Academic" | "Holiday" | "Exam" | "Event";
   description?: string;
 };
+
+export type NewIntakeFormData = {
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  preferredProgram: string;
+  previousQualification?: string;
+};
