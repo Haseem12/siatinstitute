@@ -5,10 +5,8 @@ import {
   ArrowRight,
   BookOpen,
   CalendarCheck,
-  CheckSquare,
   Megaphone,
   UserCircle,
-  LogIn,
   FileText,
   GraduationCap,
 } from "lucide-react";
