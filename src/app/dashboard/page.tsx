@@ -1,4 +1,6 @@
 
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,14 +11,20 @@ import {
   UserCircle,
   FileText,
   GraduationCap,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
+import { useState, useEffect, useCallback } from "react";
 
-export const metadata: Metadata = {
-  title: "Dashboard - Arewa Scholar Hub",
-};
+// Metadata can't be used directly in client components like this.
+// For dynamic metadata, you'd use the generateMetadata function if this were a Server Component or layout.
+// For a client page, set document.title in useEffect if needed, or handle metadata at a higher level.
+// export const metadata: Metadata = {
+//   title: "Dashboard - Arewa Scholar Hub",
+// };
 
 // Mock data for dashboard summaries
 const upcomingClasses = [
@@ -43,7 +51,7 @@ const sliderImages = [
     dataAiHint: "campus view",
   },
   {
-    src: "/assets/slider/slide-2.jpg",
+    src: "/assets/slider/slide-2.jpg", // Note: This src is a duplicate, consider using a unique image.
     alt: "Students Learning",
     title: "Empowering Future Leaders",
     subtitle: "Quality education for tomorrow's innovators",
@@ -59,32 +67,75 @@ const sliderImages = [
 ];
 
 export default function DashboardPage() {
-  // For now, the slider is static and shows the first image.
-  // A real implementation would require state and effects to cycle through images.
-  const currentSlide = sliderImages[0];
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+
+  const AUTOPLAY_INTERVAL = 5000; // 5 seconds
+  const USER_INTERACTION_PAUSE_DURATION = 10000; // 10 seconds
+
+  const goToNext = useCallback(() => {
+    setCurrentSlide((prev) => (prev + 1) % sliderImages.length);
+  }, []);
+
+  const goToPrevious = () => {
+    setCurrentSlide((prev) => (prev - 1 + sliderImages.length) % sliderImages.length);
+    pauseAutoplay();
+  };
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+    pauseAutoplay();
+  };
+
+  const pauseAutoplay = () => {
+    setIsAutoPlaying(false);
+    setTimeout(() => setIsAutoPlaying(true), USER_INTERACTION_PAUSE_DURATION);
+  };
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = "Dashboard - Arewa Scholar Hub";
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAutoPlaying) return;
+
+    const timer = setInterval(goToNext, AUTOPLAY_INTERVAL);
+    return () => clearInterval(timer);
+  }, [isAutoPlaying, goToNext]);
+
+  const activeSlide = sliderImages[currentSlide];
 
   return (
     <div className="space-y-6">
-      {/* Hero Section with Static Image and Auth Actions */}
+      {/* Hero Section with Slider and Auth Actions */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Static Image Section */}
+        {/* Slider Section */}
         <Card className="lg:col-span-2 shadow-lg border-primary/10 overflow-hidden">
           <div className="relative">
             <div className="relative h-64 md:h-80 overflow-hidden">
-              <Image
-                src={currentSlide.src}
-                alt={currentSlide.alt}
-                width={1200}
-                height={320}
-                className="object-cover w-full h-full"
-                data-ai-hint={currentSlide.dataAiHint}
-                priority
-              />
+              {/* Image Container - uses key to force re-render on slide change for transitions if CSS supports it */}
+              <div
+                key={currentSlide} // Helps with triggering CSS animations if any are added for slide transitions
+                className="w-full h-full"
+              >
+                <Image
+                  src={activeSlide.src}
+                  alt={activeSlide.alt}
+                  width={1200}
+                  height={320}
+                  className="object-cover w-full h-full"
+                  data-ai-hint={activeSlide.dataAiHint}
+                  priority={currentSlide === 0} // Prioritize the first image
+                  onError={(e) => console.error("Image failed to load:", activeSlide.src, e)}
+                />
+              </div>
               <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
               <div className="absolute inset-0 flex items-center justify-start p-6 md:p-8">
                 <div className="text-white max-w-lg">
-                  <h1 className="text-2xl md:text-4xl font-bold mb-2">{currentSlide.title}</h1>
-                  <p className="text-sm md:text-lg text-gray-200 mb-4">{currentSlide.subtitle}</p>
+                  <h1 className="text-2xl md:text-4xl font-bold mb-2">{activeSlide.title}</h1>
+                  <p className="text-sm md:text-lg text-gray-200 mb-4">{activeSlide.subtitle}</p>
                   <Button className="bg-accent hover:bg-accent/90 text-accent-foreground">
                     <GraduationCap className="mr-2 h-4 w-4" />
                     Explore Resources
@@ -93,15 +144,17 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Placeholder Slider Navigation Dots (non-functional for static image) */}
+            {/* Slider Navigation Dots */}
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
               {sliderImages.map((_, index) => (
                 <button
                   key={index}
+                  onClick={() => goToSlide(index)}
                   className={`w-3 h-3 rounded-full transition-all ${
-                    index === 0 ? "bg-white" : "bg-white/50 hover:bg-white/75"
+                    index === currentSlide ? "bg-white scale-110" : "bg-white/50 hover:bg-white/75"
                   }`}
                   aria-label={`Go to slide ${index + 1}`}
+                  aria-current={index === currentSlide ? "true" : "false"}
                 />
               ))}
             </div>
