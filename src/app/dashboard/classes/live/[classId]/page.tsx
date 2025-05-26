@@ -34,7 +34,7 @@ import {
   // SquareIcon, // Replaced with Square
   Type,
   UserCircle, 
-  Loader2, // Added Loader2
+  Loader2, 
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
@@ -92,6 +92,7 @@ export default function LiveClassPage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [canvasCtx, setCanvasCtx] = useState<CanvasRenderingContext2D | null>(null);
+  const [textToolValue, setTextToolValue] = useState(""); // State for text tool input
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -147,26 +148,20 @@ export default function LiveClassPage() {
 
     const manageCamera = async () => {
       if (isVideoOn) {
-        const stream = await getCameraStream(); // This sets hasCameraPermission
+        const stream = await getCameraStream(); 
         if (stream && videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(err => console.warn("Video play failed:", err));
         } else {
-          // If stream is null, getCameraStream already set hasCameraPermission to false.
-          // User's intent (isVideoOn) remains true, UI will reflect error via hasCameraPermission.
           if (videoRef.current) { 
-            videoRef.current.srcObject = null; // Clear any old stream
+            videoRef.current.srcObject = null; 
           }
         }
       } else {
-        // User explicitly turned video off
         if (videoRef.current && videoRef.current.srcObject) {
           (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
           videoRef.current.srcObject = null;
         }
-         // If video is turned off, we can assume permission status is not "denied" for this specific off-state.
-         // However, if it was previously false, it should remain false.
-         // This line helps reset the visual state if user toggles off after a failure.
         if(hasCameraPermission === false) setHasCameraPermission(null);
       }
     };
@@ -179,14 +174,13 @@ export default function LiveClassPage() {
             videoRef.current.srcObject = null;
         }
     };
-  }, [isVideoOn, toast, hasCameraPermission]); // Added hasCameraPermission to dependency array to re-evaluate if it changes
+  }, [isVideoOn, toast, hasCameraPermission]); 
 
 
   // Setup Canvas
   useEffect(() => {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
-      // Ensure canvas dimensions are set based on its actual size on screen
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width;
       canvas.height = rect.height;
@@ -213,14 +207,28 @@ export default function LiveClassPage() {
 
   const startDrawing = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasCtx) return;
-    setIsDrawing(true);
-    canvasCtx.beginPath();
     const rect = (event.target as HTMLCanvasElement).getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+
+    if (selectedTool === 'text') {
+      if (textToolValue.trim() === "") {
+        toast({ title: "Enter Text", description: "Please type some text in the input field first.", variant: "destructive" });
+        return;
+      }
+      canvasCtx.fillStyle = selectedColor; // Text color
+      canvasCtx.font = "16px Arial"; // Basic font, can be configurable
+      canvasCtx.fillText(textToolValue, x, y);
+      // setTextToolValue(""); // Optionally reset text after placing
+      return; 
+    }
+
+    // Existing pen/eraser logic
+    setIsDrawing(true);
+    canvasCtx.beginPath();
     canvasCtx.moveTo(x, y);
     if (selectedTool === 'pen' || selectedTool === 'eraser') {
-        canvasCtx.lineTo(x, y);
+        canvasCtx.lineTo(x,y); 
         canvasCtx.stroke();
     }
   };
@@ -235,7 +243,7 @@ export default function LiveClassPage() {
   };
 
   const stopDrawing = () => {
-    if (!canvasCtx) return;
+    if (!canvasCtx || selectedTool === 'text') return; // Don't stop drawing if text tool is active to allow multiple placements
     canvasCtx.closePath();
     setIsDrawing(false);
   };
@@ -457,9 +465,20 @@ export default function LiveClassPage() {
                     <Button size="sm" variant={selectedTool === "eraser" ? "default" : "outline"} onClick={() => setSelectedTool("eraser")} title="Eraser"> <Eraser className="w-4 h-4" /></Button>
                     <Button size="sm" variant={selectedTool === "circle" ? "default" : "outline"} onClick={() => setSelectedTool("circle")} title="Circle (Tool not implemented)"> <Circle className="w-4 h-4" /></Button>
                     <Button size="sm" variant={selectedTool === "square" ? "default" : "outline"} onClick={() => setSelectedTool("square")} title="Square (Tool not implemented)"> <Square className="w-4 h-4" /></Button>
-                    <Button size="sm" variant={selectedTool === "text" ? "default" : "outline"} onClick={() => setSelectedTool("text")} title="Text (Tool not implemented)"> <Type className="w-4 h-4" /></Button>
+                    <Button size="sm" variant={selectedTool === "text" ? "default" : "outline"} onClick={() => setSelectedTool("text")} title="Text"> <Type className="w-4 h-4" /></Button>
                     <input type="color" value={selectedColor} onChange={(e) => setSelectedColor(e.target.value)} className="w-8 h-8 rounded border-input bg-background cursor-pointer" title="Select Color"/>
                   </div>
+                  {selectedTool === 'text' && (
+                    <div className="my-2">
+                      <Input 
+                        type="text"
+                        placeholder="Type text here, then click on canvas to place"
+                        value={textToolValue}
+                        onChange={(e) => setTextToolValue(e.target.value)}
+                        className="w-full sm:w-1/2 md:w-1/3"
+                      />
+                    </div>
+                  )}
                   <div className="border-2 border-dashed border-border rounded-lg h-64 lg:h-96 bg-white">
                     <canvas 
                         ref={canvasRef} 
