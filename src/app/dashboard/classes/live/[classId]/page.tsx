@@ -31,6 +31,7 @@ import {
   Eraser,
   Circle,
   Type,
+  UserCircle, // Added UserCircle import
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
