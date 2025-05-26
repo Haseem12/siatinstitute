@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input"; // Added Input import
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Video,
   VideoOff,
@@ -20,7 +21,7 @@ import {
   Download,
   Upload,
   Play,
-  Square, // Assuming SquareIcon was meant to be Square
+  Square, 
   PhoneOff,
   Camera,
   CameraOff,
@@ -30,20 +31,14 @@ import {
   PenTool,
   Eraser,
   Circle,
+  // SquareIcon, // Replaced with Square
   Type,
-  UserCircle, // Added UserCircle import
+  UserCircle, 
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import type { Metadata } from 'next';
-
-// Note: Metadata in client components needs to be handled differently,
-// typically in a parent Server Component or layout. For simplicity here,
-// we'll assume it might be set via a custom hook or context in a real app if dynamic.
-// export const metadata: Metadata = {
-//   title: 'Live Class - Arewa Scholar Hub',
-// };
-
+import { useToast } from "@/hooks/use-toast";
+// import type { Metadata } from 'next'; // Metadata is typically not set directly in client components
 
 // Mock data for the class
 const classDataMock = {
@@ -75,13 +70,13 @@ const initialMessagesMock = [
 
 export default function LiveClassPage() {
   const params = useParams();
-  const classId = params.classId as string; // Get classId from route
+  const classId = params.classId as string; 
+  const { toast } = useToast();
 
-  // In a real app, fetch classData, participants, etc. based on classId
   const [classDetails, setClassDetails] = useState(classDataMock); 
   const [participants, setParticipants] = useState(participantsMock);
   
-  const [userRole, setUserRole] = useState<"instructor" | "student">("student"); // This would come from auth
+  const [userRole, setUserRole] = useState<"instructor" | "student">("student");
   const [isVideoOn, setIsVideoOn] = useState(false);
   const [isAudioOn, setIsAudioOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -91,12 +86,110 @@ export default function LiveClassPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedTool, setSelectedTool] = useState("pen");
-  const [selectedColor, setSelectedColor] = useState("#000000"); // Default to black
+  const [selectedColor, setSelectedColor] = useState("#000000"); 
   const [classTime, setClassTime] = useState("00:00");
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [canvasCtx, setCanvasCtx] = useState<CanvasRenderingContext2D | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Request Camera Permission
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('getUserMedia is not supported in this browser.');
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Not Supported',
+          description: 'Your browser does not support camera access.',
+        });
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setHasCameraPermission(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this feature.',
+        });
+      }
+    };
+
+    if (isVideoOn) { // Only request permission if video is intended to be on
+        getCameraPermission();
+    } else if (videoRef.current && videoRef.current.srcObject) { // Turn off camera if video is toggled off
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+    }
+
+    // Cleanup function to stop camera tracks when component unmounts or video is turned off
+    return () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+            (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+        }
+    };
+  }, [isVideoOn, toast]);
+
+
+  // Setup Canvas
+  useEffect(() => {
+    if (canvasRef.current) {
+      const canvas = canvasRef.current;
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      const context = canvas.getContext("2d");
+      if (context) {
+        context.lineCap = "round";
+        context.lineWidth = selectedTool === 'eraser' ? 20 : 5;
+        context.strokeStyle = selectedColor;
+        setCanvasCtx(context);
+      }
+    }
+  }, []); // Runs once on mount to set up initial canvas
+
+  // Update canvas context on tool or color change
+  useEffect(() => {
+    if (canvasCtx) {
+      canvasCtx.strokeStyle = selectedColor;
+      canvasCtx.lineWidth = selectedTool === "eraser" ? 20 : 5; // Example: larger eraser
+      canvasCtx.globalCompositeOperation = selectedTool === "eraser" ? "destination-out" : "source-over";
+    }
+  }, [canvasCtx, selectedColor, selectedTool]);
+
+
+  const startDrawing = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasCtx) return;
+    setIsDrawing(true);
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(event.nativeEvent.offsetX, event.nativeEvent.offsetY);
+    // Draw a dot on click
+    canvasCtx.lineTo(event.nativeEvent.offsetX, event.nativeEvent.offsetY);
+    canvasCtx.stroke();
+  };
+
+  const draw = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing || !canvasCtx) return;
+    canvasCtx.lineTo(event.nativeEvent.offsetX, event.nativeEvent.offsetY);
+    canvasCtx.stroke();
+  };
+
+  const stopDrawing = () => {
+    if (!canvasCtx) return;
+    canvasCtx.closePath();
+    setIsDrawing(false);
+  };
+
 
   // Simulate class timer
   useEffect(() => {
@@ -108,17 +201,12 @@ export default function LiveClassPage() {
       const seconds = diff % 60;
       setClassTime(`${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`);
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
-  // Auto-scroll chat to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // TODO: Implement actual WebRTC logic for video, audio, screen sharing
-  // TODO: Implement actual canvas drawing logic
 
   const toggleVideo = () => setIsVideoOn(!isVideoOn);
   const toggleAudio = () => setIsAudioOn(!isAudioOn);
@@ -130,7 +218,7 @@ export default function LiveClassPage() {
     if (newMessage.trim()) {
       const message = {
         id: messages.length + 1,
-        sender: userRole === "instructor" ? classDetails.instructor : "You", // Use dynamic instructor name
+        sender: userRole === "instructor" ? classDetails.instructor : "You",
         message: newMessage,
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         type: "text" as const,
@@ -141,19 +229,17 @@ export default function LiveClassPage() {
   };
 
   const leaveClass = () => {
-    // Handle leaving class, e.g., navigate back or to a feedback page
-    window.history.back(); // Simple back navigation
+    window.history.back(); 
   };
 
   return (
-    <div className="space-y-4"> {/* AppLayout handles overall padding and background */}
-      {/* Header */}
+    <div className="space-y-4"> 
       <Card className="shadow-lg border-primary/10">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="text-xl text-primary">{classDetails.title}</CardTitle>
-              <CardDescription className="text-sm"> {/* Changed p to CardDescription */}
+              <CardDescription className="text-sm"> 
                 Instructor: {classDetails.instructor} • {classDetails.startTime} - {classDetails.endTime}
               </CardDescription>
             </div>
@@ -172,9 +258,7 @@ export default function LiveClassPage() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* Main Content Area */}
         <div className="lg:col-span-3 space-y-4">
-          {/* Video/Screen Share Area */}
           <Card className="shadow-lg border-primary/10">
             <CardContent className="p-0">
               <div className="relative bg-muted aspect-video rounded-lg overflow-hidden">
@@ -187,19 +271,31 @@ export default function LiveClassPage() {
                     </div>
                   </div>
                 ) : (
-                  // Mock Video Area
                   <div className="w-full h-full flex items-center justify-center text-foreground bg-neutral-800">
                      <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                     {!isVideoOn && (
+                     {(!isVideoOn || (isVideoOn && hasCameraPermission === false)) && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
                             <UserCircle className="w-24 h-24 text-muted-foreground mb-2" />
-                            <p className="text-muted-foreground">Your video is off</p>
+                            <p className="text-muted-foreground">
+                                {isVideoOn && hasCameraPermission === false ? "Camera permission denied" : "Your video is off"}
+                            </p>
                         </div>
                      )}
                   </div>
                 )}
+                
+                {isVideoOn && hasCameraPermission === false && (
+                    <div className="absolute top-4 left-4 right-4 z-10">
+                        <Alert variant="destructive">
+                            <AlertTitle>Camera Access Required</AlertTitle>
+                            <AlertDescription>
+                                Please allow camera access in your browser settings to use video.
+                            </AlertDescription>
+                        </Alert>
+                    </div>
+                )}
 
-                {/* Video Controls Overlay */}
+
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
                   <div className="flex items-center gap-2 bg-background/80 border border-border rounded-full px-3 py-2 shadow-md">
                     <Button
@@ -265,11 +361,10 @@ export default function LiveClassPage() {
                   </div>
                 </div>
 
-                {/* Fullscreen Toggle */}
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => setIsFullscreen(!isFullscreen)} // Actual fullscreen logic needed
+                  onClick={() => setIsFullscreen(!isFullscreen)} 
                   className="absolute top-2 right-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full"
                   title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
                 >
@@ -279,7 +374,6 @@ export default function LiveClassPage() {
             </CardContent>
           </Card>
 
-          {/* Interactive Tools */}
           <Card className="shadow-lg border-primary/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg text-primary">Interactive Tools</CardTitle>
@@ -297,15 +391,20 @@ export default function LiveClassPage() {
                   <div className="flex flex-wrap items-center gap-2 p-2 border rounded-lg bg-muted/50">
                     <Button size="sm" variant={selectedTool === "pen" ? "default" : "outline"} onClick={() => setSelectedTool("pen")} title="Pen"> <PenTool className="w-4 h-4" /></Button>
                     <Button size="sm" variant={selectedTool === "eraser" ? "default" : "outline"} onClick={() => setSelectedTool("eraser")} title="Eraser"> <Eraser className="w-4 h-4" /></Button>
-                    <Button size="sm" variant={selectedTool === "circle" ? "default" : "outline"} onClick={() => setSelectedTool("circle")} title="Circle"> <Circle className="w-4 h-4" /></Button>
-                    <Button size="sm" variant={selectedTool === "square" ? "default" : "outline"} onClick={() => setSelectedTool("square")} title="Square"> <Square className="w-4 h-4" /></Button>
-                    <Button size="sm" variant={selectedTool === "text" ? "default" : "outline"} onClick={() => setSelectedTool("text")} title="Text"> <Type className="w-4 h-4" /></Button>
+                    <Button size="sm" variant={selectedTool === "circle" ? "default" : "outline"} onClick={() => setSelectedTool("circle")} title="Circle (Tool not implemented)"> <Circle className="w-4 h-4" /></Button>
+                    <Button size="sm" variant={selectedTool === "square" ? "default" : "outline"} onClick={() => setSelectedTool("square")} title="Square (Tool not implemented)"> <Square className="w-4 h-4" /></Button>
+                    <Button size="sm" variant={selectedTool === "text" ? "default" : "outline"} onClick={() => setSelectedTool("text")} title="Text (Tool not implemented)"> <Type className="w-4 h-4" /></Button>
                     <input type="color" value={selectedColor} onChange={(e) => setSelectedColor(e.target.value)} className="w-8 h-8 rounded border-input bg-background cursor-pointer" title="Select Color"/>
                   </div>
-                  <div className="border-2 border-dashed border-border rounded-lg h-64 lg:h-96 flex items-center justify-center bg-white">
-                    <canvas ref={canvasRef} className="w-full h-full cursor-crosshair" />
-                    {/* Canvas drawing logic needs to be implemented */}
-                     <p className="text-muted-foreground text-center p-4">Whiteboard area. Drawing functionality to be implemented.</p>
+                  <div className="border-2 border-dashed border-border rounded-lg h-64 lg:h-96 bg-white">
+                    <canvas 
+                        ref={canvasRef} 
+                        className="w-full h-full cursor-crosshair"
+                        onMouseDown={startDrawing}
+                        onMouseMove={draw}
+                        onMouseUp={stopDrawing}
+                        onMouseOut={stopDrawing}
+                    />
                   </div>
                 </TabsContent>
 
@@ -372,9 +471,7 @@ export default function LiveClassPage() {
           </Card>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-4 lg:sticky lg:top-[calc(var(--header-height,4rem)+1rem)]"> {/* Make sidebar sticky on large screens */}
-          {/* Participants */}
+        <div className="space-y-4 lg:sticky lg:top-[calc(var(--header-height,4rem)+1rem)]"> 
           <Card className="shadow-lg border-primary/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2 text-primary">
@@ -399,14 +496,13 @@ export default function LiveClassPage() {
             </CardContent>
           </Card>
 
-          {/* Chat */}
           <Card className="shadow-lg border-primary/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2 text-primary">
                 <MessageSquare className="w-5 h-5" /> Chat
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 flex flex-col" style={{height: 'calc(100% - 3.5rem)'}}> {/* Adjust height for chat */}
+            <CardContent className="p-0 flex flex-col" style={{height: 'calc(100% - 3.5rem)'}}> 
               <div className="flex-grow h-64 overflow-y-auto p-4 space-y-3">
                 {messages.map((message) => (
                   <div key={message.id} className={`text-sm ${message.type === "system" ? "text-muted-foreground italic text-center" : ""}`}>
