@@ -34,6 +34,7 @@ import {
   // SquareIcon, // Replaced with Square
   Type,
   UserCircle, 
+  Loader2, // Added Loader2
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
@@ -146,39 +147,50 @@ export default function LiveClassPage() {
 
     const manageCamera = async () => {
       if (isVideoOn) {
-        const stream = await getCameraStream();
+        const stream = await getCameraStream(); // This sets hasCameraPermission
         if (stream && videoRef.current) {
           videoRef.current.srcObject = stream;
-        } else if (!stream) {
-          // If getting stream failed, ensure isVideoOn is false to reflect UI state
-          setIsVideoOn(false);
+          videoRef.current.play().catch(err => console.warn("Video play failed:", err));
+        } else {
+          // If stream is null, getCameraStream already set hasCameraPermission to false.
+          // User's intent (isVideoOn) remains true, UI will reflect error via hasCameraPermission.
+          if (videoRef.current) { 
+            videoRef.current.srcObject = null; // Clear any old stream
+          }
         }
       } else {
+        // User explicitly turned video off
         if (videoRef.current && videoRef.current.srcObject) {
           (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
           videoRef.current.srcObject = null;
         }
+         // If video is turned off, we can assume permission status is not "denied" for this specific off-state.
+         // However, if it was previously false, it should remain false.
+         // This line helps reset the visual state if user toggles off after a failure.
+        if(hasCameraPermission === false) setHasCameraPermission(null);
       }
     };
 
     manageCamera();
 
-    // Cleanup function to stop camera tracks when component unmounts if video was on
     return () => {
         if (videoRef.current && videoRef.current.srcObject) {
             (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
             videoRef.current.srcObject = null;
         }
     };
-  }, [isVideoOn, toast]);
+  }, [isVideoOn, toast, hasCameraPermission]); // Added hasCameraPermission to dependency array to re-evaluate if it changes
 
 
   // Setup Canvas
   useEffect(() => {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+      // Ensure canvas dimensions are set based on its actual size on screen
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      
       const context = canvas.getContext("2d");
       if (context) {
         context.lineCap = "round";
@@ -187,13 +199,13 @@ export default function LiveClassPage() {
         setCanvasCtx(context);
       }
     }
-  }, []); // Runs once on mount to set up initial canvas
+  }, []); 
 
   // Update canvas context on tool or color change
   useEffect(() => {
     if (canvasCtx) {
       canvasCtx.strokeStyle = selectedColor;
-      canvasCtx.lineWidth = selectedTool === "eraser" ? 20 : 5; // Example: larger eraser
+      canvasCtx.lineWidth = selectedTool === "eraser" ? 20 : 5; 
       canvasCtx.globalCompositeOperation = selectedTool === "eraser" ? "destination-out" : "source-over";
     }
   }, [canvasCtx, selectedColor, selectedTool]);
@@ -203,12 +215,10 @@ export default function LiveClassPage() {
     if (!canvasCtx) return;
     setIsDrawing(true);
     canvasCtx.beginPath();
-    // For touch events, you might need to adjust offsetX/Y
     const rect = (event.target as HTMLCanvasElement).getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     canvasCtx.moveTo(x, y);
-    // Draw a dot on click for pen tool
     if (selectedTool === 'pen' || selectedTool === 'eraser') {
         canvasCtx.lineTo(x, y);
         canvasCtx.stroke();
@@ -313,12 +323,26 @@ export default function LiveClassPage() {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-foreground bg-neutral-800">
                      <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                     {(!isVideoOn || (isVideoOn && hasCameraPermission === false)) && (
+                     
+                     {!isVideoOn && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
                             <UserCircle className="w-24 h-24 text-muted-foreground mb-2" />
-                            <p className="text-muted-foreground">
-                                {isVideoOn && hasCameraPermission === false ? "Camera permission denied or not found" : "Your video is off"}
+                            <p className="text-muted-foreground">Your video is off</p>
+                        </div>
+                     )}
+                     {isVideoOn && hasCameraPermission === false && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 text-center p-4">
+                            <UserCircle className="w-24 h-24 text-muted-foreground mb-2" />
+                            <p className="text-muted-foreground font-semibold">Camera Not Available</p>
+                            <p className="text-sm text-muted-foreground/80">
+                                Please check if your camera is connected, not in use by another app, and that browser/system permissions are granted.
                             </p>
+                        </div>
+                     )}
+                     {isVideoOn && hasCameraPermission === null && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
+                            <Loader2 className="w-16 h-16 text-muted-foreground animate-spin mb-2" />
+                            <p className="text-muted-foreground">Accessing camera...</p>
                         </div>
                      )}
                   </div>
@@ -329,7 +353,7 @@ export default function LiveClassPage() {
                         <Alert variant="destructive">
                             <AlertTitle>Camera Not Available</AlertTitle>
                             <AlertDescription>
-                                Could not access camera. Please ensure it's connected, enabled, and not in use.
+                                Could not access camera. Please ensure it's connected, enabled, and not in use. Check browser and system permissions.
                             </AlertDescription>
                         </Alert>
                     </div>
@@ -580,5 +604,3 @@ export default function LiveClassPage() {
   );
 }
 
-
-    
