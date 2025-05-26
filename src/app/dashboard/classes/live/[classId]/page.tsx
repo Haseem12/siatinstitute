@@ -92,7 +92,6 @@ export default function LiveClassPage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [canvasCtx, setCanvasCtx] = useState<CanvasRenderingContext2D | null>(null);
-  const [textToolValue, setTextToolValue] = useState(""); // State for text tool input
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -153,16 +152,18 @@ export default function LiveClassPage() {
           videoRef.current.srcObject = stream;
           videoRef.current.play().catch(err => console.warn("Video play failed:", err));
         } else {
-          if (videoRef.current) { 
-            videoRef.current.srcObject = null; 
-          }
+           // If stream failed or videoRef is null, and user intended video on, reflect this.
+          if (videoRef.current) { videoRef.current.srcObject = null; }
+          // No need to setIsVideoOn(false) here, as hasCameraPermission state handles UI updates for errors
         }
       } else {
         if (videoRef.current && videoRef.current.srcObject) {
           (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
           videoRef.current.srcObject = null;
         }
-        if(hasCameraPermission === false) setHasCameraPermission(null);
+        // If video is turned off, reset hasCameraPermission if it was false,
+        // so that next attempt to turn on video re-triggers permission check/flow.
+        if(hasCameraPermission === false) setHasCameraPermission(null); 
       }
     };
 
@@ -174,14 +175,14 @@ export default function LiveClassPage() {
             videoRef.current.srcObject = null;
         }
     };
-  }, [isVideoOn, toast, hasCameraPermission]); 
+  }, [isVideoOn, toast, hasCameraPermission]); // Added hasCameraPermission to dependencies
 
 
   // Setup Canvas
   useEffect(() => {
     if (canvasRef.current) {
       const canvas = canvasRef.current;
-      const rect = canvas.getBoundingClientRect();
+      const rect = canvas.getBoundingClientRect(); // Get dimensions after layout
       canvas.width = rect.width;
       canvas.height = rect.height;
       
@@ -193,7 +194,7 @@ export default function LiveClassPage() {
         setCanvasCtx(context);
       }
     }
-  }, []); 
+  }, []); // Runs once on mount
 
   // Update canvas context on tool or color change
   useEffect(() => {
@@ -212,14 +213,12 @@ export default function LiveClassPage() {
     const y = event.clientY - rect.top;
 
     if (selectedTool === 'text') {
-      if (textToolValue.trim() === "") {
-        toast({ title: "Enter Text", description: "Please type some text in the input field first.", variant: "destructive" });
-        return;
+      const textToDraw = window.prompt("Enter text to place on whiteboard:");
+      if (textToDraw && textToDraw.trim() !== "") {
+        canvasCtx.fillStyle = selectedColor; // Text color
+        canvasCtx.font = "16px Arial"; // Basic font, can be configurable
+        canvasCtx.fillText(textToDraw, x, y);
       }
-      canvasCtx.fillStyle = selectedColor; // Text color
-      canvasCtx.font = "16px Arial"; // Basic font, can be configurable
-      canvasCtx.fillText(textToolValue, x, y);
-      // setTextToolValue(""); // Optionally reset text after placing
       return; 
     }
 
@@ -243,7 +242,7 @@ export default function LiveClassPage() {
   };
 
   const stopDrawing = () => {
-    if (!canvasCtx || selectedTool === 'text') return; // Don't stop drawing if text tool is active to allow multiple placements
+    if (!canvasCtx || selectedTool === 'text') return; 
     canvasCtx.closePath();
     setIsDrawing(false);
   };
@@ -332,7 +331,7 @@ export default function LiveClassPage() {
                   <div className="w-full h-full flex items-center justify-center text-foreground bg-neutral-800">
                      <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
                      
-                     {!isVideoOn && (
+                     {!isVideoOn && hasCameraPermission !== false && ( // Only show if video is off AND no permission error
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
                             <UserCircle className="w-24 h-24 text-muted-foreground mb-2" />
                             <p className="text-muted-foreground">Your video is off</p>
@@ -343,7 +342,7 @@ export default function LiveClassPage() {
                             <UserCircle className="w-24 h-24 text-muted-foreground mb-2" />
                             <p className="text-muted-foreground font-semibold">Camera Not Available</p>
                             <p className="text-sm text-muted-foreground/80">
-                                Please check if your camera is connected, not in use by another app, and that browser/system permissions are granted.
+                                Please check camera connection, usage by other apps, and browser/system permissions.
                             </p>
                         </div>
                      )}
@@ -356,7 +355,7 @@ export default function LiveClassPage() {
                   </div>
                 )}
                 
-                { isVideoOn && hasCameraPermission === false && (
+                { isVideoOn && hasCameraPermission === false && ( // This specific alert could be part of the above block
                     <div className="absolute top-4 left-4 right-4 z-10">
                         <Alert variant="destructive">
                             <AlertTitle>Camera Not Available</AlertTitle>
@@ -468,17 +467,7 @@ export default function LiveClassPage() {
                     <Button size="sm" variant={selectedTool === "text" ? "default" : "outline"} onClick={() => setSelectedTool("text")} title="Text"> <Type className="w-4 h-4" /></Button>
                     <input type="color" value={selectedColor} onChange={(e) => setSelectedColor(e.target.value)} className="w-8 h-8 rounded border-input bg-background cursor-pointer" title="Select Color"/>
                   </div>
-                  {selectedTool === 'text' && (
-                    <div className="my-2">
-                      <Input 
-                        type="text"
-                        placeholder="Type text here, then click on canvas to place"
-                        value={textToolValue}
-                        onChange={(e) => setTextToolValue(e.target.value)}
-                        className="w-full sm:w-1/2 md:w-1/3"
-                      />
-                    </div>
-                  )}
+                  
                   <div className="border-2 border-dashed border-border rounded-lg h-64 lg:h-96 bg-white">
                     <canvas 
                         ref={canvasRef} 
@@ -623,3 +612,5 @@ export default function LiveClassPage() {
   );
 }
 
+
+    
