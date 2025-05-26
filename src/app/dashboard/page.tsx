@@ -36,7 +36,7 @@ const recentAnnouncements = [
 
 const sliderImages = [
   {
-    src: "https://placehold.co/1200x320.png",
+    src: "/assets/slider/slide-1.jpg",
     alt: "Zaria Campus View",
     title: "Welcome to Arewa Scholar Hub",
     subtitle: "Your gateway to academic excellence",
