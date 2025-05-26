@@ -96,47 +96,78 @@ export default function LiveClassPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Request Camera Permission
+  // Effect for camera access and stream management
   useEffect(() => {
-    const getCameraPermission = async () => {
+    const getCameraStream = async () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error('getUserMedia is not supported in this browser.');
         setHasCameraPermission(false);
         toast({
           variant: 'destructive',
-          title: 'Camera Not Supported',
-          description: 'Your browser does not support camera access.',
+          title: 'Device Not Supported',
+          description: 'Your browser does not support camera/microphone access.',
+          duration: 7000,
         });
-        return;
+        return null;
       }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (error) {
+        return stream;
+      } catch (error: any) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
+        let toastTitle = 'Camera Access Error';
+        let toastDescription = 'Could not access the camera. Please ensure it is connected and not in use by another application.';
+
+        if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          toastTitle = 'Camera Not Found';
+          toastDescription = 'No camera was found. Please ensure a camera is connected properly and enabled.';
+        } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          toastTitle = 'Camera Access Denied';
+          toastDescription = 'Camera permission was denied. Please enable it in your browser settings.';
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+            toastTitle = 'Camera In Use';
+            toastDescription = 'Your camera might be in use by another application or browser tab.';
+        } else if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+            toastTitle = 'Camera Not Supported';
+            toastDescription = 'The selected camera does not support the required settings.';
+        }
+        
         toast({
           variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions in your browser settings to use this feature.',
+          title: toastTitle,
+          description: toastDescription,
+          duration: 7000,
         });
+        return null;
       }
     };
 
-    if (isVideoOn) { // Only request permission if video is intended to be on
-        getCameraPermission();
-    } else if (videoRef.current && videoRef.current.srcObject) { // Turn off camera if video is toggled off
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-    }
+    const manageCamera = async () => {
+      if (isVideoOn) {
+        const stream = await getCameraStream();
+        if (stream && videoRef.current) {
+          videoRef.current.srcObject = stream;
+        } else if (!stream) {
+          // If getting stream failed, ensure isVideoOn is false to reflect UI state
+          setIsVideoOn(false);
+        }
+      } else {
+        if (videoRef.current && videoRef.current.srcObject) {
+          (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+        }
+      }
+    };
 
-    // Cleanup function to stop camera tracks when component unmounts or video is turned off
+    manageCamera();
+
+    // Cleanup function to stop camera tracks when component unmounts if video was on
     return () => {
         if (videoRef.current && videoRef.current.srcObject) {
             (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
         }
     };
   }, [isVideoOn, toast]);
@@ -172,15 +203,24 @@ export default function LiveClassPage() {
     if (!canvasCtx) return;
     setIsDrawing(true);
     canvasCtx.beginPath();
-    canvasCtx.moveTo(event.nativeEvent.offsetX, event.nativeEvent.offsetY);
-    // Draw a dot on click
-    canvasCtx.lineTo(event.nativeEvent.offsetX, event.nativeEvent.offsetY);
-    canvasCtx.stroke();
+    // For touch events, you might need to adjust offsetX/Y
+    const rect = (event.target as HTMLCanvasElement).getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    canvasCtx.moveTo(x, y);
+    // Draw a dot on click for pen tool
+    if (selectedTool === 'pen' || selectedTool === 'eraser') {
+        canvasCtx.lineTo(x, y);
+        canvasCtx.stroke();
+    }
   };
 
   const draw = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !canvasCtx) return;
-    canvasCtx.lineTo(event.nativeEvent.offsetX, event.nativeEvent.offsetY);
+    if (!isDrawing || !canvasCtx || (selectedTool !== 'pen' && selectedTool !== 'eraser')) return;
+    const rect = (event.target as HTMLCanvasElement).getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    canvasCtx.lineTo(x,y);
     canvasCtx.stroke();
   };
 
@@ -277,19 +317,19 @@ export default function LiveClassPage() {
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70">
                             <UserCircle className="w-24 h-24 text-muted-foreground mb-2" />
                             <p className="text-muted-foreground">
-                                {isVideoOn && hasCameraPermission === false ? "Camera permission denied" : "Your video is off"}
+                                {isVideoOn && hasCameraPermission === false ? "Camera permission denied or not found" : "Your video is off"}
                             </p>
                         </div>
                      )}
                   </div>
                 )}
                 
-                {isVideoOn && hasCameraPermission === false && (
+                { isVideoOn && hasCameraPermission === false && (
                     <div className="absolute top-4 left-4 right-4 z-10">
                         <Alert variant="destructive">
-                            <AlertTitle>Camera Access Required</AlertTitle>
+                            <AlertTitle>Camera Not Available</AlertTitle>
                             <AlertDescription>
-                                Please allow camera access in your browser settings to use video.
+                                Could not access camera. Please ensure it's connected, enabled, and not in use.
                             </AlertDescription>
                         </Alert>
                     </div>
@@ -540,3 +580,5 @@ export default function LiveClassPage() {
   );
 }
 
+
+    
