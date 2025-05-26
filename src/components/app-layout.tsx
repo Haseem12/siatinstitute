@@ -1,3 +1,4 @@
+
 "use client";
 import * as React from "react";
 import {
@@ -59,7 +60,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarHeader className="p-4 items-center">
           <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <ArewaLogo className="h-8 w-8 text-sidebar-primary" />
-            <span className="font-semibold text-lg text-sidebar-primary group-data-[collapsible=icon]:hidden">Arewa Scholar</span>
+            <span className="font-semibold text-lg text-sidebar-primary group-data-[collapsible=icon]:hidden">SIAT-Institute, Zaria</span>
           </Link>
         </SidebarHeader>
         <SidebarContent className="p-2">

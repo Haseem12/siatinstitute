@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Arewa Scholar Hub',
+  title: 'SIAT-Institute, Zaria',
   description: 'Student Portal for Scholars Institute of Arts & Technology, Zaria',
 };
 

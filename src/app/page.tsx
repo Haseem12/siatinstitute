@@ -376,7 +376,7 @@ export default function LandingPage() { // Renamed from DashboardPage
                 {id: "news3", date: "June 28, 2024", title: "New Library Wing Inaugurated", excerpt: "Our library has been expanded with a new wing, offering more resources and study spaces...", image: "https://placehold.co/600x400.png", dataAiHint: "library interior"},
               ].map(newsItem => (
                 <Card key={newsItem.id} className="overflow-hidden hover:shadow-xl transition-shadow">
-                  <Image src={newsItem.image} alt={newsItem.title} width={600} height={400} className="w-full h-48 object-cover" data-ai-hint={newsItem.dataAiHint} />
+                  <Image src="/assets/slider/slide-1.jpg" alt={newsItem.title} width={600} height={400} className="w-full h-48 object-cover" data-ai-hint={newsItem.dataAiHint} />
                   <CardContent className="p-4 space-y-2">
                     <div className="text-xs text-muted-foreground">{newsItem.date}</div>
                     <CardTitle className="text-lg leading-tight text-primary hover:text-accent transition-colors">

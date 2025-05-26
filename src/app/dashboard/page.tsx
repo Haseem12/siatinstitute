@@ -36,21 +36,21 @@ const recentAnnouncements = [
 
 const sliderImages = [
   {
-    src: "/assets/slider/slide-1.jpg",
+    src: "/assets/slider/slide-2.jpg",
     alt: "Zaria Campus View",
-    title: "Welcome to Arewa Scholar Hub",
+    title: "Welcome to ASIAT-Institute",
     subtitle: "Your gateway to academic excellence",
     dataAiHint: "campus view",
   },
   {
-    src: "https://placehold.co/1200x320.png",
+    src: "/assets/slider/slide-2.jpg",
     alt: "Students Learning",
     title: "Empowering Future Leaders",
     subtitle: "Quality education for tomorrow's innovators",
     dataAiHint: "students learning",
   },
   {
-    src: "https://placehold.co/1200x320.png",
+    src: "/assets/slider/slide-3.jpg",
     alt: "Campus Library",
     title: "Resources at Your Fingertips",
     subtitle: "Access world-class learning materials",

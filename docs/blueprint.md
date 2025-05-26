@@ -1,4 +1,4 @@
-# **App Name**: Arewa Scholar Hub
+# **App Name**: SIAT-Institute, Zaria
 
 ## Core Features:
 
