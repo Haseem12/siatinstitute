@@ -11,6 +11,7 @@ import {
   GraduationCap,
   BellRing,
   UserCircle,
+  School, // Added School icon
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -37,6 +38,7 @@ const navLinks: NavLink[] = [
   { href: "/instructor/dashboard/create-assignment", label: "Create Assignment", icon: ClipboardPlus, tooltip: "Create New Assignments" },
   { href: "/instructor/dashboard/view-submissions", label: "View Submissions", icon: FileText, tooltip: "Review Student Submissions" },
   { href: "/instructor/dashboard/gradebook", label: "Gradebook", icon: GraduationCap, tooltip: "Manage Student Grades" },
+  { href: "/instructor/dashboard/my-learning", label: "My Learning", icon: School, tooltip: "Courses you are taking" }, // New Link
   { href: "/instructor/dashboard/announcements", label: "Post Announcement", icon: BellRing, tooltip: "Post to Students" },
   { href: "/instructor/dashboard/profile", label: "Profile", icon: UserCircle, tooltip: "Your Profile" },
 ];
