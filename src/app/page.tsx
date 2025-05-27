@@ -18,10 +18,11 @@ import {
   Info,
   Newspaper,
   Mail,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { useState, useEffect, useRef, useCallback } from "react" // Added useCallback
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import ArewaLogo from "@/components/arewa-logo"
@@ -34,7 +35,6 @@ import {
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
-import { mockUsers as initialMockUsers } from "@/lib/mock-users";
 import type { User } from "@/types";
 
 
@@ -61,16 +61,47 @@ export default function LandingPage() {
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const [fetchedMockUsers, setFetchedMockUsers] = useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [loadUsersError, setLoadUsersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoadingUsers(true);
+      setLoadUsersError(null);
+      try {
+        const response = await fetch("https://sajfoods.net/api/mock-users.ts"); // Assuming this returns JSON
+        if (!response.ok) {
+          throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
+        }
+        const users: User[] = await response.json();
+        setFetchedMockUsers(users);
+      } catch (error) {
+        console.error("Error fetching mock users:", error);
+        setLoadUsersError(error instanceof Error ? error.message : "An unknown error occurred while fetching users.");
+        toast({
+          variant: "destructive",
+          title: "Error Loading User Data",
+          description: "Could not load initial user list. Please try again later.",
+        });
+      } finally {
+        setIsLoadingUsers(false);
+      }
+    };
+    fetchUsers();
+  }, [toast]);
+
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoggingIn(true);
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
-    let foundUser: User | undefined = initialMockUsers.find(
+    let foundUser: User | undefined = fetchedMockUsers.find(
       (user) => user.email.toLowerCase() === loginEmail.toLowerCase() && user.password === loginPassword
     );
 
-    // If not found in initial mocks, check localStorage for admin-added users
+    // If not found in fetched mocks, check localStorage for admin-added users
     if (!foundUser && typeof window !== 'undefined') {
       const storedUsers = localStorage.getItem("mockAddedUsers");
       const addedUsers: User[] = storedUsers ? JSON.parse(storedUsers) : [];
@@ -79,38 +110,25 @@ export default function LandingPage() {
       );
     }
 
-
     if (foundUser) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userEmail', foundUser.email);
-        localStorage.setItem('userRole', foundUser.role || 'student'); // Default to student if role is undefined
+        localStorage.setItem('userRole', foundUser.role || 'student');
       }
-
       toast({ title: `${(foundUser.role || 'User').charAt(0).toUpperCase() + (foundUser.role || 'User').slice(1)} Login Successful`, description: "Redirecting..." });
-
       switch (foundUser.role) {
-        case "admin":
-          router.push("/admin/dashboard");
-          break;
-        case "instructor":
-          router.push("/instructor/dashboard");
-          break;
-        case "student":
-          router.push("/dashboard");
-          break;
-        default:
-          router.push("/dashboard");
-          break;
+        case "admin": router.push("/admin/dashboard"); break;
+        case "instructor": router.push("/instructor/dashboard"); break;
+        default: router.push("/dashboard"); break;
       }
     } else if (!loginEmail || !loginPassword) {
-        toast({ variant: "destructive", title: "Login Failed", description: "Please enter Email and Password." });
+      toast({ variant: "destructive", title: "Login Failed", description: "Please enter Email and Password." });
     } else {
-       toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials." });
+      toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials." });
     }
     setIsLoggingIn(false);
   };
-
 
   const navItems = [
     { href: "#hero", label: "Home" },
@@ -183,7 +201,7 @@ export default function LandingPage() {
                   style={{ objectFit: "cover" }}
                   className="brightness-75"
                   priority={index === 0}
-                  sizes="(max-width: 768px) 100vw, 50vw"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   data-ai-hint={item.dataAiHint}
                   onError={(e) => console.error("Image failed to load:", item.src, (e.target as HTMLImageElement).src)}
                 />
@@ -234,47 +252,61 @@ export default function LandingPage() {
               <CardDescription>Welcome back! Access your dashboard.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div className="space-y-2">
-                  <label htmlFor="loginEmailInput" className="text-sm font-medium text-foreground">
-                    Email Address
-                  </label>
-                  <input
-                    id="loginEmailInput"
-                    type="email" // Changed type to email
-                    placeholder="e.g., student@siat.edu.ng"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
-                    required
-                  />
+              {isLoadingUsers && (
+                <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p>Loading user data...</p>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="passwordLogin" className="text-sm font-medium text-foreground">
-                    Password
-                  </label>
-                  <input
-                    id="passwordLogin"
-                    type="password"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-base" disabled={isLoggingIn}>
-                  <LogIn className="mr-2 h-5 w-5" />
-                  {isLoggingIn ? "Logging in..." : "Login to Portal"}
-                </Button>
-                <p className="text-xs text-center text-muted-foreground">
-                  Forgot your password?{" "}
-                  <Link href="#contact" className="text-primary hover:underline">
-                    Contact support
-                  </Link>
-                  .
-                </p>
-              </form>
+              )}
+              {loadUsersError && (
+                 <div className="flex flex-col items-center justify-center space-y-2 text-destructive">
+                   <X className="h-8 w-8" />
+                   <p className="text-center">Failed to load user data.<br/>Please try again later.</p>
+                 </div>
+              )}
+              {!isLoadingUsers && !loadUsersError && (
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <div className="space-y-2">
+                    <label htmlFor="loginEmailInput" className="text-sm font-medium text-foreground">
+                      Email Address
+                    </label>
+                    <input
+                      id="loginEmailInput"
+                      type="email"
+                      placeholder="e.g., student@siat.edu.ng"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="passwordLogin" className="text-sm font-medium text-foreground">
+                      Password
+                    </label>
+                    <input
+                      id="passwordLogin"
+                      type="password"
+                      placeholder="••••••••"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-base" disabled={isLoggingIn || isLoadingUsers}>
+                    {isLoggingIn ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
+                    {isLoggingIn ? "Logging in..." : "Login to Portal"}
+                  </Button>
+                  <p className="text-xs text-center text-muted-foreground">
+                    Forgot your password?{" "}
+                    <Link href="#contact" className="text-primary hover:underline">
+                      Contact support
+                    </Link>
+                    .
+                  </p>
+                </form>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -323,13 +355,13 @@ export default function LandingPage() {
               <CardContent className="p-6">
                 <p className="text-sm text-muted-foreground mb-1">{newsItem.date}</p>
                 <CardTitle className="text-xl mb-2 leading-tight text-primary hover:text-accent transition-colors">
-                  <Link href={`#`}>{newsItem.title}</Link> {/* Placeholder href */}
+                  <Link href={`#`}>{newsItem.title}</Link>
                 </CardTitle>
                 <p className="text-muted-foreground line-clamp-3 mb-4">
                   {newsItem.excerpt}
                 </p>
                 <Button variant="link" asChild className="px-0 text-accent hover:text-accent/80 font-semibold">
-                  <Link href={`#`}> {/* Placeholder href */}
+                  <Link href={`#`}>
                     Read More <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -378,3 +410,5 @@ export default function LandingPage() {
     </div>
   )
 }
+
+    
