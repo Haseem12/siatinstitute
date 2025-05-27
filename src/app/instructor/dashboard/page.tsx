@@ -1,9 +1,10 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { BookOpen, ClipboardPlus, Users } from "lucide-react";
 import type { Metadata } from 'next';
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils"; // Import cn
 
 export const metadata: Metadata = {
   title: 'Instructor Dashboard - SIAT Institute',
@@ -28,9 +29,12 @@ export default function InstructorDashboardPage() {
           <CardContent>
             <div className="text-3xl font-bold">3</div> {/* Mock Data */}
             <p className="text-xs text-muted-foreground">Currently teaching</p>
-            <Button variant="link" asChild className="px-0 mt-2">
-                <Link href="/instructor/dashboard/my-courses/CSC101">View Courses</Link> {/* Mock Link */}
-            </Button>
+            <Link
+              href="/instructor/dashboard/my-courses/CSC101"
+              className={cn(buttonVariants({ variant: "link" }), "px-0 mt-2")}
+            >
+              View Courses
+            </Link>
           </CardContent>
         </Card>
 
