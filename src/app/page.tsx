@@ -85,8 +85,10 @@ export default function LandingPage() {
       }
     }
     
-    if (!redirected) {
-       toast({ variant: "destructive", title: "Login Failed", description: "Please enter Student ID and Password." });
+    if (!redirected && studentId && password) { // Only show generic fail if not redirected and fields were filled
+       toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or role." });
+    } else if (!studentId || !password) {
+        toast({ variant: "destructive", title: "Login Failed", description: "Please enter Student ID and Password." });
     }
     setIsLoggingIn(false);
   }
@@ -164,7 +166,7 @@ export default function LandingPage() {
                   priority={index === 0}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   data-ai-hint={item.dataAiHint}
-                  onError={(e) => console.error("Image failed to load:", item.src, e.target)}
+                  onError={(e) => console.error("Image failed to load:", item.src, (e.target as HTMLImageElement).src)}
                 />
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center md:justify-start text-center md:text-left">
                   <div className="container px-4 md:px-6 max-w-2xl text-white">
@@ -189,23 +191,34 @@ export default function LandingPage() {
           <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white bg-black/30 hover:bg-black/50" />
         </Carousel>
       </section>
-
+      
       {/* Student Portal Login & New Intake Section */}
-      <section id="auth-section" className="container mx-auto px-4 py-16 lg:py-24 scroll-mt-16">
+      <section id="auth-section" className="container mx-auto px-4 pt-24 lg:pt-32 pb-16 lg:pb-24 scroll-mt-16">
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div className="text-center md:text-left">
+                <h2 className="text-3xl font-bold text-primary mb-4">New to SIAT?</h2>
+                <p className="text-lg text-muted-foreground mb-6">
+                Embark on your academic journey with us. Apply for admission to our various programs.
+                </p>
+                <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
+                    <Link href="/registration/new-intake">
+                        Apply for Admission <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                </Button>
+            </div>
             <Card className="shadow-xl border-primary/10">
                 <CardHeader className="text-center">
-                <CardTitle className="text-2xl font-bold text-primary">Student Portal Login</CardTitle>
+                <CardTitle className="text-2xl font-bold text-primary">Portal Login</CardTitle>
                 <CardDescription>Welcome back! Access your dashboard.</CardDescription>
                 </CardHeader>
                 <CardContent>
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div className="space-y-2">
-                    <label htmlFor="studentId" className="text-sm font-medium text-foreground">
+                    <label htmlFor="studentIdInput" className="text-sm font-medium text-foreground">
                         Student ID / Email
                     </label>
                     <input
-                        id="studentId"
+                        id="studentIdInput"
                         type="text"
                         placeholder="e.g., SIAT/001 or user@siat.edu.ng"
                         value={studentId}
@@ -242,17 +255,6 @@ export default function LandingPage() {
                 </form>
                 </CardContent>
             </Card>
-            <div className="text-center md:text-left">
-                <h2 className="text-3xl font-bold text-primary mb-4">New to SIAT?</h2>
-                <p className="text-lg text-muted-foreground mb-6">
-                Embark on your academic journey with us. Apply for admission to our various programs.
-                </p>
-                <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
-                    <Link href="/registration/new-intake">
-                        Apply for Admission <ArrowRight className="ml-2 h-5 w-5" />
-                    </Link>
-                </Button>
-            </div>
           </div>
       </section>
 
@@ -265,13 +267,16 @@ export default function LandingPage() {
           </div>
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: BookOpen, title: "Quality Education", desc: "Curriculum designed for excellence and practical knowledge." },
-              { icon: UserCircle, title: "Experienced Lecturers", desc: "Learn from seasoned professionals and academics." },
-              { icon: GraduationCap, title: "Conducive Environment", desc: "A serene and well-equipped campus for optimal learning." },
-              { icon: CheckSquare, title: "Skill Acquisition", desc: "Focus on hands-on skills and entrepreneurial development." },
+              { icon: BookOpen, title: "Quality Education", desc: "Curriculum designed for excellence and practical knowledge.", dataAiHint: "teacher student" },
+              { icon: UserCircle, title: "Experienced Lecturers", desc: "Learn from seasoned professionals and academics.", dataAiHint: "lecturer portrait" },
+              { icon: GraduationCap, title: "Conducive Environment", desc: "A serene and well-equipped campus for optimal learning.", dataAiHint: "campus garden" },
+              { icon: CheckSquare, title: "Skill Acquisition", desc: "Focus on hands-on skills and entrepreneurial development.", dataAiHint: "students workshop" },
             ].map(feature => (
               <Card key={feature.title} className="text-center p-6 shadow-lg hover:shadow-xl transition-shadow">
-                <feature.icon className="h-12 w-12 text-accent mx-auto mb-4" />
+                <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-2 border-accent/50">
+                    <Image src={`https://placehold.co/100x100.png`} alt={feature.title} width={100} height={100} className="object-cover" data-ai-hint={feature.dataAiHint} />
+                </div>
+                {/* <feature.icon className="h-12 w-12 text-accent mx-auto mb-4" /> */}
                 <CardTitle className="text-xl mb-2 text-primary">{feature.title}</CardTitle>
                 <CardDescription>{feature.desc}</CardDescription>
               </Card>
@@ -293,7 +298,7 @@ export default function LandingPage() {
             {id: "news3", date: "June 28, 2024", title: "New Library Wing Inaugurated", excerpt: "Our library has been expanded with a new wing, offering more resources and study spaces...", image: "https://placehold.co/600x400.png", dataAiHint: "library interior"},
           ].map(newsItem => (
             <Card key={newsItem.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
-              <Image src={newsItem.image} alt={newsItem.title} width={600} height={350} className="w-full h-56 object-cover" data-ai-hint={newsItem.dataAiHint} />
+              <Image src={newsItem.image || "/assets/slider/slide-1.jpg"} alt={newsItem.title} width={600} height={350} className="w-full h-56 object-cover" data-ai-hint={newsItem.dataAiHint} />
               <CardContent className="p-6">
                 <p className="text-sm text-muted-foreground mb-1">{newsItem.date}</p>
                 <CardTitle className="text-xl mb-2 leading-tight text-primary hover:text-accent transition-colors">
@@ -352,3 +357,4 @@ export default function LandingPage() {
     </div>
   )
 }
+
