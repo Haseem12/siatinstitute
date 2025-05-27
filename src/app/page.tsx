@@ -50,48 +50,62 @@ const carouselImages = [
   { src: "/assets/slider/slide-12.jpg", alt: "Innovation Hub", title: "Innovation Center", subtitle: "Fostering creativity and entrepreneurship", dataAiHint: "innovation hub"},
 ]
 
+// Mock user data store
+const mockUsers = [
+  { email: "student@siat.edu.ng", password: "password", role: "student" },
+  { email: "instructor@siat.edu.ng", password: "password", role: "instructor" },
+  { email: "admin@siat.edu.ng", password: "password", role: "admin" },
+  { email: "test@siat.edu.ng", password: "password", role: "student" }, // Another student example
+];
+
+
 export default function LandingPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [studentId, setStudentId] = useState("")
+  const [studentId, setStudentId] = useState("") // This state variable holds the email/ID input
   const [password, setPassword] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoggingIn(true)
-    // Mock login
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    e.preventDefault();
+    setIsLoggingIn(true);
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
-    let redirected = false;
-    if (studentId && password) { // Simple validation
+    const foundUser = mockUsers.find(
+      (user) => user.email.toLowerCase() === studentId.toLowerCase() && user.password === password
+    );
+
+    if (foundUser) {
       localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('userEmail', studentId); // Store email/ID for role check
+      localStorage.setItem('userEmail', foundUser.email); // Store actual email for role check if needed in layouts
+      localStorage.setItem('userRole', foundUser.role); // Store role
 
-      if (studentId.toLowerCase() === "admin@siat.edu.ng") {
-        toast({ title: "Admin Login Successful", description: "Redirecting to admin dashboard..." });
-        router.push("/admin/dashboard");
-        redirected = true;
-      } else if (studentId.toLowerCase() === "instructor@siat.edu.ng") {
-         toast({ title: "Instructor Login Successful", description: "Redirecting to instructor dashboard..." });
-        router.push("/instructor/dashboard");
-        redirected = true;
-      } else {
-        // Assume student for any other valid login
-        toast({ title: "Login Successful", description: "Redirecting to student dashboard..." });
-        router.push("/dashboard");
-        redirected = true;
+      toast({ title: `${foundUser.role.charAt(0).toUpperCase() + foundUser.role.slice(1)} Login Successful`, description: "Redirecting..." });
+
+      switch (foundUser.role) {
+        case "admin":
+          router.push("/admin/dashboard");
+          break;
+        case "instructor":
+          router.push("/instructor/dashboard");
+          break;
+        case "student":
+          router.push("/dashboard");
+          break;
+        default:
+          // Fallback to student dashboard if role is somehow unrecognized
+          router.push("/dashboard");
+          break;
       }
-    }
-    
-    if (!redirected && studentId && password) { // Only show generic fail if not redirected and fields were filled
-       toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or role." });
     } else if (!studentId || !password) {
-        toast({ variant: "destructive", title: "Login Failed", description: "Please enter Student ID and Password." });
+        toast({ variant: "destructive", title: "Login Failed", description: "Please enter Student ID/Email and Password." });
+    } else {
+       toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials." });
     }
     setIsLoggingIn(false);
-  }
+  };
+
 
   const navItems = [
     { href: "#hero", label: "Home" },
@@ -195,7 +209,7 @@ export default function LandingPage() {
       {/* Student Portal Login & New Intake Section */}
       <section id="auth-section" className="container mx-auto px-4 pt-24 lg:pt-32 pb-16 lg:pb-24 scroll-mt-16">
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-center">
-            <div className="text-center md:text-left">
+             <div className="text-center md:text-left">
                 <h2 className="text-3xl font-bold text-primary mb-4">New to SIAT?</h2>
                 <p className="text-lg text-muted-foreground mb-6">
                 Embark on your academic journey with us. Apply for admission to our various programs.
@@ -208,7 +222,7 @@ export default function LandingPage() {
             </div>
             <Card className="shadow-xl border-primary/10">
                 <CardHeader className="text-center">
-                <CardTitle className="text-2xl font-bold text-primary">Portal Login</CardTitle>
+                <CardTitle className="text-2xl font-bold text-primary">Student Portal Login</CardTitle>
                 <CardDescription>Welcome back! Access your dashboard.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -220,7 +234,7 @@ export default function LandingPage() {
                     <input
                         id="studentIdInput"
                         type="text"
-                        placeholder="e.g., SIAT/001 or user@siat.edu.ng"
+                        placeholder="e.g., student@siat.edu.ng"
                         value={studentId}
                         onChange={(e) => setStudentId(e.target.value)}
                         className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
@@ -276,7 +290,6 @@ export default function LandingPage() {
                 <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-2 border-accent/50">
                     <Image src={`https://placehold.co/100x100.png`} alt={feature.title} width={100} height={100} className="object-cover" data-ai-hint={feature.dataAiHint} />
                 </div>
-                {/* <feature.icon className="h-12 w-12 text-accent mx-auto mb-4" /> */}
                 <CardTitle className="text-xl mb-2 text-primary">{feature.title}</CardTitle>
                 <CardDescription>{feature.desc}</CardDescription>
               </Card>
@@ -343,7 +356,7 @@ export default function LandingPage() {
                   <a href="mailto:info@siat.edu.ng" className="hover:underline">info@siat.edu.ng</a>
                 </li>
                 <li className="flex items-center gap-2 text-primary-foreground/80">
-                  <UserCircle className="h-4 w-4"/> {/* Placeholder for phone, Mail is better */}
+                  <UserCircle className="h-4 w-4"/>
                   <a href="tel:+2348012345678" className="hover:underline">+234 801 234 5678</a>
                 </li>
               </ul>
