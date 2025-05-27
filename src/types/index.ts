@@ -7,6 +7,7 @@ export type User = {
   avatarUrl?: string;
   department?: string;
   level?: string; // e.g. "100 Level", "200 Level"
+  role?: "student" | "instructor" | "admin"; // Added role
 };
 
 export type Course = {
@@ -14,6 +15,9 @@ export type Course = {
   code: string; // e.g. CSC101
   name: string; // e.g. Introduction to Computer Science
   credits: number; // e.g. 3
+  description?: string;
+  instructorId?: string;
+  department?: string;
 };
 
 export type TimetableEntry = {
@@ -39,6 +43,7 @@ export type Assignment = {
   feedback?: string;
   fileUrl?: string;
   status: "Pending" | "Submitted" | "Graded" | "Overdue";
+  totalMarks?: number;
 };
 
 export type AcademicResult = {
@@ -59,6 +64,7 @@ export type Announcement = {
   date: string; // ISO date string
   author?: string;
   category?: "General" | "Academic" | "Events";
+  targetAudience?: "all" | "students" | "instructors" | "department";
 };
 
 export type CalendarEvent = {
@@ -123,12 +129,13 @@ export type NewIntakeApplicationData = {
   entryMode: "UTME" | "Direct Entry" | "Transfer" | "";
 };
 
-// This was the old type for the simple form on the landing page,
-// it's being replaced by NewIntakeApplicationData for the multi-step form.
-// export type NewIntakeFormData = {
-//   fullName: string;
-//   email: string;
-//   phoneNumber: string;
-//   preferredProgram: string;
-//   previousQualification?: string;
-// };
+// Added for instructor/admin
+export type CourseContent = {
+  id: string;
+  courseId: string;
+  title: string;
+  type: "lecture_note" | "video" | "quiz_link" | "resource";
+  contentUrl?: string; // URL to video, PDF, etc.
+  description?: string; // Text content for notes
+  uploadedDate: string;
+};

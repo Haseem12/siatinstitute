@@ -46,7 +46,7 @@ const sliderImages = [
   {
     src: "/assets/slider/slide-2.jpg",
     alt: "Zaria Campus View",
-    title: "Welcome to ASIAT-Institute",
+    title: "Welcome to SIAT-Institute",
     subtitle: "Your gateway to academic excellence",
     dataAiHint: "campus view",
   },
