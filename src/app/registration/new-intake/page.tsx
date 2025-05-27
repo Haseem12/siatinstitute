@@ -127,7 +127,7 @@ const newIntakeFormSchema = z.object({
 type FormValues = z.infer<typeof newIntakeFormSchema>;
 
 const steps = [
-  { id: 1, name: "Bio-data", fields: ["fullName", "email", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "photographFile", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
+  { id: 1, name: "Bio-data", fields: ["photographFile", "fullName", "email", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
   { id: 2, name: "Qualifications", fields: ["qualifications"] as const },
   { id: 3, name: "Experience", fields: ["experiences"] as const },
   { id: 4, name: "Program Choice", fields: ["preferredProgram", "preferredCampus", "entryMode"] as const },
@@ -319,6 +319,37 @@ export default function NewIntakePage() {
                 {/* Step 1: Bio-data */}
                 {currentStep === 0 && (
                   <section className="space-y-6 animate-in fade-in-50">
+                    <FormField
+                        control={form.control}
+                        name="photographFile"
+                        render={({ field }) => ( 
+                            <FormItem>
+                                <FormLabel>Passport Photograph (JPG, PNG - Max 2MB)</FormLabel>
+                                <FormControl>
+                                    <Input 
+                                        type="file" 
+                                        accept="image/jpeg,image/png,image/jpg" 
+                                        onChange={handlePhotographChange} 
+                                        className="file:text-accent file:font-semibold"
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {photographPreview && (
+                        <div className="mt-2 text-center">
+                            <Image src={photographPreview} alt="Photograph Preview" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="passport photograph"/>
+                        </div>
+                    )}
+                    {!photographPreview && (
+                         <div className="mt-2 text-center">
+                            <div className="w-[150px] h-[150px] bg-muted rounded-md border flex items-center justify-center mx-auto">
+                                <UserIcon className="w-16 h-16 text-muted-foreground" data-ai-hint="avatar placeholder" />
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid md:grid-cols-2 gap-6">
                       <FormField control={form.control} name="fullName" render={({ field }) => (
                         <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="Your full name" {...field} /></FormControl><FormMessage /></FormItem>
@@ -374,38 +405,6 @@ export default function NewIntakePage() {
                     <FormField control={form.control} name="nationality" render={({ field }) => (
                       <FormItem><FormLabel>Nationality</FormLabel><FormControl><Input placeholder="e.g. Nigerian" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
-
-                    <FormField
-                        control={form.control}
-                        name="photographFile"
-                        render={({ field }) => ( // Destructure field to avoid passing all of it to Input
-                            <FormItem>
-                                <FormLabel>Passport Photograph (JPG, PNG - Max 2MB)</FormLabel>
-                                <FormControl>
-                                    <Input 
-                                        type="file" 
-                                        accept="image/jpeg,image/png,image/jpg" 
-                                        onChange={handlePhotographChange} 
-                                        className="file:text-accent file:font-semibold"
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    {photographPreview && (
-                        <div className="mt-2 text-center">
-                            <Image src={photographPreview} alt="Photograph Preview" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="passport photograph"/>
-                        </div>
-                    )}
-                    {!photographPreview && (
-                         <div className="mt-2 text-center">
-                            <div className="w-[150px] h-[150px] bg-muted rounded-md border flex items-center justify-center mx-auto">
-                                <UserIcon className="w-16 h-16 text-muted-foreground" data-ai-hint="avatar placeholder" />
-                            </div>
-                        </div>
-                    )}
-
 
                     <h3 className="text-lg font-semibold text-primary pt-4 border-t">Next of Kin Information</h3>
                      <div className="grid md:grid-cols-2 gap-6">
@@ -548,6 +547,12 @@ export default function NewIntakePage() {
                     
                     <div className="space-y-4">
                         <h3 className="font-semibold text-lg text-primary border-b pb-1">Bio-data</h3>
+                        <PreviewItem label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || "Not uploaded"} />
+                        {photographPreview && (
+                            <div className="text-center">
+                                <Image src={photographPreview} alt="Photograph Preview" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="passport photograph small" />
+                            </div>
+                        )}
                         <PreviewItem label="Full Name" value={form.getValues("fullName")} />
                         <PreviewItem label="Email" value={form.getValues("email")} />
                         <PreviewItem label="Phone Number" value={form.getValues("phoneNumber")} />
@@ -557,12 +562,6 @@ export default function NewIntakePage() {
                         <PreviewItem label="City" value={form.getValues("city")} />
                         <PreviewItem label="State of Origin" value={form.getValues("stateOfOrigin")} />
                         <PreviewItem label="Nationality" value={form.getValues("nationality")} />
-                        <PreviewItem label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || "Not uploaded"} />
-                        {photographPreview && (
-                            <div className="text-center">
-                                <Image src={photographPreview} alt="Photograph Preview" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="passport photograph small" />
-                            </div>
-                        )}
 
 
                         <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Next of Kin</h3>
@@ -660,3 +659,4 @@ const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
     <dd className="text-foreground sm:text-right">{value || "N/A"}</dd>
   </div>
 );
+
