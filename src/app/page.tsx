@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
+import { mockUsers } from "@/lib/mock-users"; // Import mock users
 
 const carouselImages = [
   { src: "/assets/slider/slide-1.jpg", alt: "SIAT Campus Main Gate", title: "Welcome to SIAT", subtitle: "Excellence in Education, Innovation in Learning", dataAiHint: "campus gate"},
@@ -49,15 +50,6 @@ const carouselImages = [
   { src: "/assets/slider/slide-11.jpg", alt: "Campus Garden", title: "Serene Environment", subtitle: "Beautiful landscaped campus for peaceful learning", dataAiHint: "campus garden"},
   { src: "/assets/slider/slide-12.jpg", alt: "Innovation Hub", title: "Innovation Center", subtitle: "Fostering creativity and entrepreneurship", dataAiHint: "innovation hub"},
 ]
-
-// Mock user data store
-const mockUsers = [
-  { email: "student@siat.edu.ng", password: "password", role: "student" },
-  { email: "instructor@siat.edu.ng", password: "password", role: "instructor" },
-  { email: "admin@siat.edu.ng", password: "password", role: "admin" },
-  { email: "test@siat.edu.ng", password: "password", role: "student" }, // Another student example
-];
-
 
 export default function LandingPage() {
   const router = useRouter()
@@ -176,13 +168,13 @@ export default function LandingPage() {
                   alt={item.alt}
                   fill
                   style={{ objectFit: "cover" }}
-                  className="brightness-50"
+                  className="brightness-75"
                   priority={index === 0}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   data-ai-hint={item.dataAiHint}
                   onError={(e) => console.error("Image failed to load:", item.src, (e.target as HTMLImageElement).src)}
                 />
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center md:justify-start text-center md:text-left">
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center md:justify-start text-center md:text-left">
                   <div className="container px-4 md:px-6 max-w-2xl text-white">
                     <h1 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl leading-tight">
                       {item.title}
@@ -209,17 +201,19 @@ export default function LandingPage() {
       {/* Student Portal Login & New Intake Section */}
       <section id="auth-section" className="container mx-auto px-4 pt-24 lg:pt-32 pb-16 lg:pb-24 scroll-mt-16">
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-center">
-             <div className="text-center md:text-left">
-                <h2 className="text-3xl font-bold text-primary mb-4">New to SIAT?</h2>
-                <p className="text-lg text-muted-foreground mb-6">
-                Embark on your academic journey with us. Apply for admission to our various programs.
-                </p>
-                <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
-                    <Link href="/registration/new-intake">
-                        Apply for Admission <ArrowRight className="ml-2 h-5 w-5" />
-                    </Link>
-                </Button>
-            </div>
+             <Card className="shadow-xl border-primary/10">
+                <CardHeader className="text-center">
+                <CardTitle className="text-2xl font-bold text-primary">New to SIAT?</CardTitle>
+                <CardDescription>Embark on your academic journey with us. Apply for admission to our various programs.</CardDescription>
+                </CardHeader>
+                 <CardContent>
+                    <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
+                        <Link href="/registration/new-intake">
+                            Apply for Admission <ArrowRight className="ml-2 h-5 w-5" />
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
             <Card className="shadow-xl border-primary/10">
                 <CardHeader className="text-center">
                 <CardTitle className="text-2xl font-bold text-primary">Student Portal Login</CardTitle>
@@ -370,4 +364,3 @@ export default function LandingPage() {
     </div>
   )
 }
-
