@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react" // Added useCallback
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import ArewaLogo from "@/components/arewa-logo"
@@ -29,12 +29,14 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
   CarouselPrevious,
+  CarouselNext,
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
-import { mockUsers } from "@/lib/mock-users"; // Import mock users
+import { mockUsers as initialMockUsers } from "@/lib/mock-users";
+import type { User } from "@/types";
+
 
 const carouselImages = [
   { src: "/assets/slider/slide-1.jpg", alt: "SIAT Campus Main Gate", title: "Welcome to SIAT", subtitle: "Excellence in Education, Innovation in Learning", dataAiHint: "campus gate"},
@@ -49,13 +51,13 @@ const carouselImages = [
   { src: "/assets/slider/slide-10.jpg", alt: "Workshop Training", title: "Practical Training", subtitle: "Skill development through hands-on workshops", dataAiHint: "workshop students"},
   { src: "/assets/slider/slide-11.jpg", alt: "Campus Garden", title: "Serene Environment", subtitle: "Beautiful landscaped campus for peaceful learning", dataAiHint: "campus garden"},
   { src: "/assets/slider/slide-12.jpg", alt: "Innovation Hub", title: "Innovation Center", subtitle: "Fostering creativity and entrepreneurship", dataAiHint: "innovation hub"},
-]
+];
 
 export default function LandingPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [studentId, setStudentId] = useState("") // This state variable holds the email/ID input
-  const [password, setPassword] = useState("")
+  const [loginEmail, setLoginEmail] = useState("")
+  const [loginPassword, setLoginPassword] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -64,16 +66,28 @@ export default function LandingPage() {
     setIsLoggingIn(true);
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
-    const foundUser = mockUsers.find(
-      (user) => user.email.toLowerCase() === studentId.toLowerCase() && user.password === password
+    let foundUser: User | undefined = initialMockUsers.find(
+      (user) => user.email.toLowerCase() === loginEmail.toLowerCase() && user.password === loginPassword
     );
 
-    if (foundUser) {
-      localStorage.setItem('isLoggedIn', 'true');
-      localStorage.setItem('userEmail', foundUser.email); // Store actual email for role check if needed in layouts
-      localStorage.setItem('userRole', foundUser.role); // Store role
+    // If not found in initial mocks, check localStorage for admin-added users
+    if (!foundUser && typeof window !== 'undefined') {
+      const storedUsers = localStorage.getItem("mockAddedUsers");
+      const addedUsers: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+      foundUser = addedUsers.find(
+        (user) => user.email.toLowerCase() === loginEmail.toLowerCase() && user.password === loginPassword
+      );
+    }
 
-      toast({ title: `${foundUser.role.charAt(0).toUpperCase() + foundUser.role.slice(1)} Login Successful`, description: "Redirecting..." });
+
+    if (foundUser) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('userEmail', foundUser.email);
+        localStorage.setItem('userRole', foundUser.role || 'student'); // Default to student if role is undefined
+      }
+
+      toast({ title: `${(foundUser.role || 'User').charAt(0).toUpperCase() + (foundUser.role || 'User').slice(1)} Login Successful`, description: "Redirecting..." });
 
       switch (foundUser.role) {
         case "admin":
@@ -86,12 +100,11 @@ export default function LandingPage() {
           router.push("/dashboard");
           break;
         default:
-          // Fallback to student dashboard if role is somehow unrecognized
           router.push("/dashboard");
           break;
       }
-    } else if (!studentId || !password) {
-        toast({ variant: "destructive", title: "Login Failed", description: "Please enter Student ID/Email and Password." });
+    } else if (!loginEmail || !loginPassword) {
+        toast({ variant: "destructive", title: "Login Failed", description: "Please enter Email and Password." });
     } else {
        toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials." });
     }
@@ -170,7 +183,7 @@ export default function LandingPage() {
                   style={{ objectFit: "cover" }}
                   className="brightness-75"
                   priority={index === 0}
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   data-ai-hint={item.dataAiHint}
                   onError={(e) => console.error("Image failed to load:", item.src, (e.target as HTMLImageElement).src)}
                 />
@@ -198,72 +211,73 @@ export default function LandingPage() {
         </Carousel>
       </section>
       
-      {/* Student Portal Login & New Intake Section */}
+      {/* Login & New Intake Section */}
       <section id="auth-section" className="container mx-auto px-4 pt-24 lg:pt-32 pb-16 lg:pb-24 scroll-mt-16">
-          <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-center">
-             <Card className="shadow-xl border-primary/10">
-                <CardHeader className="text-center">
-                <CardTitle className="text-2xl font-bold text-primary">New to SIAT?</CardTitle>
-                <CardDescription>Embark on your academic journey with us. Apply for admission to our various programs.</CardDescription>
-                </CardHeader>
-                 <CardContent>
-                    <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
-                        <Link href="/registration/new-intake">
-                            Apply for Admission <ArrowRight className="ml-2 h-5 w-5" />
-                        </Link>
-                    </Button>
-                </CardContent>
-            </Card>
-            <Card className="shadow-xl border-primary/10">
-                <CardHeader className="text-center">
-                <CardTitle className="text-2xl font-bold text-primary">Student Portal Login</CardTitle>
-                <CardDescription>Welcome back! Access your dashboard.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                <form onSubmit={handleLogin} className="space-y-6">
-                    <div className="space-y-2">
-                    <label htmlFor="studentIdInput" className="text-sm font-medium text-foreground">
-                        Student ID / Email
-                    </label>
-                    <input
-                        id="studentIdInput"
-                        type="text"
-                        placeholder="e.g., student@siat.edu.ng"
-                        value={studentId}
-                        onChange={(e) => setStudentId(e.target.value)}
-                        className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
-                        required
-                    />
-                    </div>
-                    <div className="space-y-2">
-                    <label htmlFor="passwordLogin" className="text-sm font-medium text-foreground">
-                        Password
-                    </label>
-                    <input
-                        id="passwordLogin"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
-                        required
-                    />
-                    </div>
-                    <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-base" disabled={isLoggingIn}>
-                    <LogIn className="mr-2 h-5 w-5" />
-                    {isLoggingIn ? "Logging in..." : "Login to Portal"}
-                    </Button>
-                    <p className="text-xs text-center text-muted-foreground">
-                    Forgot your password?{" "}
-                    <Link href="#contact" className="text-primary hover:underline">
-                        Contact support
-                    </Link>
-                    .
-                    </p>
-                </form>
-                </CardContent>
-            </Card>
-          </div>
+        <div className="grid md:grid-cols-2 gap-12 items-start">
+          <Card className="shadow-xl border-primary/10">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold text-primary">New to SIAT?</CardTitle>
+              <CardDescription>Embark on your academic journey with us. Apply for admission to our various programs.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
+                <Link href="/registration/new-intake">
+                  Apply for Admission <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-xl border-primary/10">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold text-primary">Student Portal Login</CardTitle>
+              <CardDescription>Welcome back! Access your dashboard.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div className="space-y-2">
+                  <label htmlFor="loginEmailInput" className="text-sm font-medium text-foreground">
+                    Email Address
+                  </label>
+                  <input
+                    id="loginEmailInput"
+                    type="email" // Changed type to email
+                    placeholder="e.g., student@siat.edu.ng"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="passwordLogin" className="text-sm font-medium text-foreground">
+                    Password
+                  </label>
+                  <input
+                    id="passwordLogin"
+                    type="password"
+                    placeholder="••••••••"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-base" disabled={isLoggingIn}>
+                  <LogIn className="mr-2 h-5 w-5" />
+                  {isLoggingIn ? "Logging in..." : "Login to Portal"}
+                </Button>
+                <p className="text-xs text-center text-muted-foreground">
+                  Forgot your password?{" "}
+                  <Link href="#contact" className="text-primary hover:underline">
+                    Contact support
+                  </Link>
+                  .
+                </p>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       {/* Why Choose SIAT */}
@@ -309,13 +323,13 @@ export default function LandingPage() {
               <CardContent className="p-6">
                 <p className="text-sm text-muted-foreground mb-1">{newsItem.date}</p>
                 <CardTitle className="text-xl mb-2 leading-tight text-primary hover:text-accent transition-colors">
-                  <Link href={`/news/${newsItem.id}`}>{newsItem.title}</Link>
+                  <Link href={`#`}>{newsItem.title}</Link> {/* Placeholder href */}
                 </CardTitle>
                 <p className="text-muted-foreground line-clamp-3 mb-4">
                   {newsItem.excerpt}
                 </p>
                 <Button variant="link" asChild className="px-0 text-accent hover:text-accent/80 font-semibold">
-                  <Link href={`/news/${newsItem.id}`}>
+                  <Link href={`#`}> {/* Placeholder href */}
                     Read More <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>

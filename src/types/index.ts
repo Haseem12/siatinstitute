@@ -3,11 +3,12 @@ export type User = {
   id: string;
   name: string;
   email: string;
-  studentId: string;
+  studentId: string; // Could also be staff ID
   avatarUrl?: string;
   department?: string;
   level?: string; // e.g. "100 Level", "200 Level"
-  role?: "student" | "instructor" | "admin"; // Added role
+  role?: "student" | "instructor" | "admin";
+  password?: string; // Added for mock user creation by admin
 };
 
 export type Course = {
