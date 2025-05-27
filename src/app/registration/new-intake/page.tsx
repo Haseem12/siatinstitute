@@ -43,28 +43,50 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, ChevronLeft, ChevronRight, PlusCircle, Trash2, UploadCloud, FileText } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, PlusCircle, Trash2, UploadCloud, FileText, User as UserIcon } from "lucide-react";
 import type { NewIntakeApplicationData, QualificationUpload, ExperienceUpload, FileUploadInfo } from "@/types";
 import { submitNewIntakeApplicationAction } from "./actions";
 import ArewaLogo from "@/components/arewa-logo";
 import Link from "next/link";
+import Image from "next/image";
+
 
 const MAX_QUALIFICATIONS = 5;
 const MAX_EXPERIENCES = 3;
+const MAX_FILE_SIZE_MB = 2;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/jpg"];
+const ALLOWED_DOC_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+
 
 const fileSchema = z.object({
   name: z.string(),
   type: z.string(),
   size: z.number(),
-});
+}).optional();
+
+const photographFileSchema = z.custom<FileList>((val) => val instanceof FileList && val.length > 0, "Photograph is required.")
+  .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE_BYTES, `Max photo size is ${MAX_FILE_SIZE_MB}MB.`)
+  .refine(
+    (files) => ALLOWED_IMAGE_TYPES.includes(files?.[0]?.type),
+    "Only .jpg, .jpeg, and .png formats are supported for photograph."
+  ).nullable().optional();
+
+const documentFileSchema = z.custom<FileList>((val) => val === null || (val instanceof FileList && val.length <= 1), "Please select one file or clear selection.")
+  .refine((files) => !files || files.length === 0 || files?.[0]?.size <= MAX_FILE_SIZE_BYTES, `Max document size is ${MAX_FILE_SIZE_MB}MB.`)
+  .refine(
+    (files) => !files || files.length === 0 || ALLOWED_DOC_TYPES.includes(files?.[0]?.type),
+    "Only .pdf, .jpg, .jpeg, and .png formats are supported for documents."
+  ).nullable().optional();
+
 
 const qualificationSchema = z.object({
   id: z.string(),
   type: z.string().min(1, "Qualification type is required."),
   institution: z.string().min(1, "Institution name is required."),
   yearAwarded: z.string().min(4, "Year is required.").max(4, "Invalid year."),
-  fileInput: z.custom<FileList>((val) => val === null || (val instanceof FileList && val.length <= 1), "Please select one file or clear selection.").nullable().optional(),
-  file: fileSchema.optional(),
+  fileInput: documentFileSchema,
+  file: fileSchema,
 });
 
 const experienceSchema = z.object({
@@ -73,8 +95,8 @@ const experienceSchema = z.object({
   role: z.string().min(1, "Role/Position is required."),
   startDate: z.string().min(1, "Start date is required."),
   endDate: z.string().min(1, "End date is required."),
-  fileInput: z.custom<FileList>((val) => val === null || (val instanceof FileList && val.length <= 1), "Please select one file or clear selection.").nullable().optional(),
-  file: fileSchema.optional(),
+  fileInput: documentFileSchema,
+  file: fileSchema,
 });
 
 
@@ -88,6 +110,8 @@ const newIntakeFormSchema = z.object({
   city: z.string().min(2, "City is required."),
   stateOfOrigin: z.string().min(2, "State of origin is required."),
   nationality: z.string().min(2, "Nationality is required."),
+  photographFile: photographFileSchema,
+  photograph: fileSchema,
   nextOfKinName: z.string().min(3, "Next of kin name is required."),
   nextOfKinPhone: z.string().min(10, "Next of kin phone is required."),
   nextOfKinRelationship: z.string().min(2, "Relationship to next of kin is required."),
@@ -103,7 +127,7 @@ const newIntakeFormSchema = z.object({
 type FormValues = z.infer<typeof newIntakeFormSchema>;
 
 const steps = [
-  { id: 1, name: "Bio-data", fields: ["fullName", "email", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
+  { id: 1, name: "Bio-data", fields: ["fullName", "email", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "photographFile", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
   { id: 2, name: "Qualifications", fields: ["qualifications"] as const },
   { id: 3, name: "Experience", fields: ["experiences"] as const },
   { id: 4, name: "Program Choice", fields: ["preferredProgram", "preferredCampus", "entryMode"] as const },
@@ -125,6 +149,7 @@ export default function NewIntakePage() {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [photographPreview, setPhotographPreview] = React.useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(newIntakeFormSchema),
@@ -138,6 +163,8 @@ export default function NewIntakePage() {
       city: "",
       stateOfOrigin: "",
       nationality: "Nigerian",
+      photographFile: null,
+      photograph: undefined,
       nextOfKinName: "",
       nextOfKinPhone: "",
       nextOfKinRelationship: "",
@@ -159,6 +186,38 @@ export default function NewIntakePage() {
     name: "experiences",
   });
 
+  const handlePhotographChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      // Validate file type and size before setting preview
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        toast({ variant: "destructive", title: "Invalid File Type", description: "Only JPG, JPEG, and PNG images are allowed for photograph."});
+        setPhotographPreview(null);
+        form.setValue('photographFile', null); // Clear invalid file
+        event.target.value = ""; // Reset file input
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast({ variant: "destructive", title: "File Too Large", description: `Photograph size cannot exceed ${MAX_FILE_SIZE_MB}MB.`});
+        setPhotographPreview(null);
+        form.setValue('photographFile', null);
+        event.target.value = "";
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotographPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      form.setValue('photographFile', files);
+    } else {
+      setPhotographPreview(null);
+      form.setValue('photographFile', null);
+    }
+  };
+
   const handleAddQualification = () => {
     if (qualifications.length < MAX_QUALIFICATIONS) {
       appendQualification({ id: crypto.randomUUID(), type: "", institution: "", yearAwarded: "", fileInput: null, file: undefined });
@@ -175,7 +234,7 @@ export default function NewIntakePage() {
     }
   };
 
-  const processFileUpload = (fileList: FileList | null): FileUploadInfo | undefined => {
+  const processFileUpload = (fileList: FileList | null | undefined): FileUploadInfo | undefined => {
     if (fileList && fileList.length > 0) {
       const file = fileList[0];
       return { name: file.name, type: file.type, size: file.size };
@@ -185,18 +244,20 @@ export default function NewIntakePage() {
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
-    // Process fileInputs to file metadata before sending to server action
+    
     const processedData: NewIntakeApplicationData = {
       ...data,
+      photograph: processFileUpload(data.photographFile),
+      photographFile: undefined,
       qualifications: data.qualifications.map(q => ({
         ...q,
         file: processFileUpload(q.fileInput),
-        fileInput: undefined, // Remove FileList before sending
+        fileInput: undefined, 
       })),
       experiences: data.experiences?.map(e => ({
         ...e,
         file: processFileUpload(e.fileInput),
-        fileInput: undefined, // Remove FileList before sending
+        fileInput: undefined, 
       })) || [],
     };
     
@@ -206,8 +267,9 @@ export default function NewIntakePage() {
     if (result.success) {
       toast({ title: "Application Submitted!", description: result.message, duration: 7000 });
       form.reset();
-      setCurrentStep(0); // Reset to first step
-      router.push("/"); // Or a success page
+      setPhotographPreview(null);
+      setCurrentStep(0); 
+      router.push("/"); 
     } else {
       toast({ variant: "destructive", title: "Submission Failed", description: result.message, duration: 7000 });
     }
@@ -282,11 +344,11 @@ export default function NewIntakePage() {
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                                disabled={(date) => date > new Date(new Date().setFullYear(new Date().getFullYear() - 15)) || date < new Date("1950-01-01")} // Min 15 years old
                                 initialFocus
                                 captionLayout="dropdown-buttons"
                                 fromYear={1950}
-                                toYear={new Date().getFullYear()}
+                                toYear={new Date().getFullYear() - 15}
                               />
                             </PopoverContent></Popover><FormMessage /></FormItem>
                        )}/>
@@ -312,6 +374,39 @@ export default function NewIntakePage() {
                     <FormField control={form.control} name="nationality" render={({ field }) => (
                       <FormItem><FormLabel>Nationality</FormLabel><FormControl><Input placeholder="e.g. Nigerian" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
+
+                    <FormField
+                        control={form.control}
+                        name="photographFile"
+                        render={({ field }) => ( // Destructure field to avoid passing all of it to Input
+                            <FormItem>
+                                <FormLabel>Passport Photograph (JPG, PNG - Max 2MB)</FormLabel>
+                                <FormControl>
+                                    <Input 
+                                        type="file" 
+                                        accept="image/jpeg,image/png,image/jpg" 
+                                        onChange={handlePhotographChange} 
+                                        className="file:text-accent file:font-semibold"
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {photographPreview && (
+                        <div className="mt-2 text-center">
+                            <Image src={photographPreview} alt="Photograph Preview" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="passport photograph"/>
+                        </div>
+                    )}
+                    {!photographPreview && (
+                         <div className="mt-2 text-center">
+                            <div className="w-[150px] h-[150px] bg-muted rounded-md border flex items-center justify-center mx-auto">
+                                <UserIcon className="w-16 h-16 text-muted-foreground" data-ai-hint="avatar placeholder" />
+                            </div>
+                        </div>
+                    )}
+
+
                     <h3 className="text-lg font-semibold text-primary pt-4 border-t">Next of Kin Information</h3>
                      <div className="grid md:grid-cols-2 gap-6">
                         <FormField control={form.control} name="nextOfKinName" render={({ field }) => (
@@ -350,7 +445,7 @@ export default function NewIntakePage() {
                         <FormField control={form.control} name={`qualifications.${index}.yearAwarded`} render={({ field }) => (
                           <FormItem><FormLabel>Year Awarded</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name={`qualifications.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
+                        <FormField control={form.control} name={`qualifications.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => ( // value is FileList here
                             <FormItem>
                                 <FormLabel>Upload Certificate (PDF, JPG, PNG - Max 2MB)</FormLabel>
                                 <FormControl>
@@ -394,12 +489,12 @@ export default function NewIntakePage() {
                                 <FormItem><FormLabel>Start Date</FormLabel><FormControl><Input type="month" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                              <FormField control={form.control} name={`experiences.${index}.endDate`} render={({ field }) => (
-                                <FormItem><FormLabel>End Date</FormLabel><FormControl><Input type="month" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel>End Date (or expected)</FormLabel><FormControl><Input type="month" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
-                         <FormField control={form.control} name={`experiences.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
+                         <FormField control={form.control} name={`experiences.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => ( // value is FileList here
                             <FormItem>
-                                <FormLabel>Upload Certificate (Optional)</FormLabel>
+                                <FormLabel>Upload Supporting Document (Optional)</FormLabel>
                                 <FormControl>
                                     <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold"/>
                                 </FormControl>
@@ -462,9 +557,18 @@ export default function NewIntakePage() {
                         <PreviewItem label="City" value={form.getValues("city")} />
                         <PreviewItem label="State of Origin" value={form.getValues("stateOfOrigin")} />
                         <PreviewItem label="Nationality" value={form.getValues("nationality")} />
-                        <PreviewItem label="Next of Kin Name" value={form.getValues("nextOfKinName")} />
-                        <PreviewItem label="Next of Kin Phone" value={form.getValues("nextOfKinPhone")} />
-                        <PreviewItem label="Next of Kin Relationship" value={form.getValues("nextOfKinRelationship")} />
+                        <PreviewItem label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || "Not uploaded"} />
+                        {photographPreview && (
+                            <div className="text-center">
+                                <Image src={photographPreview} alt="Photograph Preview" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="passport photograph small" />
+                            </div>
+                        )}
+
+
+                        <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Next of Kin</h3>
+                        <PreviewItem label="Full Name" value={form.getValues("nextOfKinName")} />
+                        <PreviewItem label="Phone" value={form.getValues("nextOfKinPhone")} />
+                        <PreviewItem label="Relationship" value={form.getValues("nextOfKinRelationship")} />
 
                         <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Qualifications</h3>
                         {form.getValues("qualifications").map((q, i) => (
@@ -498,11 +602,11 @@ export default function NewIntakePage() {
                      <FormItem>
                         <div className="flex items-center space-x-2 mt-6">
                             <Controller
-                                name="terms" // A dummy name for terms checkbox, not part of main schema for submission
+                                name={"terms" as any} // A dummy name for terms checkbox, not part of main schema for submission
                                 control={form.control}
                                 rules={{ required: "You must agree to the terms." }}
                                 render={({ field }) => (
-                                <input type="checkbox" id="terms" {...field} checked={field.value} 
+                                <input type="checkbox" id="terms" {...field} checked={field.value || false} 
                                        className="h-4 w-4 rounded border-primary text-primary focus:ring-primary" />
                                 )}
                             />
@@ -518,7 +622,7 @@ export default function NewIntakePage() {
                 {/* Navigation Buttons */}
                 <CardFooter className="flex justify-between mt-8 p-0">
                   {currentStep > 0 && (
-                    <Button type="button" variant="outline" onClick={prevStep}>
+                    <Button type="button" variant="outline" onClick={prevStep} disabled={isLoading}>
                       <ChevronLeft className="mr-2 h-4 w-4" /> Previous
                     </Button>
                   )}
@@ -556,4 +660,3 @@ const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
     <dd className="text-foreground sm:text-right">{value || "N/A"}</dd>
   </div>
 );
-

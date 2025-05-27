@@ -114,6 +114,8 @@ export type NewIntakeApplicationData = {
   city: string;
   stateOfOrigin: string;
   nationality: string;
+  photographFile?: FileList | null; // For the actual file input
+  photograph?: FileUploadInfo;      // For metadata sent to server
   nextOfKinName: string;
   nextOfKinPhone: string;
   nextOfKinRelationship: string;
