@@ -11,11 +11,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, UploadCloud } from "lucide-react";
 import type { Assignment, Course } from "@/types";
-import type { Metadata } from 'next';
+// import type { Metadata } from 'next'; // Cannot be used in client components
 
-// export const metadata: Metadata = { // Cannot be used in client components
-//   title: 'Create Assignment - Instructor Dashboard',
-// };
 
 // Mock courses for the instructor
 const mockInstructorCourses: Course[] = [
@@ -126,26 +123,3 @@ export default function CreateAssignmentPage() {
     </div>
   );
 }
-
-// Adding placeholder pages for other instructor links to avoid 404s
-// These would be fleshed out in subsequent requests.
-export function ViewSubmissionsPage() {
-  useState(() => { if (typeof document !== 'undefined') document.title = 'View Submissions - Instructor'; }, []);
-  return <div className="p-4"><Card><CardHeader><CardTitle>View Submissions</CardTitle><CardDescription>Submissions for your assignments will appear here.</CardDescription></CardHeader><CardContent><p>Mock page for viewing student submissions.</p></CardContent></Card></div>;
-}
-
-export function GradebookPage() {
-  useState(() => { if (typeof document !== 'undefined') document.title = 'Gradebook - Instructor'; }, []);
-  return <div className="p-4"><Card><CardHeader><CardTitle>Gradebook</CardTitle><CardDescription>Manage and view student grades for your courses.</CardDescription></CardHeader><CardContent><p>Mock page for instructor's gradebook.</p></CardContent></Card></div>;
-}
-
-export function InstructorProfilePage() {
-  useState(() => { if (typeof document !== 'undefined') document.title = 'My Profile - Instructor'; }, []);
-  return <div className="p-4"><Card><CardHeader><CardTitle>Instructor Profile</CardTitle><CardDescription>Manage your profile details.</CardDescription></CardHeader><CardContent><p>Mock page for instructor profile.</p></CardContent></Card></div>;
-}
-
-export function InstructorAnnouncementsPage() {
- useState(() => { if (typeof document !== 'undefined') document.title = 'Post Announcement - Instructor'; }, []);
- return <div className="p-4"><Card><CardHeader><CardTitle>Post Announcement</CardTitle><CardDescription>Create and send announcements to your students.</CardDescription></CardHeader><CardContent><p>Mock page for posting announcements.</p></CardContent></Card></div>;
-}
-

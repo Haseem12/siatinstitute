@@ -139,3 +139,15 @@ export type CourseContent = {
   description?: string; // Text content for notes
   uploadedDate: string;
 };
+
+export type Submission = {
+  id: string;
+  assignmentId: string;
+  studentId: string;
+  studentName: string;
+  submittedDate: string; // ISO date string
+  fileUrl: string; // Mock URL to the submitted file
+  fileName: string;
+  grade?: string; // e.g., "85/100" or "A"
+  feedback?: string;
+};
