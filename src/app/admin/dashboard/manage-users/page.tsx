@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle, Search, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, Loader2 } from "lucide-react";
 import type { User } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -48,7 +48,6 @@ export default function ManageUsersPage() {
     if (typeof window !== 'undefined') {
       const storedUsers = localStorage.getItem("mockAddedUsers");
       const addedUsers = storedUsers ? JSON.parse(storedUsers) : [];
-      // Combine initial mock users with any locally stored ones, avoiding duplicates by email
       const combined = [...mockInitialUsers];
       addedUsers.forEach((addedUser: User) => {
         if (!combined.some(u => u.email === addedUser.email)) {
@@ -61,6 +60,7 @@ export default function ManageUsersPage() {
   });
   const [searchTerm, setSearchTerm] = React.useState("");
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   React.useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -81,37 +81,86 @@ export default function ManageUsersPage() {
     },
   });
 
-  const handleAddUserSubmit = (data: NewUserFormValues) => {
+  const handleAddUserSubmit = async (data: NewUserFormValues) => {
+    setIsSubmitting(true);
     const newUser: User = {
       id: `usr${users.length + 1}_${Date.now()}`, // More unique ID
       ...data,
     };
 
-    // Prevent adding user with duplicate email or studentId client-side
     if (users.some(u => u.email === newUser.email)) {
         toast({ variant: "destructive", title: "Error", description: "User with this email already exists." });
         form.setError("email", {message: "User with this email already exists."});
+        setIsSubmitting(false);
         return;
     }
     if (users.some(u => u.studentId === newUser.studentId)) {
         toast({ variant: "destructive", title: "Error", description: "User with this ID already exists." });
         form.setError("studentId", {message: "User with this ID already exists."});
+        setIsSubmitting(false);
         return;
     }
 
-
+    // 1. Update local state for immediate UI feedback
     setUsers(prev => [newUser, ...prev]);
 
-    // Add to localStorage for mock persistence across sessions (for login page)
+    // 2. Add to localStorage for mock persistence across sessions (for login page)
     if (typeof window !== 'undefined') {
       const storedUsers = localStorage.getItem("mockAddedUsers");
       const addedUsers = storedUsers ? JSON.parse(storedUsers) : [];
       localStorage.setItem("mockAddedUsers", JSON.stringify([...addedUsers, newUser]));
     }
 
-    toast({ title: "User Added", description: `${newUser.name} has been added successfully.` });
+    toast({ title: "User Added Locally", description: `${newUser.name} has been added to the local list and localStorage.` });
+
+    // 3. Attempt to POST to external API
+    try {
+      // Prepare only relevant data for the API, assuming it wants a structure similar to mock-users.ts
+      const apiUserData = {
+        email: newUser.email,
+        password: newUser.password, // In a real app, password handling would be very different (hashing etc.)
+        role: newUser.role,
+        name: newUser.name, // Include other details as the API might expect
+        studentId: newUser.studentId,
+        department: newUser.department,
+        level: newUser.level,
+      };
+
+      const response = await fetch("https://sajfoods.net/api/mock-users.ts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(apiUserData),
+      });
+
+      if (response.ok) {
+        // const responseData = await response.json(); // If API returns data
+        toast({ title: "User Sent to API", description: `Data for ${newUser.name} sent to external API successfully. Note: This is a mock API and may not persist data.` });
+      } else {
+        // Handle API errors (e.g., 4xx, 5xx)
+        const errorText = await response.text();
+        toast({
+          variant: "destructive",
+          title: "API Submission Error",
+          description: `Failed to send user to external API. Status: ${response.status}. ${errorText || ''}`,
+          duration: 7000,
+        });
+      }
+    } catch (error) {
+      // Handle network errors or other fetch issues
+      console.error("Error posting to external API:", error);
+      toast({
+        variant: "destructive",
+        title: "Network Error",
+        description: "Could not send user data to external API. Please check your network connection.",
+        duration: 7000,
+      });
+    }
+
     setIsAddUserDialogOpen(false);
     form.reset();
+    setIsSubmitting(false);
   };
 
   const filteredUsers = users.filter(user =>
@@ -142,7 +191,10 @@ export default function ManageUsersPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+          <Dialog open={isAddUserDialogOpen} onOpenChange={(isOpen) => {
+            setIsAddUserDialogOpen(isOpen);
+            if (!isOpen) form.reset(); // Reset form when dialog closes
+          }}>
             <DialogTrigger asChild>
               <Button className="bg-accent hover:bg-accent/90 text-accent-foreground">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New User
@@ -151,7 +203,7 @@ export default function ManageUsersPage() {
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle className="text-primary">Add New User</DialogTitle>
-                <DialogDescription>Enter the details for the new user account.</DialogDescription>
+                <DialogDescription>Enter the details for the new user account. This will attempt to save to the external API.</DialogDescription>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleAddUserSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
@@ -185,8 +237,11 @@ export default function ManageUsersPage() {
                     <FormItem><FormLabel>Level (Optional, for students)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <DialogFooter className="mt-6">
-                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                    <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Add User</Button>
+                    <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
+                    <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isSubmitting}>
+                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      {isSubmitting ? "Adding User..." : "Add User"}
+                    </Button>
                   </DialogFooter>
                 </form>
               </Form>
