@@ -3,9 +3,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input" // Added for login form
 import {
-  Menu,
-  X,
   ArrowRight,
   BookOpen,
   CheckSquare,
@@ -19,11 +18,12 @@ import {
   Newspaper,
   Mail,
   Loader2,
+  Menu // Added Menu icon
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation" // Ensure useRouter is imported
 import { useToast } from "@/hooks/use-toast"
 import ArewaLogo from "@/components/arewa-logo"
 import {
@@ -35,8 +35,8 @@ import {
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
+import { mockUsers as initialMockUsers } from "@/lib/mock-users"; // Renamed to avoid conflict
 import type { User } from "@/types";
-import { mockUsers as initialMockUsers } from "@/lib/mock-users";
 
 
 const carouselImages = [
@@ -57,7 +57,7 @@ const carouselImages = [
 export default function LandingPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [loginEmail, setLoginEmail] = useState("")
+  const [loginEmail, setLoginEmail] = useState("") // Changed from loginStudentId
   const [loginPassword, setLoginPassword] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -82,7 +82,7 @@ export default function LandingPage() {
     if (foundUser) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userEmail', foundUser.email);
+        localStorage.setItem('userEmail', foundUser.email); // Store actual email
         localStorage.setItem('userRole', foundUser.role || 'student');
       }
       toast({ title: `${(foundUser.role || 'User').charAt(0).toUpperCase() + (foundUser.role || 'User').slice(1)} Login Successful`, description: "Redirecting..." });
@@ -170,7 +170,7 @@ export default function LandingPage() {
                   style={{ objectFit: "cover" }}
                   className="brightness-75"
                   priority={index === 0}
-                  sizes="(max-width: 768px) 100vw, 50vw"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   data-ai-hint={item.dataAiHint}
                   onError={(e) => console.error("Image failed to load:", item.src, (e.target as HTMLImageElement).src)}
                 />
@@ -198,16 +198,27 @@ export default function LandingPage() {
         </Carousel>
       </section>
       
-      {/* Login & New Intake Section */}
+      {/* Student Portal Login & New Intake */}
       <section id="auth-section" className="container mx-auto px-4 pt-24 lg:pt-32 pb-16 lg:pb-24 scroll-mt-16">
         <div className="grid md:grid-cols-2 gap-12 items-start">
           <Card className="shadow-xl border-primary/10">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl font-bold text-primary">New to SIAT?</CardTitle>
               <CardDescription>
-                Embark on your academic journey with us. Apply for admission to our various programs.
+                Embark on your academic journey with us. Apply for admission to our various programs. 
                 Explore a diverse range of courses in a supportive and innovative learning environment. 
                 We are committed to nurturing talent and fostering future leaders.
+                <br/><br/>
+                <strong>The Admission Process:</strong>
+                <ol className="list-decimal list-inside text-left text-sm mt-2 space-y-1">
+                    <li>Ensure you meet the basic entry requirements for your desired program.</li>
+                    <li>Click the "Apply for Admission" button below.</li>
+                    <li>You will be directed to our multi-step application form.</li>
+                    <li>Complete your bio-data, academic qualifications, and program choices.</li>
+                    <li>Upload scanned copies of your relevant documents (e.g., SSCE, Diploma certificates).</li>
+                    <li>Preview your application details carefully before final submission.</li>
+                    <li>Upon successful submission, you will receive an application ID and further instructions via email.</li>
+                </ol>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -230,7 +241,7 @@ export default function LandingPage() {
                     <label htmlFor="loginEmailInput" className="text-sm font-medium text-foreground">
                       Email Address
                     </label>
-                    <input
+                    <Input
                       id="loginEmailInput"
                       type="email"
                       placeholder="e.g., student@siat.edu.ng"
@@ -244,7 +255,7 @@ export default function LandingPage() {
                     <label htmlFor="passwordLogin" className="text-sm font-medium text-foreground">
                       Password
                     </label>
-                    <input
+                    <Input
                       id="passwordLogin"
                       type="password"
                       placeholder="••••••••"
@@ -369,3 +380,5 @@ export default function LandingPage() {
     </div>
   )
 }
+
+    
