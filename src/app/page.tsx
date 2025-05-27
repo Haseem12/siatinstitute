@@ -36,6 +36,7 @@ import {
 import Autoplay from "embla-carousel-autoplay"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
 import type { User } from "@/types";
+import { mockUsers as initialMockUsers } from "@/lib/mock-users";
 
 
 const carouselImages = [
@@ -61,47 +62,16 @@ export default function LandingPage() {
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const [fetchedMockUsers, setFetchedMockUsers] = useState<User[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  const [loadUsersError, setLoadUsersError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setIsLoadingUsers(true);
-      setLoadUsersError(null);
-      try {
-        const response = await fetch("https://sajfoods.net/api/mock-users.ts"); // Assuming this returns JSON
-        if (!response.ok) {
-          throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
-        }
-        const users: User[] = await response.json();
-        setFetchedMockUsers(users);
-      } catch (error) {
-        console.error("Error fetching mock users:", error);
-        setLoadUsersError(error instanceof Error ? error.message : "An unknown error occurred while fetching users.");
-        toast({
-          variant: "destructive",
-          title: "Error Loading User Data",
-          description: "Could not load initial user list. Please try again later.",
-        });
-      } finally {
-        setIsLoadingUsers(false);
-      }
-    };
-    fetchUsers();
-  }, [toast]);
-
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoggingIn(true);
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
-    let foundUser: User | undefined = fetchedMockUsers.find(
+    let foundUser: User | undefined = initialMockUsers.find(
       (user) => user.email.toLowerCase() === loginEmail.toLowerCase() && user.password === loginPassword
     );
 
-    // If not found in fetched mocks, check localStorage for admin-added users
+    // If not found in initial mocks, check localStorage for admin-added users
     if (!foundUser && typeof window !== 'undefined') {
       const storedUsers = localStorage.getItem("mockAddedUsers");
       const addedUsers: User[] = storedUsers ? JSON.parse(storedUsers) : [];
@@ -201,7 +171,7 @@ export default function LandingPage() {
                   style={{ objectFit: "cover" }}
                   className="brightness-75"
                   priority={index === 0}
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   data-ai-hint={item.dataAiHint}
                   onError={(e) => console.error("Image failed to load:", item.src, (e.target as HTMLImageElement).src)}
                 />
@@ -252,19 +222,6 @@ export default function LandingPage() {
               <CardDescription>Welcome back! Access your dashboard.</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoadingUsers && (
-                <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <p>Loading user data...</p>
-                </div>
-              )}
-              {loadUsersError && (
-                 <div className="flex flex-col items-center justify-center space-y-2 text-destructive">
-                   <X className="h-8 w-8" />
-                   <p className="text-center">Failed to load user data.<br/>Please try again later.</p>
-                 </div>
-              )}
-              {!isLoadingUsers && !loadUsersError && (
                 <form onSubmit={handleLogin} className="space-y-6">
                   <div className="space-y-2">
                     <label htmlFor="loginEmailInput" className="text-sm font-medium text-foreground">
@@ -294,7 +251,7 @@ export default function LandingPage() {
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-base" disabled={isLoggingIn || isLoadingUsers}>
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-base" disabled={isLoggingIn}>
                     {isLoggingIn ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
                     {isLoggingIn ? "Logging in..." : "Login to Portal"}
                   </Button>
@@ -306,7 +263,6 @@ export default function LandingPage() {
                     .
                   </p>
                 </form>
-              )}
             </CardContent>
           </Card>
         </div>
@@ -411,4 +367,3 @@ export default function LandingPage() {
   )
 }
 
-    
