@@ -71,7 +71,6 @@ export default function LandingPage() {
       (user) => user.email.toLowerCase() === loginEmail.toLowerCase() && user.password === loginPassword
     );
 
-    // If not found in initial mocks, check localStorage for admin-added users
     if (!foundUser && typeof window !== 'undefined') {
       const storedUsers = localStorage.getItem("mockAddedUsers");
       const addedUsers: User[] = storedUsers ? JSON.parse(storedUsers) : [];
@@ -205,7 +204,11 @@ export default function LandingPage() {
           <Card className="shadow-xl border-primary/10">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl font-bold text-primary">New to SIAT?</CardTitle>
-              <CardDescription>Embark on your academic journey with us. Apply for admission to our various programs.</CardDescription>
+              <CardDescription>
+                Embark on your academic journey with us. Apply for admission to our various programs.
+                Explore a diverse range of courses in a supportive and innovative learning environment. 
+                We are committed to nurturing talent and fostering future leaders.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
@@ -366,4 +369,3 @@ export default function LandingPage() {
     </div>
   )
 }
-
