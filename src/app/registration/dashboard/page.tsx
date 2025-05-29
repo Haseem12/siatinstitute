@@ -54,8 +54,10 @@ import {
   CarouselNext,
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
-import { Dialog, DialogContent as PrintDialogContent, DialogHeader as PrintDialogHeader, DialogTitle as PrintDialogTitle, DialogDescription as PrintDialogDescription, DialogFooter as PrintDialogFooter, DialogClose as PrintDialogClose } from "@/components/ui/dialog"; // Aliased for print dialog
+import { Dialog, DialogContent as PrintDialogContent, DialogHeader as PrintDialogHeader, DialogTitle as PrintDialogTitle, DialogDescription as PrintDialogDescription, DialogFooter as PrintDialogFooter, DialogClose as PrintDialogClose, DialogTrigger } from "@/components/ui/dialog"; // Aliased for print dialog
 import ArewaLogo from "@/components/arewa-logo";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 const MAX_QUALIFICATIONS = 5;
 const MAX_EXPERIENCES = 3;
@@ -176,16 +178,6 @@ export default function RegistrationDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [currentTab, setCurrentTab] = useState(tabs[0].id);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [photographPreview, setPhotographPreview] = React.useState<string | null>(null);
-  const [applicantAppId, setApplicantAppId] = useState<string | null>(null);
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-  const [applicationStatus, setApplicationStatus] = useState<"incomplete" | "submitted" | "admitted" | "not_admitted">("incomplete");
-  const [completedApplicationData, setCompletedApplicationData] = useState<NewIntakeApplicationData | null>(null);
-  const [isAdmissionLetterDialogOpen, setIsAdmissionLetterDialogOpen] = useState(false);
-  const admissionLetterContentRef = useRef<HTMLDivElement>(null);
-
   const form = useForm<FormValues>({
     resolver: zodResolver(registrationDashboardFormSchema),
     defaultValues: {
@@ -215,6 +207,16 @@ export default function RegistrationDashboardPage() {
     },
   });
 
+  const [currentTab, setCurrentTab] = useState(tabs[0].id);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [photographPreview, setPhotographPreview] = React.useState<string | null>(null);
+  const [applicantAppId, setApplicantAppId] = useState<string | null>(null);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState<"incomplete" | "submitted" | "admitted" | "not_admitted">("incomplete");
+  const [completedApplicationData, setCompletedApplicationData] = useState<NewIntakeApplicationData | null>(null);
+  const [isAdmissionLetterDialogOpen, setIsAdmissionLetterDialogOpen] = useState(false);
+  const admissionLetterContentRef = useRef<HTMLDivElement>(null);
+
 
   const checkApplicationStatus = useCallback(() => {
     if (applicantAppId && typeof window !== 'undefined') {
@@ -237,7 +239,7 @@ export default function RegistrationDashboardPage() {
             photographFile: null, 
             oLevels: currentApp.oLevels?.map(ol => ({...ol, fileInput: null, file: ol.file ? {...ol.file} : undefined })) || [],
             aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null, file: al.file ? {...al.file} : undefined })) || [],
-            terms: true, 
+            terms: true, // if it's completed, terms must have been true
           };
           form.reset(formDataForReset as any);
 
@@ -291,14 +293,6 @@ export default function RegistrationDashboardPage() {
     name: "oLevels",
   });
 
-  const handleAddOLevelSubject = (oLevelIndex: number) => {
-    const oLevelSubjectsArrayMethods = useFieldArray({ control: form.control, name: `oLevels.${oLevelIndex}.subjects` });
-    if ((form.getValues(`oLevels.${oLevelIndex}.subjects`)?.length || 0) < 9) {
-       oLevelSubjectsArrayMethods.append({ id: crypto.randomUUID(), subject: "", grade: "" });
-    } else {
-        toast({ title: "Limit Reached", description: "Maximum 9 O-Level subjects per sitting.", variant: "destructive" });
-    }
-  };
 
   const { fields: aLevelFields, append: appendALevel, remove: removeALevel } = useFieldArray({
     control: form.control,
@@ -372,27 +366,35 @@ export default function RegistrationDashboardPage() {
     const applicationDataToSubmit: NewIntakeApplicationData = {
       ...data,
       photograph: processFileUpload(data.photographFile),
-      qualifications: [
+      // Re-map qualifications correctly for submission if necessary
+      // For this example, 'oLevels' and 'aLevels' are directly part of FormValues mapped from NewIntakeApplicationData
+      // We'll structure them into a single 'qualifications' array in a real backend,
+      // but for localStorage, we can keep them as is if the type matches.
+      // However, the admin view expects a single `qualifications` array. Let's combine them.
+       qualifications: [
         ...data.oLevels.map(ol => ({
           id: ol.id,
           type: `O-Level (${ol.examType}) - ${ol.examYear}`,
           institution: ol.examNumber || "N/A (Exam No.)",
           yearAwarded: ol.examYear,
-          subjects: ol.subjects,
+          subjects: ol.subjects, // Keep subjects for O-Levels
           description: `${ol.subjects.length} subjects. Certificate: ${processFileUpload(ol.fileInput)?.name || "N/A"}`,
           file: processFileUpload(ol.fileInput),
+          photographFile: undefined, // Ensure this isn't passed
         })),
         ...(data.aLevels?.map(al => ({
           ...al,
           file: processFileUpload(al.fileInput),
+          photographFile: undefined, // Ensure this isn't passed
         })) || [])
       ],
       admissionStatus: "Pending",
     };
 
+    // Clean up form-specific fields that are not part of the final data structure
     delete (applicationDataToSubmit as any).photographFile;
-    delete (applicationDataToSubmit as any).oLevels;
-    delete (applicationDataToSubmit as any).aLevels;
+    // The re-mapping above handles oLevels and aLevels into qualifications
+    // If oLevels and aLevels were still direct properties, you'd delete them here.
     delete (applicationDataToSubmit as any).terms;
 
     try {
@@ -408,7 +410,7 @@ export default function RegistrationDashboardPage() {
         localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
 
         toast({ title: "Application Submitted Successfully!", description: `Your application (ID: ${applicationDataToSubmit.applicationId}) has been saved. You will be notified of your admission status.`, duration: 7000 });
-        checkApplicationStatus();
+        checkApplicationStatus(); // Re-check status to update UI
 
       } catch (e) {
         console.error("Failed to save application to localStorage", e);
@@ -428,7 +430,7 @@ export default function RegistrationDashboardPage() {
       output = await form.trigger(currentFields, { shouldFocus: true });
     }
 
-    if (currentTabIndex === tabs.length - 1) {
+    if (currentTabIndex === tabs.length - 1) { // Check for terms on the last tab
         const termsOutput = await form.trigger(["terms"]);
         if (!termsOutput) output = false;
     }
@@ -458,7 +460,7 @@ export default function RegistrationDashboardPage() {
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
             .letter-container { max-width: 700px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid hsl(var(--primary)); padding-bottom: 15px; }
-            .header img { max-height: 70px; margin-bottom: 10px; }
+            .header img { max-height: 70px; margin-bottom: 10px; } /* Changed ArewaLogo to img */
             .header h1 { margin: 0; font-size: 22px; color: hsl(var(--primary)); }
             .header h2 { margin: 5px 0; font-size: 18px; font-weight: normal; color: hsl(var(--foreground));}
             .applicant-details p, .admission-details p { margin: 5px 0; font-size: 14px; }
@@ -473,11 +475,24 @@ export default function RegistrationDashboardPage() {
           </style>
         `);
         printWindow.document.write('</head><body>');
-        // Inject CSS variables for colors from the current theme
         const rootStyles = getComputedStyle(document.documentElement);
         const cssVars = `--primary: ${rootStyles.getPropertyValue('--primary')}; --foreground: ${rootStyles.getPropertyValue('--foreground')};`;
         printWindow.document.write(`<div style="${cssVars}">`);
-        printWindow.document.write(content.innerHTML);
+        // Manually add logo for print if needed, as direct component rendering is tricky here
+        // For simplicity, assuming ArewaLogo is an SVG that can be embedded or a public URL
+        const logoHtml = `<img src="/assets/arewa-logo.svg" alt="Institute Logo" style="max-height: 70px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" class="no-print-in-original-but-needed-here" data-ai-hint="school logo print" />`;
+        let contentHtml = content.innerHTML;
+        // If the logo has a specific class in the original content that hides it in print, adjust.
+        // Or ensure the logo in the original content is not hidden by print styles if that's preferred.
+        contentHtml = contentHtml.replace(/<div class="header[^>]*>[\s\S]*?<\/h1>/, (match) => {
+            // Find the img tag or insert the logo if not present directly in the header's main h1 area
+            if (match.includes('arewa-logo')) { // Assuming ArewaLogo component renders with this class or similar identifier
+                return match; // Already has a logo, or logic is more complex
+            }
+            return match.replace(/<h1.*?>/, `<h1>${logoHtml}`); // Prepend logo to H1 or specific part of header
+        });
+
+        printWindow.document.write(contentHtml);
         printWindow.document.write('</div></body></html>');
         printWindow.document.close();
         printWindow.focus();
@@ -710,7 +725,13 @@ export default function RegistrationDashboardPage() {
 
                             <TabsContent value="o-level" className="space-y-6 animate-in fade-in-50">
                                 <CardTitle className="text-xl text-primary">O-Level Qualifications</CardTitle>
-                                {oLevelFields.map((item, oLevelIndex) => (
+                                {oLevelFields.map((item, oLevelIndex) => {
+                                   const { fields: subjectFields, append: appendSubject, remove: removeSubject } = useFieldArray({
+                                        control: form.control,
+                                        name: `oLevels.${oLevelIndex}.subjects`,
+                                    });
+
+                                    return (
                                     <Card key={item.id} className="p-4 space-y-4 relative bg-muted/50">
                                         <div className="flex justify-between items-center">
                                             <h4 className="font-medium text-primary">O-Level Sitting {oLevelIndex + 1}</h4>
@@ -737,7 +758,7 @@ export default function RegistrationDashboardPage() {
                                         </div>
 
                                         <h5 className="font-medium pt-2">Subjects & Grades (Min 5, Max 9)</h5>
-                                        {form.watch(`oLevels.${oLevelIndex}.subjects`)?.map((subjectItem, subjectIndex) => (
+                                        {subjectFields.map((subjectItem, subjectIndex) => (
                                             <div key={subjectItem.id} className="grid grid-cols-10 gap-2 items-end">
                                                 <FormField control={form.control} name={`oLevels.${oLevelIndex}.subjects.${subjectIndex}.subject`} render={({ field }) => (
                                                     <FormItem className="col-span-5"><FormLabel className="text-xs">Subject {subjectIndex + 1}</FormLabel>
@@ -753,18 +774,15 @@ export default function RegistrationDashboardPage() {
                                                         <SelectContent>{oLevelGrades.map(grd => <SelectItem key={grd} value={grd}>{grd}</SelectItem>)}</SelectContent>
                                                         </Select><FormMessage /></FormItem>
                                                 )} />
-                                                {form.getValues(`oLevels.${oLevelIndex}.subjects`).length > 5 && (
-                                                    <Button type="button" variant="ghost" size="icon" className="col-span-1 text-destructive hover:bg-destructive/10 h-9 w-9 self-end" onClick={() => {
-                                                        const fieldArrayMethods = useFieldArray({ control: form.control, name: `oLevels.${oLevelIndex}.subjects` });
-                                                        fieldArrayMethods.remove(subjectIndex);
-                                                    }}>
+                                                {subjectFields.length > 5 && (
+                                                    <Button type="button" variant="ghost" size="icon" className="col-span-1 text-destructive hover:bg-destructive/10 h-9 w-9 self-end" onClick={() => removeSubject(subjectIndex)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 )}
                                             </div>
                                         ))}
-                                        { (form.watch(`oLevels.${oLevelIndex}.subjects`)?.length || 0) < 9 && (
-                                            <Button type="button" size="sm" variant="outline" className="mt-2 text-accent border-accent" onClick={() => handleAddOLevelSubject(oLevelIndex)}>
+                                        { subjectFields.length < 9 && (
+                                            <Button type="button" size="sm" variant="outline" className="mt-2 text-accent border-accent" onClick={() => appendSubject({ id: crypto.randomUUID(), subject: "", grade: "" })}>
                                                 <PlusCircle className="mr-2 h-4 w-4" /> Add Subject
                                             </Button>
                                         )}
@@ -780,7 +798,8 @@ export default function RegistrationDashboardPage() {
                                             </FormItem>
                                         )} />
                                     </Card>
-                                ))}
+                                    )
+                                })}
                                 {oLevelFields.length < 2 && (
                                     <Button type="button" variant="outline" onClick={handleAddOLevel} className="text-accent border-accent hover:bg-accent/10">
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add O-Level Sitting
@@ -1055,4 +1074,3 @@ const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
     <dd className="text-foreground sm:text-right">{String(value === undefined || value === null || String(value).trim() === '' ? "N/A" : value)}</dd>
   </div>
 );
-
