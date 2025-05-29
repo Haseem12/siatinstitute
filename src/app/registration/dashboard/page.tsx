@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import * as z from "zod";
@@ -43,7 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, PlusCircle, Trash2, UploadCloud, FileText, User as UserIcon, Loader2, ArrowRight, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw, ArrowLeft } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, UploadCloud, FileText, User as UserIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw } from "lucide-react";
 import type { NewIntakeApplicationData, QualificationUpload, ExperienceUpload, FileUploadInfo, PreRegisteredUser } from "@/types";
 import Image from "next/image";
 import {
@@ -54,6 +54,8 @@ import {
   CarouselNext,
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
+import { Dialog, DialogContent as PrintDialogContent, DialogHeader as PrintDialogHeader, DialogTitle as PrintDialogTitle, DialogDescription as PrintDialogDescription, DialogFooter as PrintDialogFooter, DialogClose as PrintDialogClose } from "@/components/ui/dialog"; // Aliased for print dialog
+import ArewaLogo from "@/components/arewa-logo";
 
 const MAX_QUALIFICATIONS = 5;
 const MAX_EXPERIENCES = 3;
@@ -138,6 +140,7 @@ const registrationDashboardFormSchema = z.object({
 
   terms: z.boolean().refine(val => val === true, "You must agree to the terms."),
   admissionStatus: z.enum(["Pending", "Admitted", "Not Admitted"]).optional(),
+  rejectionReason: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof registrationDashboardFormSchema>;
@@ -172,6 +175,7 @@ const heroSliderImages = [
 export default function RegistrationDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
+  
   const [currentTab, setCurrentTab] = useState(tabs[0].id);
   const [isLoading, setIsLoading] = React.useState(false);
   const [photographPreview, setPhotographPreview] = React.useState<string | null>(null);
@@ -179,6 +183,8 @@ export default function RegistrationDashboardPage() {
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [applicationStatus, setApplicationStatus] = useState<"incomplete" | "submitted" | "admitted" | "not_admitted">("incomplete");
   const [completedApplicationData, setCompletedApplicationData] = useState<NewIntakeApplicationData | null>(null);
+  const [isAdmissionLetterDialogOpen, setIsAdmissionLetterDialogOpen] = useState(false);
+  const admissionLetterContentRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(registrationDashboardFormSchema),
@@ -205,8 +211,10 @@ export default function RegistrationDashboardPage() {
       entryMode: undefined,
       terms: false,
       admissionStatus: "Pending",
+      rejectionReason: undefined,
     },
   });
+
 
   const checkApplicationStatus = useCallback(() => {
     if (applicantAppId && typeof window !== 'undefined') {
@@ -215,29 +223,31 @@ export default function RegistrationDashboardPage() {
         const completedApps: NewIntakeApplicationData[] = JSON.parse(completedAppsString);
         const currentApp = completedApps.find(app => app.applicationId === applicantAppId);
         if (currentApp) {
-          setCompletedApplicationData(currentApp); // Store the full app data
+          setCompletedApplicationData(currentApp); 
           if (currentApp.admissionStatus === "Admitted") {
             setApplicationStatus("admitted");
           } else if (currentApp.admissionStatus === "Not Admitted") {
             setApplicationStatus("not_admitted");
           } else {
-            setApplicationStatus("submitted"); // Default to submitted if status is pending or undefined
+            setApplicationStatus("submitted");
           }
           const formDataForReset = {
             ...currentApp,
             dateOfBirth: currentApp.dateOfBirth ? new Date(currentApp.dateOfBirth) : undefined,
             photographFile: null, 
-            oLevels: currentApp.oLevels?.map(ol => ({...ol, fileInput: null})) || [],
-            aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null})) || [],
-            terms: true, // If app was completed, terms must have been agreed to.
+            oLevels: currentApp.oLevels?.map(ol => ({...ol, fileInput: null, file: ol.file ? {...ol.file} : undefined })) || [],
+            aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null, file: al.file ? {...al.file} : undefined })) || [],
+            terms: true, 
           };
           form.reset(formDataForReset as any);
 
         } else {
           setApplicationStatus("incomplete");
+          setCompletedApplicationData(null);
         }
       } else {
         setApplicationStatus("incomplete");
+        setCompletedApplicationData(null);
       }
     }
   }, [applicantAppId, form]);
@@ -274,7 +284,6 @@ export default function RegistrationDashboardPage() {
       setInitialDataLoaded(true);
     }
   }, [applicantAppId, form, initialDataLoaded, checkApplicationStatus]);
-
 
 
   const { fields: oLevelFields, append: appendOLevel, remove: removeOLevel } = useFieldArray({
@@ -381,12 +390,10 @@ export default function RegistrationDashboardPage() {
       admissionStatus: "Pending",
     };
 
-    // Remove form-specific temporary fields before saving/sending
     delete (applicationDataToSubmit as any).photographFile;
     delete (applicationDataToSubmit as any).oLevels;
     delete (applicationDataToSubmit as any).aLevels;
     delete (applicationDataToSubmit as any).terms;
-
 
     try {
         const existingApplicationsString = localStorage.getItem("completedApplications");
@@ -394,14 +401,14 @@ export default function RegistrationDashboardPage() {
 
         const appIndex = existingApplications.findIndex(app => app.applicationId === applicationDataToSubmit.applicationId);
         if (appIndex > -1) {
-            existingApplications[appIndex] = applicationDataToSubmit; // Update existing (though current flow doesn't edit)
+            existingApplications[appIndex] = applicationDataToSubmit;
         } else {
-            existingApplications.push(applicationDataToSubmit); // Add new
+            existingApplications.push(applicationDataToSubmit);
         }
         localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
 
         toast({ title: "Application Submitted Successfully!", description: `Your application (ID: ${applicationDataToSubmit.applicationId}) has been saved. You will be notified of your admission status.`, duration: 7000 });
-        checkApplicationStatus(); // Re-check status to update UI
+        checkApplicationStatus();
 
       } catch (e) {
         console.error("Failed to save application to localStorage", e);
@@ -440,6 +447,50 @@ export default function RegistrationDashboardPage() {
     }
   };
 
+  const handlePrintAdmissionLetter = () => {
+    const content = admissionLetterContentRef.current;
+    if (content) {
+      const printWindow = window.open('', '', 'height=800,width=600');
+      if (printWindow) {
+        printWindow.document.write('<html><head><title>Provisional Admission Letter</title>');
+        printWindow.document.write(`
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
+            .letter-container { max-width: 700px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid hsl(var(--primary)); padding-bottom: 15px; }
+            .header img { max-height: 70px; margin-bottom: 10px; }
+            .header h1 { margin: 0; font-size: 22px; color: hsl(var(--primary)); }
+            .header h2 { margin: 5px 0; font-size: 18px; font-weight: normal; color: hsl(var(--foreground));}
+            .applicant-details p, .admission-details p { margin: 5px 0; font-size: 14px; }
+            .applicant-details strong, .admission-details strong { color: hsl(var(--primary)); }
+            .content-section { margin-top: 20px; }
+            .content-section h3 { font-size: 16px; color: hsl(var(--primary)); border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
+            .content-section ul { list-style: decimal; padding-left: 20px; font-size: 14px; }
+            .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #777; }
+            .signature-area { margin-top: 50px; }
+            .signature-line { border-top: 1px solid #555; width: 250px; margin: 0 auto; padding-top: 5px; }
+            .no-print { display: none !important; }
+          </style>
+        `);
+        printWindow.document.write('</head><body>');
+        // Inject CSS variables for colors from the current theme
+        const rootStyles = getComputedStyle(document.documentElement);
+        const cssVars = `--primary: ${rootStyles.getPropertyValue('--primary')}; --foreground: ${rootStyles.getPropertyValue('--foreground')};`;
+        printWindow.document.write(`<div style="${cssVars}">`);
+        printWindow.document.write(content.innerHTML);
+        printWindow.document.write('</div></body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+      } else {
+        toast({ variant: "destructive", title: "Print Error", description: "Could not open print window." });
+      }
+    } else {
+      toast({ variant: "destructive", title: "Print Error", description: "Could not find content to print." });
+    }
+  };
+
+
   if (!initialDataLoaded) {
       return (
           <div className="flex items-center justify-center min-h-screen">
@@ -448,7 +499,6 @@ export default function RegistrationDashboardPage() {
           </div>
       );
   }
-
 
   return (
     <div className="space-y-6">
@@ -492,24 +542,30 @@ export default function RegistrationDashboardPage() {
                         </div>
                     </div>
                 )}
-                {applicationStatus === "admitted" && (
+                {applicationStatus === "admitted" && completedApplicationData && (
                     <div className="flex flex-col sm:flex-row items-center p-4 bg-primary/10 rounded-md">
                         <UserCheck className="h-10 w-10 text-primary mr-4 mb-2 sm:mb-0" />
                         <div className="text-center sm:text-left">
-                            <p className="font-semibold text-xl text-primary">Congratulations! You have been Admitted!</p>
-                            <p className="text-sm text-muted-foreground">Further instructions regarding your admission and registration will be communicated to you shortly. You can print your provisional admission letter below.</p>
-                             <Button className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => toast({title: "Mock Print", description:"Admission letter printing not implemented."})}>
-                                <Printer className="mr-2 h-4 w-4" /> Print Admission Letter (Mock)
+                            <p className="font-semibold text-xl text-primary">Congratulations, {completedApplicationData.fullName}! You have been Admitted!</p>
+                            <p className="text-sm text-muted-foreground">You have been provisionally admitted to study <span className="font-semibold">{completedApplicationData.preferredProgram}</span>. Further instructions regarding your admission and registration will be communicated to you shortly.</p>
+                             <Button className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => setIsAdmissionLetterDialogOpen(true)}>
+                                <Printer className="mr-2 h-4 w-4" /> Print Provisional Admission Letter
                             </Button>
                         </div>
                     </div>
                 )}
-                 {applicationStatus === "not_admitted" && (
+                 {applicationStatus === "not_admitted" && completedApplicationData && (
                     <div className="flex items-center p-4 bg-destructive/10 rounded-md">
                         <XCircle className="h-8 w-8 text-destructive mr-4" />
                         <div>
                             <p className="font-semibold text-lg text-destructive">Admission Status Update</p>
-                            <p className="text-sm text-muted-foreground">We regret to inform you that your application was not successful at this time. We wish you the best in your future endeavors.</p>
+                            <p className="text-sm text-muted-foreground">
+                                We regret to inform you that your application was not successful at this time.
+                                {completedApplicationData.rejectionReason && completedApplicationData.rejectionReason !== "No specific reason provided." && (
+                                    <span className="block mt-1">Reason: {completedApplicationData.rejectionReason}</span>
+                                )}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">We wish you the best in your future endeavors.</p>
                         </div>
                     </div>
                 )}
@@ -902,6 +958,89 @@ export default function RegistrationDashboardPage() {
                 </CardContent>
             </Card>
         )}
+
+        {completedApplicationData && (
+          <PrintDialog open={isAdmissionLetterDialogOpen} onOpenChange={setIsAdmissionLetterDialogOpen}>
+            <PrintDialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+              <PrintDialogHeader>
+                  <PrintDialogTitle className="text-primary text-xl">Provisional Admission Letter</PrintDialogTitle>
+                  <PrintDialogDescription>
+                      Please print this letter for your records. Official letter will be provided upon physical verification.
+                  </PrintDialogDescription>
+              </PrintDialogHeader>
+              
+              <ScrollArea className="flex-grow overflow-y-auto p-1">
+                  <div ref={admissionLetterContentRef} className="printable-admission-letter p-4 bg-white text-black">
+                      <div className="header text-center mb-6">
+                          <ArewaLogo className="h-16 w-16 mx-auto mb-2 text-[hsl(var(--primary))]" />
+                          <h1 className="text-xl font-bold">SCHOLARS INSTITUTE OF ARTS & TECHNOLOGY, ZARIA</h1>
+                          <h2 className="text-sm">Km 5, Zaria-Kano Road, Zaria, Kaduna State, Nigeria.</h2>
+                          <p className="text-lg font-semibold mt-4">PROVISIONAL ADMISSION LETTER</p>
+                      </div>
+
+                      <div className="applicant-details mb-4">
+                          <p><strong>Date:</strong> {format(new Date(), "PPP")}</p>
+                          <p><strong>Applicant Name:</strong> {completedApplicationData.fullName}</p>
+                          <p><strong>Application ID:</strong> {completedApplicationData.applicationId}</p>
+                      </div>
+
+                      <div className="admission-details mb-4">
+                          <p>Dear {completedApplicationData.fullName},</p>
+                          <p className="mt-2">
+                              We are pleased to inform you that you have been offered provisional admission into the <strong>Scholars Institute of Arts & Technology, Zaria</strong> 
+                              to study <strong>{completedApplicationData.preferredProgram}</strong> for the {new Date().getFullYear()}/{new Date().getFullYear()+1} academic session.
+                          </p>
+                          <p className="mt-2">
+                            Your admission is through the <strong>{completedApplicationData.entryMode}</strong> mode to our <strong>{completedApplicationData.preferredCampus}</strong>.
+                          </p>
+                      </div>
+
+                      <div className="content-section">
+                          <h3>Next Steps & Requirements:</h3>
+                          <ul>
+                              <li>Accept this offer within two (2) weeks from the date of this letter by paying the non-refundable acceptance fee.</li>
+                              <li>Proceed with online course registration upon payment of school fees.</li>
+                              <li>Undergo medical screening at the institute's clinic.</li>
+                              <li>Present original copies of your credentials for verification during departmental screening. This includes:
+                                  <ul className="list-[circle] pl-5">
+                                    <li>O-Level Certificate(s)</li>
+                                    {completedApplicationData.aLevels && completedApplicationData.aLevels.length > 0 && <li>A-Level/Diploma/NCE Certificate(s)</li>}
+                                    <li>Birth Certificate / Declaration of Age</li>
+                                    <li>State of Origin Certificate</li>
+                                    <li>Passport Photographs (4 copies)</li>
+                                  </ul>
+                              </li>
+                              <li>Detailed schedule for screening and resumption will be communicated via email and the institute's website.</li>
+                          </ul>
+                      </div>
+                      
+                      <div className="content-section">
+                        <p className="mt-3">
+                            Congratulations once again. We look forward to welcoming you to SIAT-Institute, Zaria.
+                        </p>
+                      </div>
+
+                      <div className="footer mt-10">
+                          <div className="signature-area">
+                            <p className="signature-line">Registrar's Signature</p>
+                            <p>For: Scholars Institute of Arts & Technology, Zaria</p>
+                          </div>
+                          <p className="mt-4 text-xs">Note: This is a provisional admission and is subject to successful verification of your credentials.</p>
+                      </div>
+                  </div>
+              </ScrollArea>
+
+              <PrintDialogFooter className="mt-auto pt-4 border-t">
+                  <PrintDialogClose asChild>
+                      <Button type="button" variant="outline">Close</Button>
+                  </PrintDialogClose>
+                  <Button onClick={handlePrintAdmissionLetter} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                      <Printer className="mr-2 h-4 w-4" /> Print This Letter
+                  </Button>
+              </PrintDialogFooter>
+            </PrintDialogContent>
+          </PrintDialog>
+        )}
     </div>
   );
 }
@@ -913,6 +1052,7 @@ interface PreviewItemProps {
 const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
   <div className="flex flex-col sm:flex-row sm:justify-between py-1 text-sm">
     <dt className="font-medium text-muted-foreground">{label}:</dt>
-    <dd className="text-foreground sm:text-right">{String(value === undefined || value === null || value === '' ? "N/A" : value)}</dd>
+    <dd className="text-foreground sm:text-right">{String(value === undefined || value === null || String(value).trim() === '' ? "N/A" : value)}</dd>
   </div>
 );
+

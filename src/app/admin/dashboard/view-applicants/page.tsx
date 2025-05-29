@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Eye, Users, FileText, Briefcase, CalendarDays, UserCircle, CheckCircle, XCircle, Hourglass } from "lucide-react";
+import { Eye, Users, FileText, Briefcase, CalendarDays, UserCircle, CheckCircle, XCircle, Hourglass, MessageSquare } from "lucide-react";
 import type { NewIntakeApplicationData } from "@/types";
 import { format } from "date-fns";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 // Helper component for displaying application details in the dialog
 const ApplicationDetailItem: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) => (
@@ -28,13 +30,16 @@ export default function ViewApplicantsPage() {
   const [applicants, setApplicants] = React.useState<NewIntakeApplicationData[]>([]);
   const [selectedApplicant, setSelectedApplicant] = React.useState<NewIntakeApplicationData | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
+  const [isRejectionReasonDialogOpen, setIsRejectionReasonDialogOpen] = React.useState(false);
+  const [rejectionReasonInput, setRejectionReasonInput] = React.useState("");
+
 
   React.useEffect(() => {
     if (typeof document !== 'undefined') {
         document.title = 'View Applicants - Admin Dashboard';
     }
     if (typeof window !== 'undefined') {
-      const storedApplications = localStorage.getItem("completedApplications"); // Changed key
+      const storedApplications = localStorage.getItem("completedApplications"); 
       if (storedApplications) {
         setApplicants(JSON.parse(storedApplications));
       }
@@ -55,7 +60,7 @@ export default function ViewApplicantsPage() {
     }
   };
 
-  const handleSetAdmissionStatus = (applicantId: string, status: "Admitted" | "Not Admitted" | "Pending") => {
+  const handleSetAdmissionStatus = (applicantId: string, status: "Admitted" | "Not Admitted" | "Pending", reason?: string) => {
     if (typeof window !== 'undefined') {
       const storedApplications = localStorage.getItem("completedApplications");
       let existingApplications: NewIntakeApplicationData[] = storedApplications ? JSON.parse(storedApplications) : [];
@@ -63,15 +68,35 @@ export default function ViewApplicantsPage() {
       const appIndex = existingApplications.findIndex(app => app.applicationId === applicantId);
       if (appIndex > -1) {
         existingApplications[appIndex].admissionStatus = status;
+        if (status === "Not Admitted") {
+            existingApplications[appIndex].rejectionReason = reason || "No specific reason provided.";
+        } else {
+            delete existingApplications[appIndex].rejectionReason; // Clear reason if not rejected
+        }
         localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
-        setApplicants(existingApplications); // Update local state to re-render table
-        setSelectedApplicant(prev => prev ? {...prev, admissionStatus: status} : null); // Update selected applicant if open
+        setApplicants(existingApplications); 
+        setSelectedApplicant(prev => prev ? {...prev, admissionStatus: status, rejectionReason: status === "Not Admitted" ? reason : undefined} : null); 
         toast({ title: "Status Updated", description: `Applicant ${applicantId} status set to ${status}.` });
       } else {
         toast({ variant: "destructive", title: "Error", description: "Applicant not found." });
       }
     }
   };
+
+  const openRejectionReasonDialog = (applicant: NewIntakeApplicationData) => {
+    setSelectedApplicant(applicant);
+    setRejectionReasonInput(applicant.rejectionReason || "");
+    setIsRejectionReasonDialogOpen(true);
+  };
+
+  const handleConfirmRejection = () => {
+    if (selectedApplicant) {
+      handleSetAdmissionStatus(selectedApplicant.applicationId, "Not Admitted", rejectionReasonInput);
+    }
+    setIsRejectionReasonDialogOpen(false);
+    setRejectionReasonInput("");
+  };
+
 
   const getStatusBadge = (status?: NewIntakeApplicationData["admissionStatus"]) => {
     switch (status) {
@@ -156,7 +181,7 @@ export default function ViewApplicantsPage() {
                      <div className="my-2">
                         <p className="text-sm font-medium text-muted-foreground col-span-1 mb-1">Photograph:</p>
                         <Image 
-                            src={selectedApplicant.photograph.type?.startsWith('image/') && typeof selectedApplicant.photograph.name === 'string' ? URL.createObjectURL(new Blob([], {type: selectedApplicant.photograph.type})) : `https://placehold.co/150x150.png?text=${selectedApplicant.photograph.name || 'Photo'}`} 
+                            src={selectedApplicant.photograph.type?.startsWith('image/') && typeof selectedApplicant.photograph.name === 'string' && typeof window !== 'undefined' && selectedApplicant.photographFile ? URL.createObjectURL(selectedApplicant.photographFile[0]) : `https://placehold.co/150x150.png?text=${selectedApplicant.photograph.name || 'Photo'}`} 
                             alt="Applicant Photograph" 
                             width={100} height={100} 
                             className="rounded-md border object-cover shadow-sm"
@@ -207,6 +232,12 @@ export default function ViewApplicantsPage() {
                 <ApplicationDetailItem label="Preferred Program" value={selectedApplicant.preferredProgram} />
                 <ApplicationDetailItem label="Preferred Campus" value={selectedApplicant.preferredCampus} />
                 <ApplicationDetailItem label="Entry Mode" value={selectedApplicant.entryMode} />
+                {selectedApplicant.admissionStatus === "Not Admitted" && selectedApplicant.rejectionReason && (
+                  <>
+                    <h3 className="font-semibold text-destructive flex items-center gap-2 pt-3 border-t mt-4"><MessageSquare className="h-5 w-5"/>Rejection Reason</h3>
+                    <ApplicationDetailItem label="Reason" value={selectedApplicant.rejectionReason}/>
+                  </>
+                )}
               </div>
             </ScrollArea>
 
@@ -220,7 +251,7 @@ export default function ViewApplicantsPage() {
                     <CheckCircle className="mr-2 h-4 w-4"/> Admit Applicant
                   </Button>
                   <Button 
-                    onClick={() => handleSetAdmissionStatus(selectedApplicant.applicationId, "Not Admitted")} 
+                    onClick={() => openRejectionReasonDialog(selectedApplicant)} 
                     variant="destructive"
                     disabled={selectedApplicant.admissionStatus === "Not Admitted"}
                   >
@@ -232,6 +263,33 @@ export default function ViewApplicantsPage() {
               </DialogClose>
             </DialogFooter>
           </DialogContent>
+        </Dialog>
+      )}
+
+      {selectedApplicant && (
+        <Dialog open={isRejectionReasonDialogOpen} onOpenChange={setIsRejectionReasonDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="text-destructive">Reason for Declining Admission</DialogTitle>
+                    <DialogDescription>
+                        Provide a reason for declining admission for {selectedApplicant.fullName} (Application ID: {selectedApplicant.applicationId}). This will be recorded.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Label htmlFor="rejectionReasonInput">Rejection Reason</Label>
+                    <Textarea 
+                        id="rejectionReasonInput"
+                        value={rejectionReasonInput}
+                        onChange={(e) => setRejectionReasonInput(e.target.value)}
+                        placeholder="Enter reason here..."
+                        rows={4}
+                    />
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                    <Button onClick={handleConfirmRejection} variant="destructive">Confirm Decline</Button>
+                </DialogFooter>
+            </DialogContent>
         </Dialog>
       )}
     </div>

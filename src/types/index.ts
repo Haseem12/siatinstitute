@@ -150,6 +150,7 @@ export type NewIntakeApplicationData = {
 
   // Admission Status
   admissionStatus?: "Pending" | "Admitted" | "Not Admitted";
+  rejectionReason?: string; // Reason if admission is not granted
 };
 
 // Added for instructor/admin
@@ -184,3 +185,4 @@ export type PreRegisteredUser = {
   email: string;
   password?: string; // Should be hashed in a real app
 };
+
