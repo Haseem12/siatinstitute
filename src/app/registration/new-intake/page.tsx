@@ -43,7 +43,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, ChevronLeft, ChevronRight, PlusCircle, Trash2, UploadCloud, FileText, User as UserIcon } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, PlusCircle, Trash2, UploadCloud, FileText, User as UserIcon, Loader2 } from "lucide-react";
 import type { NewIntakeApplicationData, QualificationUpload, ExperienceUpload, FileUploadInfo } from "@/types";
 import { submitNewIntakeApplicationAction } from "./actions";
 import ArewaLogo from "@/components/arewa-logo";
@@ -86,7 +86,7 @@ const qualificationSchema = z.object({
   institution: z.string().min(1, "Institution name is required."),
   yearAwarded: z.string().min(4, "Year is required.").max(4, "Invalid year."),
   fileInput: documentFileSchema,
-  file: fileSchema,
+  file: fileSchema, // To store processed file info
 });
 
 const experienceSchema = z.object({
@@ -96,11 +96,12 @@ const experienceSchema = z.object({
   startDate: z.string().min(1, "Start date is required."),
   endDate: z.string().min(1, "End date is required."),
   fileInput: documentFileSchema,
-  file: fileSchema,
+  file: fileSchema, // To store processed file info
 });
 
 
 const newIntakeFormSchema = z.object({
+  applicationId: z.string().optional(),
   fullName: z.string().min(3, "Full name must be at least 3 characters."),
   email: z.string().email("Invalid email address."),
   phoneNumber: z.string().min(10, "Valid phone number is required."),
@@ -111,7 +112,7 @@ const newIntakeFormSchema = z.object({
   stateOfOrigin: z.string().min(2, "State of origin is required."),
   nationality: z.string().min(2, "Nationality is required."),
   photographFile: photographFileSchema,
-  photograph: fileSchema,
+  photograph: fileSchema, // To store processed file info
   nextOfKinName: z.string().min(3, "Next of kin name is required."),
   nextOfKinPhone: z.string().min(10, "Next of kin phone is required."),
   nextOfKinRelationship: z.string().min(2, "Relationship to next of kin is required."),
@@ -122,6 +123,7 @@ const newIntakeFormSchema = z.object({
   preferredProgram: z.string().min(1, "Please select a program."),
   preferredCampus: z.string().min(1, "Please select a campus."),
   entryMode: z.enum(["UTME", "Direct Entry", "Transfer"], { required_error: "Entry mode is required."}),
+  terms: z.boolean().refine(val => val === true, "You must agree to the terms.")
 });
 
 type FormValues = z.infer<typeof newIntakeFormSchema>;
@@ -131,7 +133,7 @@ const steps = [
   { id: 2, name: "Qualifications", fields: ["qualifications"] as const },
   { id: 3, name: "Experience", fields: ["experiences"] as const },
   { id: 4, name: "Program Choice", fields: ["preferredProgram", "preferredCampus", "entryMode"] as const },
-  { id: 5, name: "Preview & Submit" },
+  { id: 5, name: "Preview & Submit", fields: ["terms"] as const },
 ];
 
 const availablePrograms = [
@@ -158,7 +160,7 @@ export default function NewIntakePage() {
       email: "",
       phoneNumber: "",
       dateOfBirth: undefined,
-      gender: "" as FormValues["gender"],
+      gender: undefined, // Ensure it's undefined initially
       address: "",
       city: "",
       stateOfOrigin: "",
@@ -172,7 +174,8 @@ export default function NewIntakePage() {
       experiences: [],
       preferredProgram: "",
       preferredCampus: "",
-      entryMode: "" as FormValues["entryMode"],
+      entryMode: undefined, // Ensure it's undefined initially
+      terms: false,
     },
   });
 
@@ -190,12 +193,11 @@ export default function NewIntakePage() {
     const files = event.target.files;
     if (files && files.length > 0) {
       const file = files[0];
-      // Validate file type and size before setting preview
       if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
         toast({ variant: "destructive", title: "Invalid File Type", description: "Only JPG, JPEG, and PNG images are allowed for photograph."});
         setPhotographPreview(null);
-        form.setValue('photographFile', null); // Clear invalid file
-        event.target.value = ""; // Reset file input
+        form.setValue('photographFile', null);
+        event.target.value = "";
         return;
       }
       if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -227,7 +229,7 @@ export default function NewIntakePage() {
   };
 
   const handleAddExperience = () => {
-     if (experiences.length < MAX_EXPERIENCES) {
+     if ((experiences?.length || 0) < MAX_EXPERIENCES) {
       appendExperience({ id: crypto.randomUUID(), organization: "", role: "", startDate: "", endDate: "", fileInput: null, file: undefined });
     } else {
       toast({ title: "Limit Reached", description: `You can add a maximum of ${MAX_EXPERIENCES} experiences.`, variant: "destructive" });
@@ -245,44 +247,72 @@ export default function NewIntakePage() {
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     
-    const processedData: NewIntakeApplicationData = {
+    const applicationDataToSubmit: NewIntakeApplicationData = {
       ...data,
       photograph: processFileUpload(data.photographFile),
-      photographFile: undefined,
+      // photographFile is not needed for submission, only its processed info
       qualifications: data.qualifications.map(q => ({
         ...q,
         file: processFileUpload(q.fileInput),
-        fileInput: undefined, 
+        // fileInput is not needed for submission
       })),
       experiences: data.experiences?.map(e => ({
         ...e,
         file: processFileUpload(e.fileInput),
-        fileInput: undefined, 
+        // fileInput is not needed for submission
       })) || [],
     };
-    
-    const result = await submitNewIntakeApplicationAction(processedData);
-    setIsLoading(false);
+    // Remove temporary form-only fields if they exist on applicationDataToSubmit
+    delete (applicationDataToSubmit as any).photographFile;
+    applicationDataToSubmit.qualifications.forEach(q => delete (q as any).fileInput);
+    applicationDataToSubmit.experiences?.forEach(e => delete (e as any).fileInput);
+    delete (applicationDataToSubmit as any).terms;
 
-    if (result.success) {
-      toast({ title: "Application Submitted!", description: result.message, duration: 7000 });
-      form.reset();
-      setPhotographPreview(null);
-      setCurrentStep(0); 
-      router.push("/"); 
+
+    const result = await submitNewIntakeApplicationAction(applicationDataToSubmit);
+    
+
+    if (result.success && result.applicationId) {
+      // Save to localStorage
+      try {
+        const existingApplicationsString = localStorage.getItem("newIntakeApplications");
+        const existingApplications: NewIntakeApplicationData[] = existingApplicationsString ? JSON.parse(existingApplicationsString) : [];
+        const newApplicationWithId = { ...applicationDataToSubmit, applicationId: result.applicationId};
+        existingApplications.push(newApplicationWithId);
+        localStorage.setItem("newIntakeApplications", JSON.stringify(existingApplications));
+        
+        toast({ title: "Application Submitted!", description: result.message, duration: 7000 });
+        form.reset();
+        setPhotographPreview(null);
+        setCurrentStep(0); 
+        router.push("/"); 
+      } catch (e) {
+        console.error("Failed to save application to localStorage", e);
+        toast({ variant: "destructive", title: "Local Save Failed", description: "Your application was submitted but could not be saved locally for admin preview." });
+      }
     } else {
       toast({ variant: "destructive", title: "Submission Failed", description: result.message, duration: 7000 });
     }
+    setIsLoading(false);
   };
 
  type FieldName = keyof FormValues;
 
   const nextStep = async () => {
     const currentFields = steps[currentStep].fields as FieldName[] | undefined;
+    let output = true;
     if (currentFields) {
-      const output = await form.trigger(currentFields, { shouldFocus: true });
-      if (!output) return;
+      output = await form.trigger(currentFields, { shouldFocus: true });
     }
+    
+    // For step 5 (Preview & Submit), also validate 'terms'
+    if (currentStep === steps.length - 1) {
+        const termsOutput = await form.trigger(["terms"]);
+        if (!termsOutput) output = false;
+    }
+
+
+    if (!output) return;
 
     if (currentStep < steps.length - 1) {
       setCurrentStep((prev) => prev + 1);
@@ -329,7 +359,7 @@ export default function NewIntakePage() {
                                     <Input 
                                         type="file" 
                                         accept="image/jpeg,image/png,image/jpg" 
-                                        onChange={handlePhotographChange} 
+                                        onChange={handlePhotographChange} // Use dedicated handler
                                         className="file:text-accent file:font-semibold"
                                     />
                                 </FormControl>
@@ -375,7 +405,7 @@ export default function NewIntakePage() {
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                disabled={(date) => date > new Date(new Date().setFullYear(new Date().getFullYear() - 15)) || date < new Date("1950-01-01")} // Min 15 years old
+                                disabled={(date) => date > new Date(new Date().setFullYear(new Date().getFullYear() - 15)) || date < new Date("1950-01-01")}
                                 initialFocus
                                 captionLayout="dropdown-buttons"
                                 fromYear={1950}
@@ -444,11 +474,30 @@ export default function NewIntakePage() {
                         <FormField control={form.control} name={`qualifications.${index}.yearAwarded`} render={({ field }) => (
                           <FormItem><FormLabel>Year Awarded</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name={`qualifications.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => ( // value is FileList here
+                        <FormField control={form.control} name={`qualifications.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => ( 
                             <FormItem>
                                 <FormLabel>Upload Certificate (PDF, JPG, PNG - Max 2MB)</FormLabel>
                                 <FormControl>
-                                    <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold"/>
+                                    <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => {
+                                        const files = e.target.files;
+                                        if (files && files.length > 0) {
+                                            const file = files[0];
+                                            if (!ALLOWED_DOC_TYPES.includes(file.type)) {
+                                                toast({ variant: "destructive", title: "Invalid File Type", description: "Only PDF, JPG, JPEG, and PNG files are allowed."});
+                                                e.target.value = ""; // Reset file input
+                                                onChange(null); // Clear react-hook-form value
+                                                return;
+                                            }
+                                            if (file.size > MAX_FILE_SIZE_BYTES) {
+                                                toast({ variant: "destructive", title: "File Too Large", description: `Document size cannot exceed ${MAX_FILE_SIZE_MB}MB.`});
+                                                e.target.value = ""; 
+                                                onChange(null);
+                                                return;
+                                            }
+                                        }
+                                        onChange(files);
+                                    }} 
+                                    {...rest} className="file:text-accent file:font-semibold"/>
                                 </FormControl>
                                 <FormMessage />
                                 {value && value.length > 0 && <p className="text-xs text-muted-foreground">Selected: {value[0].name}</p>}
@@ -461,7 +510,10 @@ export default function NewIntakePage() {
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Qualification
                         </Button>
                     )}
-                     {form.formState.errors.qualifications && !form.formState.errors.qualifications.root && qualifications.length === 0 && (
+                     {form.formState.errors.qualifications?.root && qualifications.length === 0 && (
+                        <FormMessage>{form.formState.errors.qualifications.root.message}</FormMessage>
+                     )}
+                      {form.formState.errors.qualifications && !form.formState.errors.qualifications?.root && qualifications.length === 0 && (
                         <FormMessage>{form.formState.errors.qualifications.message}</FormMessage>
                      )}
                   </section>
@@ -471,7 +523,7 @@ export default function NewIntakePage() {
                 {currentStep === 2 && (
                   <section className="space-y-6 animate-in fade-in-50">
                     <CardTitle className="text-xl text-primary">Work Experience (Optional)</CardTitle>
-                     {experiences.map((item, index) => (
+                     {(experiences || []).map((item, index) => (
                       <Card key={item.id} className="p-4 space-y-4 relative bg-muted/50">
                          <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeExperience(index)}>
                             <Trash2 className="h-4 w-4" /><span className="sr-only">Remove Experience</span>
@@ -491,11 +543,30 @@ export default function NewIntakePage() {
                                 <FormItem><FormLabel>End Date (or expected)</FormLabel><FormControl><Input type="month" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
-                         <FormField control={form.control} name={`experiences.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => ( // value is FileList here
+                         <FormField control={form.control} name={`experiences.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => ( 
                             <FormItem>
                                 <FormLabel>Upload Supporting Document (Optional)</FormLabel>
                                 <FormControl>
-                                    <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold"/>
+                                     <Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => {
+                                        const files = e.target.files;
+                                        if (files && files.length > 0) {
+                                            const file = files[0];
+                                            if (!ALLOWED_DOC_TYPES.includes(file.type)) {
+                                                toast({ variant: "destructive", title: "Invalid File Type", description: "Only PDF, JPG, JPEG, and PNG files are allowed."});
+                                                e.target.value = "";
+                                                onChange(null);
+                                                return;
+                                            }
+                                            if (file.size > MAX_FILE_SIZE_BYTES) {
+                                                toast({ variant: "destructive", title: "File Too Large", description: `Document size cannot exceed ${MAX_FILE_SIZE_MB}MB.`});
+                                                e.target.value = ""; 
+                                                onChange(null);
+                                                return;
+                                            }
+                                        }
+                                        onChange(files);
+                                    }}
+                                     {...rest} className="file:text-accent file:font-semibold"/>
                                 </FormControl>
                                 <FormMessage />
                                 {value && value.length > 0 && <p className="text-xs text-muted-foreground">Selected: {value[0].name}</p>}
@@ -503,7 +574,7 @@ export default function NewIntakePage() {
                         )} />
                       </Card>
                     ))}
-                    {experiences.length < MAX_EXPERIENCES && (
+                    {(experiences?.length || 0) < MAX_EXPERIENCES && (
                         <Button type="button" variant="outline" onClick={handleAddExperience} className="text-accent border-accent hover:bg-accent/10">
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Experience
                         </Button>
@@ -598,23 +669,16 @@ export default function NewIntakePage() {
                         <PreviewItem label="Preferred Campus" value={form.getValues("preferredCampus")} />
                         <PreviewItem label="Entry Mode" value={form.getValues("entryMode")} />
                     </div>
-                     <FormItem>
-                        <div className="flex items-center space-x-2 mt-6">
-                            <Controller
-                                name={"terms" as any} // A dummy name for terms checkbox, not part of main schema for submission
-                                control={form.control}
-                                rules={{ required: "You must agree to the terms." }}
-                                render={({ field }) => (
-                                <input type="checkbox" id="terms" {...field} checked={field.value || false} 
-                                       className="h-4 w-4 rounded border-primary text-primary focus:ring-primary" />
-                                )}
-                            />
-                            <label htmlFor="terms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                I confirm that all information provided is accurate and complete.
-                            </label>
-                        </div>
-                        {form.formState.errors["terms" as any] && <FormMessage>{form.formState.errors["terms" as any].message}</FormMessage>}
-                     </FormItem>
+                     <FormField control={form.control} name="terms" render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow mt-6">
+                            <FormControl><input type="checkbox" checked={field.value} onChange={field.onChange} className="h-4 w-4 rounded border-primary text-primary focus:ring-primary" /></FormControl>
+                            <div className="space-y-1 leading-none">
+                                <FormLabel>I confirm that all information provided is accurate and complete.</FormLabel>
+                                <FormMessage />
+                            </div>
+                            </FormItem>
+                        )}
+                    />
                   </section>
                 )}
 
@@ -631,8 +695,8 @@ export default function NewIntakePage() {
                     </Button>
                   )}
                   {currentStep === steps.length - 1 && (
-                    <Button type="submit" className="ml-auto bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading || !form.watch("terms" as any)}>
-                      <UploadCloud className="mr-2 h-4 w-4" />
+                    <Button type="submit" className="ml-auto bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading || !form.watch("terms")}>
+                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
                       {isLoading ? "Submitting..." : "Submit Application"}
                     </Button>
                   )}
@@ -659,4 +723,3 @@ const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
     <dd className="text-foreground sm:text-right">{value || "N/A"}</dd>
   </div>
 );
-

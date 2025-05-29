@@ -104,6 +104,7 @@ export type ExperienceUpload = {
 };
 
 export type NewIntakeApplicationData = {
+  applicationId?: string; // Added for unique identification
   // Step 1: Bio-data
   fullName: string;
   email: string;
@@ -124,7 +125,7 @@ export type NewIntakeApplicationData = {
   qualifications: QualificationUpload[];
 
   // Step 3: Experience (optional)
-  experiences: ExperienceUpload[];
+  experiences?: ExperienceUpload[]; // Made optional
 
   // Step 4: Program and Campus
   preferredProgram: string;

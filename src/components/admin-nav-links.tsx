@@ -9,6 +9,7 @@ import {
   LibrarySquare,
   Settings,
   BellRing,
+  ClipboardList, // Added for View Applicants
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -28,6 +29,7 @@ interface NavLink {
 const navLinks: NavLink[] = [
   { href: "/admin/dashboard", label: "Admin Dashboard", icon: LayoutDashboard, tooltip: "Admin Overview" },
   { href: "/admin/dashboard/manage-users", label: "Manage Users", icon: UsersRound, tooltip: "Manage Students & Staff" },
+  { href: "/admin/dashboard/view-applicants", label: "View Applicants", icon: ClipboardList, tooltip: "View New Intake Applicants" },
   { href: "/admin/dashboard/manage-courses", label: "Manage Courses", icon: LibrarySquare, tooltip: "Manage Academic Courses" },
   { href: "/admin/dashboard/announcements", label: "Post Announcements", icon: BellRing, tooltip: "Create & Manage Announcements" },
   { href: "/admin/dashboard/settings", label: "System Settings", icon: Settings, tooltip: "Configure Portal Settings" },
