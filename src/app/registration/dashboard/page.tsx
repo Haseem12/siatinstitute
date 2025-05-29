@@ -54,7 +54,7 @@ import {
   CarouselNext,
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
-import { Dialog, DialogContent as PrintDialogContent, DialogHeader as PrintDialogHeader, DialogTitle as PrintDialogTitle, DialogDescription as PrintDialogDescription, DialogFooter as PrintDialogFooter, DialogClose as PrintDialogClose } from "@/components/ui/dialog"; // Aliased for print dialog
+import { Dialog as PrintDialog, DialogContent as PrintDialogContent, DialogHeader as PrintDialogHeader, DialogTitle as PrintDialogTitle, DialogDescription as PrintDialogDescription, DialogFooter as PrintDialogFooter, DialogClose as PrintDialogClose } from "@/components/ui/dialog"; // Aliased for print dialog
 import ArewaLogo from "@/components/arewa-logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -174,10 +174,10 @@ const heroSliderImages = [
 ];
 
 interface OLevelSittingItemProps {
-  control: any; // Control type from react-hook-form
+  control: any;
   oLevelIndex: number;
   removeOLevelSitting: (index: number) => void;
-  form: any; // Form type from react-hook-form
+  form: ReturnType<typeof useForm<FormValues>>;
 }
 
 const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIndex, removeOLevelSitting, form }) => {
@@ -190,7 +190,7 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
     <Card className="p-4 space-y-4 relative bg-muted/50">
       <div className="flex justify-between items-center">
         <h4 className="font-medium text-primary">O-Level Sitting {oLevelIndex + 1}</h4>
-        {oLevelIndex > 0 && ( // Allow removal only if it's not the first one, or if there are multiple
+        {oLevelIndex >= 0 && ( // Allow removal of any sitting
             <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeOLevelSitting(oLevelIndex)}>
             <Trash2 className="h-4 w-4" /><span className="sr-only">Remove O-Level Sitting</span>
             </Button>
@@ -229,7 +229,7 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
                 <SelectContent>{oLevelGrades.map(grd => <SelectItem key={grd} value={grd}>{grd}</SelectItem>)}</SelectContent>
               </Select><FormMessage /></FormItem>
           )} />
-          {subjectFields.length > 5 && ( // Only show remove button if more than 5 subjects
+          {subjectFields.length > 5 && ( 
               <Button type="button" variant="ghost" size="icon" className="col-span-1 text-destructive hover:bg-destructive/10 h-9 w-9 self-end" onClick={() => removeSubject(subjectIndex)}>
               <Trash2 className="h-4 w-4" />
               </Button>
@@ -241,9 +241,13 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
           <PlusCircle className="mr-2 h-4 w-4" /> Add Subject
         </Button>
       )}
-      {form.formState.errors.oLevels?.[oLevelIndex]?.subjects?.root && (
-        <FormMessage>{form.formState.errors.oLevels?.[oLevelIndex]?.subjects?.root?.message}</FormMessage>
+      {(form.formState.errors.oLevels?.[oLevelIndex]?.subjects as any)?.root && (
+        <FormMessage>{(form.formState.errors.oLevels?.[oLevelIndex]?.subjects as any)?.root?.message}</FormMessage>
       )}
+       {form.formState.errors.oLevels?.[oLevelIndex]?.subjects && !(form.formState.errors.oLevels?.[oLevelIndex]?.subjects as any)?.root && subjectFields.length < 5 && (
+        <FormMessage>Minimum of 5 subjects required.</FormMessage>
+      )}
+
 
       <FormField control={control} name={`oLevels.${oLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
         <FormItem><FormLabel>Upload O-Level Certificate/Statement</FormLabel>
@@ -317,7 +321,7 @@ const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
 export default function RegistrationDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const form = useForm<FormValues>({
+  const form = useForm<FormValues>({ // Moved form initialization here
     resolver: zodResolver(registrationDashboardFormSchema),
     defaultValues: {
       applicationId: "",
@@ -380,7 +384,7 @@ export default function RegistrationDashboardPage() {
               ...ol, 
               fileInput: null, 
               file: ol.file ? {...ol.file} : undefined,
-              subjects: ol.subjects || [] // Ensure subjects is an array
+              subjects: ol.subjects || [] 
             })) || [],
             aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null, file: al.file ? {...al.file} : undefined })) || [],
             terms: true, 
@@ -396,7 +400,7 @@ export default function RegistrationDashboardPage() {
         setCompletedApplicationData(null);
       }
     }
-  }, [applicantAppId, form]);
+  }, [applicantAppId, form]); // form is now stable here
 
   useEffect(() => {
     console.log("RegistrationDashboardPage mounted successfully.");
@@ -513,7 +517,7 @@ export default function RegistrationDashboardPage() {
       oLevels: data.oLevels.map(ol => ({
         ...ol,
         file: processFileUpload(ol.fileInput),
-        subjects: ol.subjects || [] // ensure subjects is an array
+        subjects: ol.subjects || [] 
       })),
       aLevels: data.aLevels?.map(al => ({
         ...al,
@@ -859,8 +863,8 @@ export default function RegistrationDashboardPage() {
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add O-Level Sitting
                                     </Button>
                                 )}
-                                {form.formState.errors.oLevels?.root && oLevelFields.length === 0 && (
-                                    <FormMessage>{form.formState.errors.oLevels.root.message}</FormMessage>
+                                {(form.formState.errors.oLevels as any)?.root && oLevelFields.length === 0 && (
+                                    <FormMessage>{(form.formState.errors.oLevels as any).root.message}</FormMessage>
                                 )}
                             </TabsContent>
 
@@ -1089,3 +1093,5 @@ export default function RegistrationDashboardPage() {
     </div>
   );
 }
+
+    
