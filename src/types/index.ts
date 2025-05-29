@@ -91,7 +91,20 @@ export type QualificationUpload = {
   yearAwarded: string;
   file?: FileUploadInfo; // Mocked file info
   fileInput?: FileList | null; // To hold the actual FileList temporarily
+  // Added for O-Level specifically
+  examType?: string;
+  examYear?: string;
+  examNumber?: string;
+  subjects?: OLevelSubject[];
+  description?: string; // For simplified display in qualifications list
 };
+
+export type OLevelSubject = {
+  id: string;
+  subject: string;
+  grade: string;
+};
+
 
 export type ExperienceUpload = {
   id: string; // for client-side list key
@@ -104,8 +117,8 @@ export type ExperienceUpload = {
 };
 
 export type NewIntakeApplicationData = {
-  applicationId?: string; // Added for unique identification
-  // Step 1: Bio-data
+  applicationId: string; // Now mandatory, generated at pre-registration
+  // Bio-data
   fullName: string;
   email: string;
   phoneNumber: string;
@@ -122,15 +135,21 @@ export type NewIntakeApplicationData = {
   nextOfKinRelationship: string;
 
   // Step 2: Qualifications
-  qualifications: QualificationUpload[];
+  qualifications: QualificationUpload[]; // Will now hold both O-Levels and A-Levels structured similarly
+  oLevels?: QualificationUpload[]; // Kept for form structure, will be mapped to qualifications
+  aLevels?: QualificationUpload[]; // Kept for form structure, will be mapped to qualifications
+
 
   // Step 3: Experience (optional)
-  experiences?: ExperienceUpload[]; // Made optional
+  experiences?: ExperienceUpload[];
 
   // Step 4: Program and Campus
   preferredProgram: string;
   preferredCampus: string; // e.g., "Main Campus", "City Campus"
   entryMode: "UTME" | "Direct Entry" | "Transfer" | "";
+
+  // Admission Status
+  admissionStatus?: "Pending" | "Admitted" | "Not Admitted";
 };
 
 // Added for instructor/admin
@@ -154,4 +173,14 @@ export type Submission = {
   fileName: string;
   grade?: string; // e.g., "85/100" or "A"
   feedback?: string;
+};
+
+// For pre-registration
+export type PreRegisteredUser = {
+  appId: string;
+  surname: string;
+  firstname: string;
+  othername?: string;
+  email: string;
+  password?: string; // Should be hashed in a real app
 };
