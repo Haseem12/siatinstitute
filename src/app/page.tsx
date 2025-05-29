@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input" // Added for login form
+import { Input } from "@/components/ui/input"
 import {
   ArrowRight,
   BookOpen,
@@ -18,12 +18,12 @@ import {
   Newspaper,
   Mail,
   Loader2,
-  Menu // Added Menu icon
+  Menu
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation" // Ensure useRouter is imported
+import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import ArewaLogo from "@/components/arewa-logo"
 import {
@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
-import { mockUsers as initialMockUsers } from "@/lib/mock-users"; // Renamed to avoid conflict
+import { mockUsers as initialMockUsers } from "@/lib/mock-users";
 import type { User } from "@/types";
 
 
@@ -57,7 +57,7 @@ const carouselImages = [
 export default function LandingPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [loginEmail, setLoginEmail] = useState("") // Changed from loginStudentId
+  const [loginEmail, setLoginEmail] = useState("")
   const [loginPassword, setLoginPassword] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -82,7 +82,7 @@ export default function LandingPage() {
     if (foundUser) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userEmail', foundUser.email); // Store actual email
+        localStorage.setItem('userEmail', foundUser.email);
         localStorage.setItem('userRole', foundUser.role || 'student');
       }
       toast({ title: `${(foundUser.role || 'User').charAt(0).toUpperCase() + (foundUser.role || 'User').slice(1)} Login Successful`, description: "Redirecting..." });
@@ -223,7 +223,7 @@ export default function LandingPage() {
             </CardHeader>
             <CardContent>
               <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
-                <Link href="/registration/new-intake">
+                <Link href="/registration/pre-register">
                   Apply for Admission <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
@@ -353,7 +353,7 @@ export default function LandingPage() {
               <h3 className="text-xl font-semibold mb-3">Quick Links</h3>
               <ul className="space-y-2 text-sm">
                 <li><Link href="#hero" className="hover:underline text-primary-foreground/80">Home</Link></li>
-                <li><Link href="/registration/new-intake" className="hover:underline text-primary-foreground/80">Apply for Admission</Link></li>
+                <li><Link href="/registration/pre-register" className="hover:underline text-primary-foreground/80">Apply for Admission</Link></li>
                 <li><Link href="#news" className="hover:underline text-primary-foreground/80">News & Events</Link></li>
                 <li><Link href="#auth-section" className="hover:underline text-primary-foreground/80">Student Portal</Link></li>
               </ul>
@@ -381,4 +381,3 @@ export default function LandingPage() {
   )
 }
 
-    
