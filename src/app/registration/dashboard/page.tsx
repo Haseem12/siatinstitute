@@ -97,15 +97,15 @@ const oLevelQualificationSchema = z.object({
   examNumber: z.string().optional(),
   subjects: z.array(oLevelSubjectSchema).min(5, "At least 5 O-Level subjects are required.").max(9, "Maximum 9 O-Level subjects."),
   fileInput: documentFileSchema,
-  file: fileSchema, 
+  file: fileSchema,
 });
 
 const aLevelQualificationSchema = z.object({
   id: z.string(),
   type: z.string().min(1, "Qualification type is required."),
   institution: z.string().min(1, "Institution name is required."),
-  courseOfStudy: z.string().optional(), 
-  gradeOrClass: z.string().optional(), 
+  courseOfStudy: z.string().optional(),
+  gradeOrClass: z.string().optional(),
   yearAwarded: z.string().min(4, "Year is required.").max(4, "Invalid year."),
   fileInput: documentFileSchema,
   file: fileSchema,
@@ -113,7 +113,7 @@ const aLevelQualificationSchema = z.object({
 
 
 const registrationDashboardFormSchema = z.object({
-  applicationId: z.string(), 
+  applicationId: z.string(),
   fullName: z.string().min(3, "Full name must be at least 3 characters."),
   email: z.string().email("Invalid email address."),
   phoneNumber: z.string().min(10, "Valid phone number is required."),
@@ -124,18 +124,18 @@ const registrationDashboardFormSchema = z.object({
   stateOfOrigin: z.string().min(2, "State of origin is required."),
   nationality: z.string().min(2, "Nationality is required."),
   photographFile: photographFileSchema,
-  photograph: fileSchema, 
+  photograph: fileSchema,
   nextOfKinName: z.string().min(3, "Next of kin name is required."),
   nextOfKinPhone: z.string().min(10, "Next of kin phone is required."),
   nextOfKinRelationship: z.string().min(2, "Relationship to next of kin is required."),
-  
+
   oLevels: z.array(oLevelQualificationSchema).min(1, "At least one O-Level result is required.").max(2, "Maximum 2 O-Level sittings."),
   aLevels: z.array(aLevelQualificationSchema).max(MAX_QUALIFICATIONS, `Maximum ${MAX_QUALIFICATIONS} A-Level/Other qualifications.`).optional(),
-  
+
   preferredProgram: z.string().min(1, "Please select a program."),
   preferredCampus: z.string().min(1, "Please select a campus."),
   entryMode: z.enum(["UTME", "Direct Entry", "Transfer"], { required_error: "Entry mode is required."}),
-  
+
   terms: z.boolean().refine(val => val === true, "You must agree to the terms."),
   admissionStatus: z.enum(["Pending", "Admitted", "Not Admitted"]).optional(),
 });
@@ -188,7 +188,7 @@ export default function RegistrationDashboardPage() {
       email: "",
       phoneNumber: "",
       dateOfBirth: undefined,
-      gender: undefined, 
+      gender: undefined,
       address: "",
       city: "",
       stateOfOrigin: "",
@@ -202,12 +202,12 @@ export default function RegistrationDashboardPage() {
       aLevels: [],
       preferredProgram: "",
       preferredCampus: "",
-      entryMode: undefined, 
+      entryMode: undefined,
       terms: false,
       admissionStatus: "Pending",
     },
   });
-  
+
   const checkApplicationStatus = useCallback(() => {
     if (applicantAppId && typeof window !== 'undefined') {
       const completedAppsString = localStorage.getItem("completedApplications");
@@ -215,26 +215,24 @@ export default function RegistrationDashboardPage() {
         const completedApps: NewIntakeApplicationData[] = JSON.parse(completedAppsString);
         const currentApp = completedApps.find(app => app.applicationId === applicantAppId);
         if (currentApp) {
-          setCompletedApplicationData(currentApp);
+          setCompletedApplicationData(currentApp); // Store the full app data
           if (currentApp.admissionStatus === "Admitted") {
             setApplicationStatus("admitted");
           } else if (currentApp.admissionStatus === "Not Admitted") {
             setApplicationStatus("not_admitted");
           } else {
-            setApplicationStatus("submitted");
+            setApplicationStatus("submitted"); // Default to submitted if status is pending or undefined
           }
-          // Make sure to handle date correctly when resetting
           const formDataForReset = {
             ...currentApp,
             dateOfBirth: currentApp.dateOfBirth ? new Date(currentApp.dateOfBirth) : undefined,
-             // O-Levels and A-Levels might need special handling if their structure in localStorage
-            // differs from the form's expected structure, especially for file inputs.
-            // For this fix, we assume the structure is compatible or handled.
-            oLevels: currentApp.oLevels?.map(ol => ({...ol, fileInput: null})) || [], // FileList can't be stored in JSON
-            aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null})) || [], // FileList can't be stored in JSON
-            photographFile: null, // FileList cannot be stored in JSON
+            photographFile: null, 
+            oLevels: currentApp.oLevels?.map(ol => ({...ol, fileInput: null})) || [],
+            aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null})) || [],
+            terms: true, // If app was completed, terms must have been agreed to.
           };
-          form.reset(formDataForReset as any); // Use 'as any' if types diverge, ensure correct mapping for production
+          form.reset(formDataForReset as any);
+
         } else {
           setApplicationStatus("incomplete");
         }
@@ -242,7 +240,7 @@ export default function RegistrationDashboardPage() {
         setApplicationStatus("incomplete");
       }
     }
-  }, [applicantAppId, form]); 
+  }, [applicantAppId, form]);
 
   useEffect(() => {
     console.log("RegistrationDashboardPage mounted successfully.");
@@ -272,25 +270,24 @@ export default function RegistrationDashboardPage() {
           });
         }
       }
-      checkApplicationStatus(); 
+      checkApplicationStatus();
       setInitialDataLoaded(true);
     }
   }, [applicantAppId, form, initialDataLoaded, checkApplicationStatus]);
 
 
-  
+
   const { fields: oLevelFields, append: appendOLevel, remove: removeOLevel } = useFieldArray({
     control: form.control,
     name: "oLevels",
   });
 
   const handleAddOLevelSubject = (oLevelIndex: number) => {
-    const currentSubjects = form.getValues(`oLevels.${oLevelIndex}.subjects`);
-    const fieldArrayMethods = useFieldArray({ control: form.control, name: `oLevels.${oLevelIndex}.subjects` });
-    if ((currentSubjects?.length || 0) < 9) {
-       fieldArrayMethods.append({ id: crypto.randomUUID(), subject: "", grade: "" });
+    const oLevelSubjectsArrayMethods = useFieldArray({ control: form.control, name: `oLevels.${oLevelIndex}.subjects` });
+    if ((form.getValues(`oLevels.${oLevelIndex}.subjects`)?.length || 0) < 9) {
+       oLevelSubjectsArrayMethods.append({ id: crypto.randomUUID(), subject: "", grade: "" });
     } else {
-        toast({ title: "Limit Reached", description: "Maximum 9 subjects per O-Level sitting.", variant: "destructive" });
+        toast({ title: "Limit Reached", description: "Maximum 9 O-Level subjects per sitting.", variant: "destructive" });
     }
   };
 
@@ -307,23 +304,23 @@ export default function RegistrationDashboardPage() {
         toast({ variant: "destructive", title: "Invalid File Type", description: "Only JPG, JPEG, and PNG images are allowed for photograph."});
         setPhotographPreview(null);
         form.setValue('photographFile', null);
-        event.target.value = ""; 
+        event.target.value = "";
         return;
       }
       if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({ variant: "destructive", title: "File Too Large", description: `Photograph size cannot exceed ${MAX_FILE_SIZE_MB}MB.`});
         setPhotographPreview(null);
         form.setValue('photographFile', null);
-        event.target.value = ""; 
+        event.target.value = "";
         return;
       }
-      
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotographPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
-      form.setValue('photographFile', files); 
+      form.setValue('photographFile', files);
     } else {
       setPhotographPreview(null);
       form.setValue('photographFile', null);
@@ -331,18 +328,18 @@ export default function RegistrationDashboardPage() {
   };
 
   const handleAddOLevel = () => {
-    if (oLevelFields.length < 2) { 
+    if (oLevelFields.length < 2) {
       appendOLevel({ id: crypto.randomUUID(), examType: "", examYear: "", examNumber: "", subjects: [], fileInput: null, file: undefined });
     } else {
       toast({ title: "Limit Reached", description: "You can add a maximum of 2 O-Level sittings.", variant: "destructive" });
     }
   };
-  
+
   const handleAddALevel = () => {
      if ((aLevelFields?.length || 0) < MAX_QUALIFICATIONS) {
       appendALevel({ id: crypto.randomUUID(), type: "", institution: "", courseOfStudy:"", gradeOrClass:"", yearAwarded: "", fileInput: null, file: undefined });
     } else {
-      toast({ title: "Limit Reached", description: `You can add a maximum of ${MAX_QUALIFICATIONS} A-Level/Other qualifications.`, variant: "destructive" });
+      toast({ title: "Limit Reached", description: `Maximum ${MAX_QUALIFICATIONS} A-Level/Other qualifications.`, variant: "destructive" });
     }
   };
 
@@ -356,18 +353,24 @@ export default function RegistrationDashboardPage() {
 
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
-    
+
+    if (applicationStatus !== "incomplete") {
+        toast({ title: "Application Already Submitted", description: "Your application is already under review or has a decision.", duration: 5000 });
+        setIsLoading(false);
+        return;
+    }
+
     const applicationDataToSubmit: NewIntakeApplicationData = {
-      ...data, 
+      ...data,
       photograph: processFileUpload(data.photographFile),
-      qualifications: [ 
+      qualifications: [
         ...data.oLevels.map(ol => ({
           id: ol.id,
-          type: `O-Level (${ol.examType}) - ${ol.examYear}`, 
-          institution: ol.examNumber || "N/A", 
+          type: `O-Level (${ol.examType}) - ${ol.examYear}`,
+          institution: ol.examNumber || "N/A (Exam No.)",
           yearAwarded: ol.examYear,
           subjects: ol.subjects,
-          description: `${ol.subjects.length} subjects. Certificate: ${processFileUpload(ol.fileInput)?.name || "N/A"}`, 
+          description: `${ol.subjects.length} subjects. Certificate: ${processFileUpload(ol.fileInput)?.name || "N/A"}`,
           file: processFileUpload(ol.fileInput),
         })),
         ...(data.aLevels?.map(al => ({
@@ -375,9 +378,10 @@ export default function RegistrationDashboardPage() {
           file: processFileUpload(al.fileInput),
         })) || [])
       ],
-      admissionStatus: "Pending", // Default status on new submission
+      admissionStatus: "Pending",
     };
-    
+
+    // Remove form-specific temporary fields before saving/sending
     delete (applicationDataToSubmit as any).photographFile;
     delete (applicationDataToSubmit as any).oLevels;
     delete (applicationDataToSubmit as any).aLevels;
@@ -387,18 +391,18 @@ export default function RegistrationDashboardPage() {
     try {
         const existingApplicationsString = localStorage.getItem("completedApplications");
         let existingApplications: NewIntakeApplicationData[] = existingApplicationsString ? JSON.parse(existingApplicationsString) : [];
-        
+
         const appIndex = existingApplications.findIndex(app => app.applicationId === applicationDataToSubmit.applicationId);
         if (appIndex > -1) {
-            existingApplications[appIndex] = applicationDataToSubmit; // Update existing
+            existingApplications[appIndex] = applicationDataToSubmit; // Update existing (though current flow doesn't edit)
         } else {
             existingApplications.push(applicationDataToSubmit); // Add new
         }
         localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
-        
+
         toast({ title: "Application Submitted Successfully!", description: `Your application (ID: ${applicationDataToSubmit.applicationId}) has been saved. You will be notified of your admission status.`, duration: 7000 });
-        checkApplicationStatus(); 
-        
+        checkApplicationStatus(); // Re-check status to update UI
+
       } catch (e) {
         console.error("Failed to save application to localStorage", e);
         toast({ variant: "destructive", title: "Submission Failed", description: "Your application could not be saved locally." });
@@ -416,8 +420,8 @@ export default function RegistrationDashboardPage() {
     if (currentFields) {
       output = await form.trigger(currentFields, { shouldFocus: true });
     }
-    
-    if (currentTabIndex === tabs.length - 1) { 
+
+    if (currentTabIndex === tabs.length - 1) {
         const termsOutput = await form.trigger(["terms"]);
         if (!termsOutput) output = false;
     }
@@ -435,7 +439,7 @@ export default function RegistrationDashboardPage() {
       setCurrentTab(tabs[currentTabIndex - 1].id);
     }
   };
-  
+
   if (!initialDataLoaded) {
       return (
           <div className="flex items-center justify-center min-h-screen">
@@ -543,11 +547,11 @@ export default function RegistrationDashboardPage() {
                                     if (isValid) {
                                         setCurrentTab(tab.id);
                                     } else {
-                                        e.preventDefault(); 
+                                        e.preventDefault();
                                         toast({variant: "destructive", title:"Incomplete Section", description: `Please complete all required fields in the "${tabs[currentTabIndex].name}" section.`})
                                     }
                                 } else {
-                                    setCurrentTab(tab.id); 
+                                    setCurrentTab(tab.id);
                                 }
                             }}>
                                 {tab.name}
@@ -558,13 +562,13 @@ export default function RegistrationDashboardPage() {
                         <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                             <TabsContent value="bio-data" className="space-y-6 animate-in fade-in-50">
-                                <FormField control={form.control} name="photographFile" render={({ field }) => ( 
+                                <FormField control={form.control} name="photographFile" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Passport Photograph (JPG, PNG - Max 2MB)</FormLabel>
                                         <FormControl>
-                                            <Input 
-                                                type="file" 
-                                                accept="image/jpeg,image/png,image/jpg" 
+                                            <Input
+                                                type="file"
+                                                accept="image/jpeg,image/png,image/jpg"
                                                 onChange={handlePhotographChange}
                                                 className="file:text-accent file:font-semibold"
                                             />
@@ -647,7 +651,7 @@ export default function RegistrationDashboardPage() {
                                     <FormItem><FormLabel>Relationship to Next of Kin</FormLabel><FormControl><Input placeholder="e.g. Father, Sister" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
                             </TabsContent>
-                            
+
                             <TabsContent value="o-level" className="space-y-6 animate-in fade-in-50">
                                 <CardTitle className="text-xl text-primary">O-Level Qualifications</CardTitle>
                                 {oLevelFields.map((item, oLevelIndex) => (
@@ -712,7 +716,7 @@ export default function RegistrationDashboardPage() {
                                             <FormMessage>{form.formState.errors.oLevels?.[oLevelIndex]?.subjects?.root?.message}</FormMessage>
                                         )}
 
-                                        <FormField control={form.control} name={`oLevels.${oLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => ( 
+                                        <FormField control={form.control} name={`oLevels.${oLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
                                             <FormItem><FormLabel>Upload O-Level Certificate/Statement</FormLabel>
                                                 <FormControl><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold"/></FormControl>
                                                 <FormMessage />
@@ -760,7 +764,7 @@ export default function RegistrationDashboardPage() {
                                     <FormItem><FormLabel>Year Awarded</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                     </div>
-                                    <FormField control={form.control} name={`aLevels.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => ( 
+                                    <FormField control={form.control} name={`aLevels.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
                                         <FormItem><FormLabel>Upload Certificate (PDF, JPG, PNG - Max 2MB)</FormLabel>
                                             <FormControl><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold"/></FormControl>
                                             <FormMessage />
@@ -800,11 +804,11 @@ export default function RegistrationDashboardPage() {
                                         </Select><FormMessage /></FormItem>
                                     )} />
                             </TabsContent>
-                            
+
                             <TabsContent value="preview" className="space-y-6 animate-in fade-in-50">
                                 <CardTitle className="text-xl text-primary">Application Preview</CardTitle>
                                 <CardDescription>Please review all your information carefully before submitting.</CardDescription>
-                                
+
                                 <div className="space-y-4">
                                     <h3 className="font-semibold text-lg text-primary border-b pb-1">Bio-data</h3>
                                     <PreviewItem label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || "Not uploaded"} />
@@ -856,7 +860,7 @@ export default function RegistrationDashboardPage() {
                                             ))}
                                         </>
                                     )}
-                                    
+
                                     <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Program Choice</h3>
                                     <PreviewItem label="Preferred Program" value={form.getValues("preferredProgram")} />
                                     <PreviewItem label="Preferred Campus" value={form.getValues("preferredCampus")} />
@@ -912,23 +916,3 @@ const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
     <dd className="text-foreground sm:text-right">{String(value === undefined || value === null || value === '' ? "N/A" : value)}</dd>
   </div>
 );
-
-// Add ArrowLeft to lucide-react imports
-/* const ArrowLeft = (props: React.SVGProps<SVGSVGElement>) => ( // Already defined above, no need to redefine
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    <line x1="19" y1="12" x2="5" y2="12"></line>
-    <polyline points="12 19 5 12 12 5"></polyline>
-  </svg>
-); */
-
