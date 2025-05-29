@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 const ApplicationDetailItem: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) => (
   <div className="grid grid-cols-3 gap-2 py-1.5 border-b border-muted/50">
     <dt className="text-sm font-medium text-muted-foreground col-span-1">{label}:</dt>
-    <dd className="text-sm text-foreground col-span-2">{String(value || "N/A")}</dd>
+    <dd className="text-sm text-foreground col-span-2">{String(value === undefined || value === null || String(value).trim() === '' ? "N/A" : value)}</dd>
   </div>
 );
 
@@ -41,7 +41,21 @@ export default function ViewApplicantsPage() {
     if (typeof window !== 'undefined') {
       const storedApplications = localStorage.getItem("completedApplications"); 
       if (storedApplications) {
-        setApplicants(JSON.parse(storedApplications));
+        try {
+            const parsedApps = JSON.parse(storedApplications);
+            // Ensure qualifications and experiences are always arrays
+            const appsWithGuaranteedArrays = parsedApps.map((app: NewIntakeApplicationData) => ({
+                ...app,
+                qualifications: app.qualifications || [],
+                experiences: app.experiences || [],
+            }));
+            setApplicants(appsWithGuaranteedArrays);
+        } catch (error) {
+            console.error("Failed to parse applications from localStorage:", error);
+            setApplicants([]); // Default to empty if parsing fails
+        }
+      } else {
+        setApplicants([]); // Default to empty if no applications in storage
       }
     }
   }, []);
@@ -74,8 +88,14 @@ export default function ViewApplicantsPage() {
             delete existingApplications[appIndex].rejectionReason; // Clear reason if not rejected
         }
         localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
-        setApplicants(existingApplications); 
-        setSelectedApplicant(prev => prev ? {...prev, admissionStatus: status, rejectionReason: status === "Not Admitted" ? reason : undefined} : null); 
+        // Update local state for immediate UI feedback, ensuring arrays are present
+        const updatedApplicants = existingApplications.map(app => ({
+            ...app,
+            qualifications: app.qualifications || [],
+            experiences: app.experiences || [],
+        }));
+        setApplicants(updatedApplicants); 
+        setSelectedApplicant(prev => prev ? {...prev, admissionStatus: status, rejectionReason: status === "Not Admitted" ? reason : undefined, qualifications: prev.qualifications || [], experiences: prev.experiences || [] } : null); 
         toast({ title: "Status Updated", description: `Applicant ${applicantId} status set to ${status}.` });
       } else {
         toast({ variant: "destructive", title: "Error", description: "Applicant not found." });
@@ -206,8 +226,8 @@ export default function ViewApplicantsPage() {
                 <ApplicationDetailItem label="Relationship" value={selectedApplicant.nextOfKinRelationship} />
 
                 <h3 className="font-semibold text-primary flex items-center gap-2 pt-3 border-t mt-4"><FileText className="h-5 w-5"/>Qualifications</h3>
-                {selectedApplicant.qualifications.map((qual, index) => (
-                  <div key={qual.id} className="p-2 my-1 border rounded-md bg-muted/30">
+                {(selectedApplicant.qualifications || []).map((qual, index) => (
+                  <div key={qual.id || `qual-${index}`} className="p-2 my-1 border rounded-md bg-muted/30">
                     <p className="font-medium text-sm">Qualification {index + 1}: {qual.type}</p>
                     <ApplicationDetailItem label="Institution" value={qual.institution} />
                     <ApplicationDetailItem label="Year Awarded" value={qual.yearAwarded} />
@@ -218,8 +238,8 @@ export default function ViewApplicantsPage() {
                 {selectedApplicant.experiences && selectedApplicant.experiences.length > 0 && (
                   <>
                     <h3 className="font-semibold text-primary flex items-center gap-2 pt-3 border-t mt-4"><Briefcase className="h-5 w-5"/>Work Experience</h3>
-                    {selectedApplicant.experiences.map((exp, index) => (
-                      <div key={exp.id} className="p-2 my-1 border rounded-md bg-muted/30">
+                    {(selectedApplicant.experiences || []).map((exp, index) => (
+                      <div key={exp.id || `exp-${index}`} className="p-2 my-1 border rounded-md bg-muted/30">
                         <p className="font-medium text-sm">Experience {index + 1}: {exp.role} at {exp.organization}</p>
                         <ApplicationDetailItem label="Duration" value={`${exp.startDate} to ${exp.endDate}`} />
                         <ApplicationDetailItem label="Document" value={exp.file?.name || "N/A"} />
@@ -296,3 +316,5 @@ export default function ViewApplicantsPage() {
   );
 }
 
+
+    
