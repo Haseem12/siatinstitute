@@ -2,7 +2,7 @@
 "use server";
 
 import { z } from "zod";
-import type { NewIntakeApplicationData, QualificationUpload, ExperienceUpload, FileUploadInfo } from "@/types";
+import type { NewIntakeApplicationData, FileUploadInfo } from "@/types";
 
 const fileUploadInfoSchema = z.object({
   name: z.string(),
@@ -28,9 +28,8 @@ const experienceUploadSchema = z.object({
   file: fileUploadInfoSchema,
 });
 
-// This schema is used for validation by the server action
 const applicationSchema = z.object({
-  applicationId: z.string().optional(), // Keep optional here as it's added by action
+  applicationId: z.string().optional(),
   fullName: z.string().min(3),
   email: z.string().email(),
   phoneNumber: z.string().min(10),
@@ -55,29 +54,79 @@ const applicationSchema = z.object({
 
 
 export async function submitNewIntakeApplicationAction(
-  payload: NewIntakeApplicationData // This type now matches what the form prepares
-): Promise<{ success: boolean; message: string; applicationId?: string }> {
+  payload: NewIntakeApplicationData
+): Promise<{ success: boolean; message: string; applicationId?: string; data?: NewIntakeApplicationData }> {
   try {
     const validatedPayload = applicationSchema.parse(payload);
 
-    const applicationWithId: NewIntakeApplicationData = {
+    const applicationWithGeneratedId: NewIntakeApplicationData = {
       ...validatedPayload,
-      applicationId: `SIAT-APP-${Date.now()}`,
+      applicationId: `SIAT-APP-${Date.now()}`, // Generate ID here before sending
     };
 
-    console.log("Received New Intake Application for storage:", JSON.stringify(applicationWithId, null, 2));
-    
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 1000)); 
+    // Attempt to send data to the external API
+    const apiEndpoint = "https://sajfoods.net/api/submitApplication.php"; // Replace with your actual endpoint if different
 
-    // Logic to save to localStorage will be client-side, after this action returns success.
-    // This server action's role is to validate and confirm "receipt".
-    
-    return { 
-      success: true, 
-      message: `Application received successfully! Your Application ID is ${applicationWithId.applicationId}. We will contact you via email (${validatedPayload.email}) with further instructions.`,
-      applicationId: applicationWithId.applicationId
-    };
+    try {
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(applicationWithGeneratedId),
+      });
+
+      if (!response.ok) {
+        // Attempt to parse error response from PHP if available
+        let errorDetails = `API request failed with status ${response.status}.`;
+        try {
+          const errorData = await response.json();
+          errorDetails += ` ${errorData.message || ''}`;
+        } catch (e) {
+          // Could not parse JSON error, use text
+          errorDetails += ` ${await response.text()}`;
+        }
+         // For the prototype, even if API fails, we proceed to save to localStorage and return success to client
+        // This allows admin to see the application via localStorage on their side.
+        console.warn(`API submission to ${apiEndpoint} failed: ${errorDetails}. Proceeding with localStorage.`);
+         return { 
+          success: true, // Still true for client-side localStorage saving
+          message: `Application submitted locally. API submission failed: ${errorDetails}. Application ID: ${applicationWithGeneratedId.applicationId}.`,
+          applicationId: applicationWithGeneratedId.applicationId,
+          data: applicationWithGeneratedId // Send back the data so client can save to localStorage
+        };
+      }
+
+      const responseData = await response.json();
+      
+      if (responseData.success) {
+        return { 
+          success: true, 
+          message: `Application submitted successfully to API and locally! Your Application ID is ${applicationWithGeneratedId.applicationId}. ${responseData.message || ''}`,
+          applicationId: applicationWithGeneratedId.applicationId,
+          data: applicationWithGeneratedId // Send back the data so client can save to localStorage
+        };
+      } else {
+         // API returned success: false
+        console.warn(`API submission to ${apiEndpoint} was not successful: ${responseData.message || 'Unknown API error'}. Proceeding with localStorage.`);
+        return { 
+          success: true, // Still true for client-side localStorage saving
+          message: `Application submitted locally. API reported an issue: ${responseData.message || 'Unknown API error'}. Application ID: ${applicationWithGeneratedId.applicationId}.`,
+          applicationId: applicationWithGeneratedId.applicationId,
+          data: applicationWithGeneratedId // Send back the data so client can save to localStorage
+        };
+      }
+
+    } catch (apiError: any) {
+      console.error("Error submitting application to API:", apiError);
+      // For the prototype, even if API call completely fails, we proceed to save to localStorage
+      return { 
+        success: true, // Still true for client-side localStorage saving
+        message: `Application submitted locally. Could not reach API: ${apiError.message}. Application ID: ${applicationWithGeneratedId.applicationId}.`,
+        applicationId: applicationWithGeneratedId.applicationId,
+        data: applicationWithGeneratedId // Send back the data so client can save to localStorage
+      };
+    }
 
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -90,7 +139,7 @@ export async function submitNewIntakeApplicationAction(
     console.error("Error submitting new intake application (server action):", error);
     return { 
       success: false, 
-      message: "An unexpected error occurred while submitting your application. Please try again later or contact support." 
+      message: "An unexpected error occurred while processing your application. Please try again later or contact support." 
     };
   }
 }

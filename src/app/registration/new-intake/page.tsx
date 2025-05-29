@@ -86,7 +86,7 @@ const qualificationSchema = z.object({
   institution: z.string().min(1, "Institution name is required."),
   yearAwarded: z.string().min(4, "Year is required.").max(4, "Invalid year."),
   fileInput: documentFileSchema,
-  file: fileSchema, // To store processed file info
+  file: fileSchema, 
 });
 
 const experienceSchema = z.object({
@@ -96,7 +96,7 @@ const experienceSchema = z.object({
   startDate: z.string().min(1, "Start date is required."),
   endDate: z.string().min(1, "End date is required."),
   fileInput: documentFileSchema,
-  file: fileSchema, // To store processed file info
+  file: fileSchema, 
 });
 
 
@@ -112,7 +112,7 @@ const newIntakeFormSchema = z.object({
   stateOfOrigin: z.string().min(2, "State of origin is required."),
   nationality: z.string().min(2, "Nationality is required."),
   photographFile: photographFileSchema,
-  photograph: fileSchema, // To store processed file info
+  photograph: fileSchema, 
   nextOfKinName: z.string().min(3, "Next of kin name is required."),
   nextOfKinPhone: z.string().min(10, "Next of kin phone is required."),
   nextOfKinRelationship: z.string().min(2, "Relationship to next of kin is required."),
@@ -160,7 +160,7 @@ export default function NewIntakePage() {
       email: "",
       phoneNumber: "",
       dateOfBirth: undefined,
-      gender: undefined, // Ensure it's undefined initially
+      gender: undefined, 
       address: "",
       city: "",
       stateOfOrigin: "",
@@ -174,7 +174,7 @@ export default function NewIntakePage() {
       experiences: [],
       preferredProgram: "",
       preferredCampus: "",
-      entryMode: undefined, // Ensure it's undefined initially
+      entryMode: undefined, 
       terms: false,
     },
   });
@@ -250,19 +250,16 @@ export default function NewIntakePage() {
     const applicationDataToSubmit: NewIntakeApplicationData = {
       ...data,
       photograph: processFileUpload(data.photographFile),
-      // photographFile is not needed for submission, only its processed info
       qualifications: data.qualifications.map(q => ({
         ...q,
         file: processFileUpload(q.fileInput),
-        // fileInput is not needed for submission
       })),
       experiences: data.experiences?.map(e => ({
         ...e,
         file: processFileUpload(e.fileInput),
-        // fileInput is not needed for submission
       })) || [],
     };
-    // Remove temporary form-only fields if they exist on applicationDataToSubmit
+    
     delete (applicationDataToSubmit as any).photographFile;
     applicationDataToSubmit.qualifications.forEach(q => delete (q as any).fileInput);
     applicationDataToSubmit.experiences?.forEach(e => delete (e as any).fileInput);
@@ -271,17 +268,16 @@ export default function NewIntakePage() {
 
     const result = await submitNewIntakeApplicationAction(applicationDataToSubmit);
     
-
-    if (result.success && result.applicationId) {
-      // Save to localStorage
+    // Even if API fails, we proceed with localStorage for prototype's admin view
+    if (result.success && result.data && result.applicationId) {
       try {
         const existingApplicationsString = localStorage.getItem("newIntakeApplications");
         const existingApplications: NewIntakeApplicationData[] = existingApplicationsString ? JSON.parse(existingApplicationsString) : [];
-        const newApplicationWithId = { ...applicationDataToSubmit, applicationId: result.applicationId};
-        existingApplications.push(newApplicationWithId);
+        // Use the data returned by the action which includes the generated applicationId
+        existingApplications.push(result.data); 
         localStorage.setItem("newIntakeApplications", JSON.stringify(existingApplications));
         
-        toast({ title: "Application Submitted!", description: result.message, duration: 7000 });
+        toast({ title: "Application Update", description: result.message, duration: 10000 });
         form.reset();
         setPhotographPreview(null);
         setCurrentStep(0); 
@@ -290,7 +286,7 @@ export default function NewIntakePage() {
         console.error("Failed to save application to localStorage", e);
         toast({ variant: "destructive", title: "Local Save Failed", description: "Your application was submitted but could not be saved locally for admin preview." });
       }
-    } else {
+    } else if (!result.success) { // Handle Zod validation errors or other critical server action failures
       toast({ variant: "destructive", title: "Submission Failed", description: result.message, duration: 7000 });
     }
     setIsLoading(false);
@@ -305,12 +301,10 @@ export default function NewIntakePage() {
       output = await form.trigger(currentFields, { shouldFocus: true });
     }
     
-    // For step 5 (Preview & Submit), also validate 'terms'
     if (currentStep === steps.length - 1) {
         const termsOutput = await form.trigger(["terms"]);
         if (!termsOutput) output = false;
     }
-
 
     if (!output) return;
 
@@ -346,7 +340,6 @@ export default function NewIntakePage() {
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                {/* Step 1: Bio-data */}
                 {currentStep === 0 && (
                   <section className="space-y-6 animate-in fade-in-50">
                     <FormField
@@ -359,7 +352,7 @@ export default function NewIntakePage() {
                                     <Input 
                                         type="file" 
                                         accept="image/jpeg,image/png,image/jpg" 
-                                        onChange={handlePhotographChange} // Use dedicated handler
+                                        onChange={handlePhotographChange}
                                         className="file:text-accent file:font-semibold"
                                     />
                                 </FormControl>
@@ -451,7 +444,6 @@ export default function NewIntakePage() {
                   </section>
                 )}
 
-                {/* Step 2: Qualifications */}
                 {currentStep === 1 && (
                   <section className="space-y-6 animate-in fade-in-50">
                     <CardTitle className="text-xl text-primary">Academic Qualifications</CardTitle>
@@ -484,8 +476,8 @@ export default function NewIntakePage() {
                                             const file = files[0];
                                             if (!ALLOWED_DOC_TYPES.includes(file.type)) {
                                                 toast({ variant: "destructive", title: "Invalid File Type", description: "Only PDF, JPG, JPEG, and PNG files are allowed."});
-                                                e.target.value = ""; // Reset file input
-                                                onChange(null); // Clear react-hook-form value
+                                                e.target.value = ""; 
+                                                onChange(null); 
                                                 return;
                                             }
                                             if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -519,7 +511,6 @@ export default function NewIntakePage() {
                   </section>
                 )}
 
-                {/* Step 3: Experience */}
                 {currentStep === 2 && (
                   <section className="space-y-6 animate-in fade-in-50">
                     <CardTitle className="text-xl text-primary">Work Experience (Optional)</CardTitle>
@@ -582,7 +573,6 @@ export default function NewIntakePage() {
                   </section>
                 )}
 
-                {/* Step 4: Program Choice */}
                 {currentStep === 3 && (
                   <section className="space-y-6 animate-in fade-in-50">
                      <CardTitle className="text-xl text-primary">Program and Campus Selection</CardTitle>
@@ -610,7 +600,6 @@ export default function NewIntakePage() {
                   </section>
                 )}
                 
-                {/* Step 5: Preview & Submit */}
                 {currentStep === 4 && (
                   <section className="space-y-6 animate-in fade-in-50">
                     <CardTitle className="text-xl text-primary">Application Preview</CardTitle>
@@ -682,7 +671,6 @@ export default function NewIntakePage() {
                   </section>
                 )}
 
-                {/* Navigation Buttons */}
                 <CardFooter className="flex justify-between mt-8 p-0">
                   {currentStep > 0 && (
                     <Button type="button" variant="outline" onClick={prevStep} disabled={isLoading}>
