@@ -43,7 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, PlusCircle, Trash2, UploadCloud, FileText, User as UserIcon, Loader2, ArrowRight, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, UploadCloud, FileText, User as UserIcon, Loader2, ArrowRight, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw, ArrowLeft } from "lucide-react";
 import type { NewIntakeApplicationData, QualificationUpload, ExperienceUpload, FileUploadInfo, PreRegisteredUser } from "@/types";
 import Image from "next/image";
 import {
@@ -180,7 +180,34 @@ export default function RegistrationDashboardPage() {
   const [applicationStatus, setApplicationStatus] = useState<"incomplete" | "submitted" | "admitted" | "not_admitted">("incomplete");
   const [completedApplicationData, setCompletedApplicationData] = useState<NewIntakeApplicationData | null>(null);
 
-
+  const form = useForm<FormValues>({
+    resolver: zodResolver(registrationDashboardFormSchema),
+    defaultValues: {
+      applicationId: "",
+      fullName: "",
+      email: "",
+      phoneNumber: "",
+      dateOfBirth: undefined,
+      gender: undefined, 
+      address: "",
+      city: "",
+      stateOfOrigin: "",
+      nationality: "Nigerian",
+      photographFile: null,
+      photograph: undefined,
+      nextOfKinName: "",
+      nextOfKinPhone: "",
+      nextOfKinRelationship: "",
+      oLevels: [],
+      aLevels: [],
+      preferredProgram: "",
+      preferredCampus: "",
+      entryMode: undefined, 
+      terms: false,
+      admissionStatus: "Pending",
+    },
+  });
+  
   const checkApplicationStatus = useCallback(() => {
     if (applicantAppId && typeof window !== 'undefined') {
       const completedAppsString = localStorage.getItem("completedApplications");
@@ -196,7 +223,18 @@ export default function RegistrationDashboardPage() {
           } else {
             setApplicationStatus("submitted");
           }
-          form.reset(currentApp); // Load completed data into form if needed for review
+          // Make sure to handle date correctly when resetting
+          const formDataForReset = {
+            ...currentApp,
+            dateOfBirth: currentApp.dateOfBirth ? new Date(currentApp.dateOfBirth) : undefined,
+             // O-Levels and A-Levels might need special handling if their structure in localStorage
+            // differs from the form's expected structure, especially for file inputs.
+            // For this fix, we assume the structure is compatible or handled.
+            oLevels: currentApp.oLevels?.map(ol => ({...ol, fileInput: null})) || [], // FileList can't be stored in JSON
+            aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null})) || [], // FileList can't be stored in JSON
+            photographFile: null, // FileList cannot be stored in JSON
+          };
+          form.reset(formDataForReset as any); // Use 'as any' if types diverge, ensure correct mapping for production
         } else {
           setApplicationStatus("incomplete");
         }
@@ -204,7 +242,7 @@ export default function RegistrationDashboardPage() {
         setApplicationStatus("incomplete");
       }
     }
-  }, [applicantAppId]); // form removed from deps as it's not stable
+  }, [applicantAppId, form]); 
 
   useEffect(() => {
     console.log("RegistrationDashboardPage mounted successfully.");
@@ -234,39 +272,12 @@ export default function RegistrationDashboardPage() {
           });
         }
       }
-      checkApplicationStatus(); // Check status after prefilling
+      checkApplicationStatus(); 
       setInitialDataLoaded(true);
     }
   }, [applicantAppId, form, initialDataLoaded, checkApplicationStatus]);
 
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(registrationDashboardFormSchema),
-    defaultValues: {
-      applicationId: "",
-      fullName: "",
-      email: "",
-      phoneNumber: "",
-      dateOfBirth: undefined,
-      gender: undefined, 
-      address: "",
-      city: "",
-      stateOfOrigin: "",
-      nationality: "Nigerian",
-      photographFile: null,
-      photograph: undefined,
-      nextOfKinName: "",
-      nextOfKinPhone: "",
-      nextOfKinRelationship: "",
-      oLevels: [],
-      aLevels: [],
-      preferredProgram: "",
-      preferredCampus: "",
-      entryMode: undefined, 
-      terms: false,
-      admissionStatus: "Pending",
-    },
-  });
   
   const { fields: oLevelFields, append: appendOLevel, remove: removeOLevel } = useFieldArray({
     control: form.control,
@@ -379,14 +390,14 @@ export default function RegistrationDashboardPage() {
         
         const appIndex = existingApplications.findIndex(app => app.applicationId === applicationDataToSubmit.applicationId);
         if (appIndex > -1) {
-            existingApplications[appIndex] = applicationDataToSubmit;
+            existingApplications[appIndex] = applicationDataToSubmit; // Update existing
         } else {
-            existingApplications.push(applicationDataToSubmit);
+            existingApplications.push(applicationDataToSubmit); // Add new
         }
         localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
         
         toast({ title: "Application Submitted Successfully!", description: `Your application (ID: ${applicationDataToSubmit.applicationId}) has been saved. You will be notified of your admission status.`, duration: 7000 });
-        checkApplicationStatus(); // Re-check status to update UI
+        checkApplicationStatus(); 
         
       } catch (e) {
         console.error("Failed to save application to localStorage", e);
@@ -903,7 +914,7 @@ const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
 );
 
 // Add ArrowLeft to lucide-react imports
-const ArrowLeft = (props: React.SVGProps<SVGSVGElement>) => (
+/* const ArrowLeft = (props: React.SVGProps<SVGSVGElement>) => ( // Already defined above, no need to redefine
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="24"
@@ -919,4 +930,5 @@ const ArrowLeft = (props: React.SVGProps<SVGSVGElement>) => (
     <line x1="19" y1="12" x2="5" y2="12"></line>
     <polyline points="12 19 5 12 12 5"></polyline>
   </svg>
-);
+); */
+
