@@ -43,8 +43,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, PlusCircle, Trash2, UploadCloud, FileText, User as UserIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw } from "lucide-react";
-import type { NewIntakeApplicationData, QualificationUpload, ExperienceUpload, FileUploadInfo, PreRegisteredUser } from "@/types";
+import { CalendarIcon, PlusCircle, Trash2, UploadCloud, User as UserIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw } from "lucide-react";
+import type { NewIntakeApplicationData, QualificationUpload, FileUploadInfo, PreRegisteredUser, OLevelSubject as OLevelSubjectType } from "@/types";
 import Image from "next/image";
 import {
   Carousel,
@@ -54,7 +54,7 @@ import {
   CarouselNext,
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
-import { Dialog, DialogContent as PrintDialogContent, DialogHeader as PrintDialogHeader, DialogTitle as PrintDialogTitle, DialogDescription as PrintDialogDescription, DialogFooter as PrintDialogFooter, DialogClose as PrintDialogClose, DialogTrigger } from "@/components/ui/dialog"; // Aliased for print dialog
+import { Dialog, DialogContent as PrintDialogContent, DialogHeader as PrintDialogHeader, DialogTitle as PrintDialogTitle, DialogDescription as PrintDialogDescription, DialogFooter as PrintDialogFooter, DialogClose as PrintDialogClose } from "@/components/ui/dialog"; // Aliased for print dialog
 import ArewaLogo from "@/components/arewa-logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -164,7 +164,7 @@ const aLevelQualificationTypes = ["A-Level (IJMB/JUPEB)", "National Diploma (ND)
 const genderOptions = ["Male", "Female", "Other"];
 const entryModes = ["UTME", "Direct Entry", "Transfer"];
 const oLevelExamTypes = ["WAEC", "NECO", "NABTEB", "GCE"];
-const oLevelSubjectsList = ["Mathematics", "English Language", "Physics", "Chemistry", "Biology", "Economics", "Government", "Literature in English", "CRK/IRK", "Geography", "Agricultural Science", "Further Mathematics", "Technical Drawing", "Commerce", "Financial Accounting"];
+const oLevelSubjectsList = ["Mathematics", "English Language", "Physics", "Chemistry", "Biology", "Computer Studies", "Economics", "Government", "Literature in English", "CRK/IRK", "Geography", "Agricultural Science", "Further Mathematics", "Technical Drawing", "Commerce", "Financial Accounting"];
 const oLevelGrades = ["A1", "B2", "B3", "C4", "C5", "C6", "D7", "E8", "F9"];
 
 const heroSliderImages = [
@@ -173,11 +173,150 @@ const heroSliderImages = [
   { src: "/assets/slider/slide-9.jpg", alt: "SIAT Students Collaborating", title: "Achieve Your Dreams", subtitle: "We are here to support your academic success.", dataAiHint: "students collaboration" },
 ];
 
+interface OLevelSittingItemProps {
+  control: any; // Control type from react-hook-form
+  oLevelIndex: number;
+  removeOLevelSitting: (index: number) => void;
+  form: any; // Form type from react-hook-form
+}
+
+const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIndex, removeOLevelSitting, form }) => {
+  const { fields: subjectFields, append: appendSubject, remove: removeSubject } = useFieldArray({
+    control,
+    name: `oLevels.${oLevelIndex}.subjects`,
+  });
+
+  return (
+    <Card className="p-4 space-y-4 relative bg-muted/50">
+      <div className="flex justify-between items-center">
+        <h4 className="font-medium text-primary">O-Level Sitting {oLevelIndex + 1}</h4>
+        {oLevelIndex > 0 && ( // Allow removal only if it's not the first one, or if there are multiple
+            <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeOLevelSitting(oLevelIndex)}>
+            <Trash2 className="h-4 w-4" /><span className="sr-only">Remove O-Level Sitting</span>
+            </Button>
+        )}
+      </div>
+      <FormField control={control} name={`oLevels.${oLevelIndex}.examType`} render={({ field }) => (
+        <FormItem><FormLabel>Exam Type</FormLabel>
+          <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <FormControl><SelectTrigger><SelectValue placeholder="e.g. WAEC, NECO" /></SelectTrigger></FormControl>
+            <SelectContent>{oLevelExamTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
+          </Select><FormMessage /></FormItem>
+      )} />
+      <div className="grid md:grid-cols-2 gap-4">
+        <FormField control={control} name={`oLevels.${oLevelIndex}.examYear`} render={({ field }) => (
+          <FormItem><FormLabel>Exam Year</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <FormField control={control} name={`oLevels.${oLevelIndex}.examNumber`} render={({ field }) => (
+          <FormItem><FormLabel>Exam Number (Optional)</FormLabel><FormControl><Input placeholder="Your exam number" {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+      </div>
+
+      <h5 className="font-medium pt-2">Subjects & Grades (Min 5, Max 9)</h5>
+      {subjectFields.map((subjectItem, subjectIndex) => (
+        <div key={subjectItem.id} className="grid grid-cols-10 gap-2 items-end">
+          <FormField control={control} name={`oLevels.${oLevelIndex}.subjects.${subjectIndex}.subject`} render={({ field }) => (
+            <FormItem className="col-span-5"><FormLabel className="text-xs">Subject {subjectIndex + 1}</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl><SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger></FormControl>
+                <SelectContent>{oLevelSubjectsList.map(sub => <SelectItem key={sub} value={sub}>{sub}</SelectItem>)}</SelectContent>
+              </Select><FormMessage /></FormItem>
+          )} />
+          <FormField control={control} name={`oLevels.${oLevelIndex}.subjects.${subjectIndex}.grade`} render={({ field }) => (
+            <FormItem className="col-span-4"><FormLabel className="text-xs">Grade</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl><SelectTrigger><SelectValue placeholder="Grade" /></SelectTrigger></FormControl>
+                <SelectContent>{oLevelGrades.map(grd => <SelectItem key={grd} value={grd}>{grd}</SelectItem>)}</SelectContent>
+              </Select><FormMessage /></FormItem>
+          )} />
+          {subjectFields.length > 5 && ( // Only show remove button if more than 5 subjects
+              <Button type="button" variant="ghost" size="icon" className="col-span-1 text-destructive hover:bg-destructive/10 h-9 w-9 self-end" onClick={() => removeSubject(subjectIndex)}>
+              <Trash2 className="h-4 w-4" />
+              </Button>
+          )}
+        </div>
+      ))}
+      {subjectFields.length < 9 && (
+        <Button type="button" size="sm" variant="outline" className="mt-2 text-accent border-accent" onClick={() => appendSubject({ id: crypto.randomUUID(), subject: "", grade: "" })}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Subject
+        </Button>
+      )}
+      {form.formState.errors.oLevels?.[oLevelIndex]?.subjects?.root && (
+        <FormMessage>{form.formState.errors.oLevels?.[oLevelIndex]?.subjects?.root?.message}</FormMessage>
+      )}
+
+      <FormField control={control} name={`oLevels.${oLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
+        <FormItem><FormLabel>Upload O-Level Certificate/Statement</FormLabel>
+          <FormControl><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold" /></FormControl>
+          <FormMessage />
+          {value && value.length > 0 && <p className="text-xs text-muted-foreground">Selected: {value[0].name}</p>}
+        </FormItem>
+      )} />
+    </Card>
+  );
+};
+
+interface ALevelSittingItemProps {
+  control: any;
+  aLevelIndex: number;
+  removeALevelSitting: (index: number) => void;
+}
+
+const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIndex, removeALevelSitting }) => {
+  return (
+    <Card className="p-4 space-y-4 relative bg-muted/50">
+      <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeALevelSitting(aLevelIndex)}>
+        <Trash2 className="h-4 w-4" /><span className="sr-only">Remove Qualification</span>
+      </Button>
+      <h4 className="font-medium text-primary">A-Level/Other Qualification {aLevelIndex + 1}</h4>
+      <FormField control={control} name={`aLevels.${aLevelIndex}.type`} render={({ field }) => (
+        <FormItem><FormLabel>Qualification Type</FormLabel>
+          <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <FormControl><SelectTrigger><SelectValue placeholder="e.g. A-Level, Diploma" /></SelectTrigger></FormControl>
+            <SelectContent>{aLevelQualificationTypes.map(q => <SelectItem key={q} value={q}>{q}</SelectItem>)}</SelectContent>
+          </Select><FormMessage /></FormItem>
+      )} />
+      <FormField control={control} name={`aLevels.${aLevelIndex}.institution`} render={({ field }) => (
+        <FormItem><FormLabel>Institution Name</FormLabel><FormControl><Input placeholder="Name of school/body" {...field} /></FormControl><FormMessage /></FormItem>
+      )} />
+      <FormField control={control} name={`aLevels.${aLevelIndex}.courseOfStudy`} render={({ field }) => (
+        <FormItem><FormLabel>Course of Study (if applicable)</FormLabel><FormControl><Input placeholder="e.g. Computer Engineering" {...field} /></FormControl><FormMessage /></FormItem>
+      )} />
+      <div className="grid md:grid-cols-2 gap-4">
+        <FormField control={control} name={`aLevels.${aLevelIndex}.gradeOrClass`} render={({ field }) => (
+          <FormItem><FormLabel>Grade/Class of Pass</FormLabel><FormControl><Input placeholder="e.g. Distinction, 10 points" {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+        <FormField control={control} name={`aLevels.${aLevelIndex}.yearAwarded`} render={({ field }) => (
+          <FormItem><FormLabel>Year Awarded</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+      </div>
+      <FormField control={control} name={`aLevels.${aLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
+        <FormItem><FormLabel>Upload Certificate (PDF, JPG, PNG - Max 2MB)</FormLabel>
+          <FormControl><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold" /></FormControl>
+          <FormMessage />
+          {value && value.length > 0 && <p className="text-xs text-muted-foreground">Selected: {value[0].name}</p>}
+        </FormItem>
+      )} />
+    </Card>
+  );
+};
+
+
+interface PreviewItemProps {
+  label: string;
+  value?: string | number | null;
+}
+const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
+  <div className="flex flex-col sm:flex-row sm:justify-between py-1 text-sm">
+    <dt className="font-medium text-muted-foreground">{label}:</dt>
+    <dd className="text-foreground sm:text-right">{String(value === undefined || value === null || String(value).trim() === '' ? "N/A" : value)}</dd>
+  </div>
+);
+
 
 export default function RegistrationDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
-  
   const form = useForm<FormValues>({
     resolver: zodResolver(registrationDashboardFormSchema),
     defaultValues: {
@@ -237,9 +376,14 @@ export default function RegistrationDashboardPage() {
             ...currentApp,
             dateOfBirth: currentApp.dateOfBirth ? new Date(currentApp.dateOfBirth) : undefined,
             photographFile: null, 
-            oLevels: currentApp.oLevels?.map(ol => ({...ol, fileInput: null, file: ol.file ? {...ol.file} : undefined })) || [],
+             oLevels: currentApp.oLevels?.map(ol => ({
+              ...ol, 
+              fileInput: null, 
+              file: ol.file ? {...ol.file} : undefined,
+              subjects: ol.subjects || [] // Ensure subjects is an array
+            })) || [],
             aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null, file: al.file ? {...al.file} : undefined })) || [],
-            terms: true, // if it's completed, terms must have been true
+            terms: true, 
           };
           form.reset(formDataForReset as any);
 
@@ -366,35 +510,21 @@ export default function RegistrationDashboardPage() {
     const applicationDataToSubmit: NewIntakeApplicationData = {
       ...data,
       photograph: processFileUpload(data.photographFile),
-      // Re-map qualifications correctly for submission if necessary
-      // For this example, 'oLevels' and 'aLevels' are directly part of FormValues mapped from NewIntakeApplicationData
-      // We'll structure them into a single 'qualifications' array in a real backend,
-      // but for localStorage, we can keep them as is if the type matches.
-      // However, the admin view expects a single `qualifications` array. Let's combine them.
-       qualifications: [
-        ...data.oLevels.map(ol => ({
-          id: ol.id,
-          type: `O-Level (${ol.examType}) - ${ol.examYear}`,
-          institution: ol.examNumber || "N/A (Exam No.)",
-          yearAwarded: ol.examYear,
-          subjects: ol.subjects, // Keep subjects for O-Levels
-          description: `${ol.subjects.length} subjects. Certificate: ${processFileUpload(ol.fileInput)?.name || "N/A"}`,
-          file: processFileUpload(ol.fileInput),
-          photographFile: undefined, // Ensure this isn't passed
-        })),
-        ...(data.aLevels?.map(al => ({
-          ...al,
-          file: processFileUpload(al.fileInput),
-          photographFile: undefined, // Ensure this isn't passed
-        })) || [])
-      ],
+      oLevels: data.oLevels.map(ol => ({
+        ...ol,
+        file: processFileUpload(ol.fileInput),
+        subjects: ol.subjects || [] // ensure subjects is an array
+      })),
+      aLevels: data.aLevels?.map(al => ({
+        ...al,
+        file: processFileUpload(al.fileInput),
+      })) || [],
       admissionStatus: "Pending",
     };
 
-    // Clean up form-specific fields that are not part of the final data structure
     delete (applicationDataToSubmit as any).photographFile;
-    // The re-mapping above handles oLevels and aLevels into qualifications
-    // If oLevels and aLevels were still direct properties, you'd delete them here.
+    applicationDataToSubmit.oLevels?.forEach(ol => delete (ol as any).fileInput);
+    applicationDataToSubmit.aLevels?.forEach(al => delete (al as any).fileInput);
     delete (applicationDataToSubmit as any).terms;
 
     try {
@@ -410,7 +540,7 @@ export default function RegistrationDashboardPage() {
         localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
 
         toast({ title: "Application Submitted Successfully!", description: `Your application (ID: ${applicationDataToSubmit.applicationId}) has been saved. You will be notified of your admission status.`, duration: 7000 });
-        checkApplicationStatus(); // Re-check status to update UI
+        checkApplicationStatus(); 
 
       } catch (e) {
         console.error("Failed to save application to localStorage", e);
@@ -430,7 +560,7 @@ export default function RegistrationDashboardPage() {
       output = await form.trigger(currentFields, { shouldFocus: true });
     }
 
-    if (currentTabIndex === tabs.length - 1) { // Check for terms on the last tab
+    if (currentTabIndex === tabs.length - 1) { 
         const termsOutput = await form.trigger(["terms"]);
         if (!termsOutput) output = false;
     }
@@ -460,7 +590,7 @@ export default function RegistrationDashboardPage() {
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
             .letter-container { max-width: 700px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid hsl(var(--primary)); padding-bottom: 15px; }
-            .header img { max-height: 70px; margin-bottom: 10px; } /* Changed ArewaLogo to img */
+            .header img { max-height: 70px; margin-bottom: 10px; } 
             .header h1 { margin: 0; font-size: 22px; color: hsl(var(--primary)); }
             .header h2 { margin: 5px 0; font-size: 18px; font-weight: normal; color: hsl(var(--foreground));}
             .applicant-details p, .admission-details p { margin: 5px 0; font-size: 14px; }
@@ -478,19 +608,9 @@ export default function RegistrationDashboardPage() {
         const rootStyles = getComputedStyle(document.documentElement);
         const cssVars = `--primary: ${rootStyles.getPropertyValue('--primary')}; --foreground: ${rootStyles.getPropertyValue('--foreground')};`;
         printWindow.document.write(`<div style="${cssVars}">`);
-        // Manually add logo for print if needed, as direct component rendering is tricky here
-        // For simplicity, assuming ArewaLogo is an SVG that can be embedded or a public URL
-        const logoHtml = `<img src="/assets/arewa-logo.svg" alt="Institute Logo" style="max-height: 70px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" class="no-print-in-original-but-needed-here" data-ai-hint="school logo print" />`;
+        const logoHtml = `<img src="/assets/arewa-logo.svg" alt="Institute Logo" style="max-height: 70px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" data-ai-hint="school logo print" />`;
         let contentHtml = content.innerHTML;
-        // If the logo has a specific class in the original content that hides it in print, adjust.
-        // Or ensure the logo in the original content is not hidden by print styles if that's preferred.
-        contentHtml = contentHtml.replace(/<div class="header[^>]*>[\s\S]*?<\/h1>/, (match) => {
-            // Find the img tag or insert the logo if not present directly in the header's main h1 area
-            if (match.includes('arewa-logo')) { // Assuming ArewaLogo component renders with this class or similar identifier
-                return match; // Already has a logo, or logic is more complex
-            }
-            return match.replace(/<h1.*?>/, `<h1>${logoHtml}`); // Prepend logo to H1 or specific part of header
-        });
+        contentHtml = contentHtml.replace(/<svg.*arewa-logo.*?svg>/s, logoHtml);
 
         printWindow.document.write(contentHtml);
         printWindow.document.write('</div></body></html>');
@@ -725,81 +845,15 @@ export default function RegistrationDashboardPage() {
 
                             <TabsContent value="o-level" className="space-y-6 animate-in fade-in-50">
                                 <CardTitle className="text-xl text-primary">O-Level Qualifications</CardTitle>
-                                {oLevelFields.map((item, oLevelIndex) => {
-                                   const { fields: subjectFields, append: appendSubject, remove: removeSubject } = useFieldArray({
-                                        control: form.control,
-                                        name: `oLevels.${oLevelIndex}.subjects`,
-                                    });
-
-                                    return (
-                                    <Card key={item.id} className="p-4 space-y-4 relative bg-muted/50">
-                                        <div className="flex justify-between items-center">
-                                            <h4 className="font-medium text-primary">O-Level Sitting {oLevelIndex + 1}</h4>
-                                            {oLevelFields.length > 1 && (
-                                                <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeOLevel(oLevelIndex)}>
-                                                    <Trash2 className="h-4 w-4" /><span className="sr-only">Remove O-Level Sitting</span>
-                                                </Button>
-                                            )}
-                                        </div>
-                                        <FormField control={form.control} name={`oLevels.${oLevelIndex}.examType`} render={({ field }) => (
-                                            <FormItem><FormLabel>Exam Type</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl><SelectTrigger><SelectValue placeholder="e.g. WAEC, NECO" /></SelectTrigger></FormControl>
-                                                <SelectContent>{oLevelExamTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
-                                                </Select><FormMessage /></FormItem>
-                                            )} />
-                                        <div className="grid md:grid-cols-2 gap-4">
-                                            <FormField control={form.control} name={`oLevels.${oLevelIndex}.examYear`} render={({ field }) => (
-                                                <FormItem><FormLabel>Exam Year</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
-                                            )} />
-                                            <FormField control={form.control} name={`oLevels.${oLevelIndex}.examNumber`} render={({ field }) => (
-                                                <FormItem><FormLabel>Exam Number (Optional)</FormLabel><FormControl><Input placeholder="Your exam number" {...field} /></FormControl><FormMessage /></FormItem>
-                                            )} />
-                                        </div>
-
-                                        <h5 className="font-medium pt-2">Subjects & Grades (Min 5, Max 9)</h5>
-                                        {subjectFields.map((subjectItem, subjectIndex) => (
-                                            <div key={subjectItem.id} className="grid grid-cols-10 gap-2 items-end">
-                                                <FormField control={form.control} name={`oLevels.${oLevelIndex}.subjects.${subjectIndex}.subject`} render={({ field }) => (
-                                                    <FormItem className="col-span-5"><FormLabel className="text-xs">Subject {subjectIndex + 1}</FormLabel>
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Select Subject" /></SelectTrigger></FormControl>
-                                                        <SelectContent>{oLevelSubjectsList.map(sub => <SelectItem key={sub} value={sub}>{sub}</SelectItem>)}</SelectContent>
-                                                        </Select><FormMessage /></FormItem>
-                                                )} />
-                                                <FormField control={form.control} name={`oLevels.${oLevelIndex}.subjects.${subjectIndex}.grade`} render={({ field }) => (
-                                                    <FormItem className="col-span-4"><FormLabel className="text-xs">Grade</FormLabel>
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Grade" /></SelectTrigger></FormControl>
-                                                        <SelectContent>{oLevelGrades.map(grd => <SelectItem key={grd} value={grd}>{grd}</SelectItem>)}</SelectContent>
-                                                        </Select><FormMessage /></FormItem>
-                                                )} />
-                                                {subjectFields.length > 5 && (
-                                                    <Button type="button" variant="ghost" size="icon" className="col-span-1 text-destructive hover:bg-destructive/10 h-9 w-9 self-end" onClick={() => removeSubject(subjectIndex)}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        ))}
-                                        { subjectFields.length < 9 && (
-                                            <Button type="button" size="sm" variant="outline" className="mt-2 text-accent border-accent" onClick={() => appendSubject({ id: crypto.randomUUID(), subject: "", grade: "" })}>
-                                                <PlusCircle className="mr-2 h-4 w-4" /> Add Subject
-                                            </Button>
-                                        )}
-                                        {form.formState.errors.oLevels?.[oLevelIndex]?.subjects?.root && (
-                                            <FormMessage>{form.formState.errors.oLevels?.[oLevelIndex]?.subjects?.root?.message}</FormMessage>
-                                        )}
-
-                                        <FormField control={form.control} name={`oLevels.${oLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
-                                            <FormItem><FormLabel>Upload O-Level Certificate/Statement</FormLabel>
-                                                <FormControl><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold"/></FormControl>
-                                                <FormMessage />
-                                                {value && value.length > 0 && <p className="text-xs text-muted-foreground">Selected: {value[0].name}</p>}
-                                            </FormItem>
-                                        )} />
-                                    </Card>
-                                    )
-                                })}
+                                {oLevelFields.map((item, oLevelIndex) => (
+                                  <OLevelSittingItem
+                                    key={item.id}
+                                    control={form.control}
+                                    oLevelIndex={oLevelIndex}
+                                    removeOLevelSitting={removeOLevel}
+                                    form={form}
+                                  />
+                                ))}
                                 {oLevelFields.length < 2 && (
                                     <Button type="button" variant="outline" onClick={handleAddOLevel} className="text-accent border-accent hover:bg-accent/10">
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add O-Level Sitting
@@ -813,40 +867,12 @@ export default function RegistrationDashboardPage() {
                             <TabsContent value="a-level" className="space-y-6 animate-in fade-in-50">
                                 <CardTitle className="text-xl text-primary">A-Level / Other Qualifications (Optional)</CardTitle>
                                 {aLevelFields.map((item, index) => (
-                                <Card key={item.id} className="p-4 space-y-4 relative bg-muted/50">
-                                    <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeALevel(index)}>
-                                        <Trash2 className="h-4 w-4" /><span className="sr-only">Remove Qualification</span>
-                                    </Button>
-                                    <h4 className="font-medium text-primary">Qualification {index + 1}</h4>
-                                    <FormField control={form.control} name={`aLevels.${index}.type`} render={({ field }) => (
-                                    <FormItem><FormLabel>Qualification Type</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="e.g. A-Level, Diploma" /></SelectTrigger></FormControl>
-                                        <SelectContent>{aLevelQualificationTypes.map(q => <SelectItem key={q} value={q}>{q}</SelectItem>)}</SelectContent>
-                                        </Select><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name={`aLevels.${index}.institution`} render={({ field }) => (
-                                    <FormItem><FormLabel>Institution Name</FormLabel><FormControl><Input placeholder="Name of school/body" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name={`aLevels.${index}.courseOfStudy`} render={({ field }) => (
-                                    <FormItem><FormLabel>Course of Study (if applicable)</FormLabel><FormControl><Input placeholder="e.g. Computer Engineering" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <div className="grid md:grid-cols-2 gap-4">
-                                    <FormField control={form.control} name={`aLevels.${index}.gradeOrClass`} render={({ field }) => (
-                                    <FormItem><FormLabel>Grade/Class of Pass</FormLabel><FormControl><Input placeholder="e.g. Distinction, 10 points" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name={`aLevels.${index}.yearAwarded`} render={({ field }) => (
-                                    <FormItem><FormLabel>Year Awarded</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    </div>
-                                    <FormField control={form.control} name={`aLevels.${index}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
-                                        <FormItem><FormLabel>Upload Certificate (PDF, JPG, PNG - Max 2MB)</FormLabel>
-                                            <FormControl><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold"/></FormControl>
-                                            <FormMessage />
-                                            {value && value.length > 0 && <p className="text-xs text-muted-foreground">Selected: {value[0].name}</p>}
-                                        </FormItem>
-                                    )} />
-                                </Card>
+                                   <ALevelSittingItem
+                                     key={item.id}
+                                     control={form.control}
+                                     aLevelIndex={index}
+                                     removeALevelSitting={removeALevel}
+                                   />
                                 ))}
                                 {(aLevelFields?.length || 0) < MAX_QUALIFICATIONS && (
                                     <Button type="button" variant="outline" onClick={handleAddALevel} className="text-accent border-accent hover:bg-accent/10">
@@ -914,7 +940,7 @@ export default function RegistrationDashboardPage() {
                                             <p className="font-medium">O-Level Sitting {i + 1}: {ol.examType} ({ol.examYear})</p>
                                             <PreviewItem label="Exam No" value={ol.examNumber || "N/A"}/>
                                             <ul className="list-disc list-inside pl-4 text-sm">
-                                                {ol.subjects.map(sub => <li key={sub.id}>{sub.subject}: {sub.grade}</li>)}
+                                                {(ol.subjects || []).map(sub => <li key={sub.id}>{sub.subject}: {sub.grade}</li>)}
                                             </ul>
                                             <PreviewItem label="Certificate" value={processFileUpload(ol.fileInput)?.name || "Not uploaded"} />
                                         </div>
@@ -1063,14 +1089,3 @@ export default function RegistrationDashboardPage() {
     </div>
   );
 }
-
-interface PreviewItemProps {
-  label: string;
-  value?: string | number | null;
-}
-const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
-  <div className="flex flex-col sm:flex-row sm:justify-between py-1 text-sm">
-    <dt className="font-medium text-muted-foreground">{label}:</dt>
-    <dd className="text-foreground sm:text-right">{String(value === undefined || value === null || String(value).trim() === '' ? "N/A" : value)}</dd>
-  </div>
-);
