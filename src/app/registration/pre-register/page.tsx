@@ -43,7 +43,7 @@ const PreRegisterFormSchema = z.object({
 
 type PreRegisterFormValues = z.infer<typeof PreRegisterFormSchema>;
 
-const MOCK_VERIFICATION_CODE = "123456"; // Keep for UI simulation if API doesn't handle this part
+const MOCK_VERIFICATION_CODE = "123456"; 
 
 export default function PreRegisterPage() {
   const router = useRouter();
@@ -51,7 +51,7 @@ export default function PreRegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
-  const [awaitingVerification, setAwaitingVerification] = useState(false); // Still used for UI flow
+  const [awaitingVerification, setAwaitingVerification] = useState(false);
   const [verificationCodeInput, setVerificationCodeInput] = useState("");
   const [pendingRegistrationData, setPendingRegistrationData] = useState<PreRegisterFormValues | null>(null);
 
@@ -72,16 +72,13 @@ export default function PreRegisterPage() {
     },
   });
 
-  // This function is now the first step before actual API call
   const handleProceedToVerification = (data: PreRegisterFormValues) => {
     setPendingRegistrationData(data);
     setAwaitingVerification(true);
-    // In a real scenario, an email would be sent by the backend.
-    // For this prototype, we still rely on a mock code displayed/known to the user.
     toast({
-      title: "Email Verification Step (Mock)",
-      description: `Please enter the mock verification code: ${MOCK_VERIFICATION_CODE} to complete your pre-registration. An email would normally be sent to ${data.email}.`,
-      duration: 9000,
+      title: "Check Your Email",
+      description: `A verification code has been (mock) sent to ${data.email}. Please check your inbox (and spam folder) and enter the code below. (For prototype, use code: ${MOCK_VERIFICATION_CODE})`,
+      duration: 15000, // Longer duration for user to see the mock code if needed
     });
   };
 
@@ -111,27 +108,30 @@ export default function PreRegisterPage() {
           firstname: pendingRegistrationData.firstname,
           othername: pendingRegistrationData.othername || "",
           email: pendingRegistrationData.email,
-          password: pendingRegistrationData.password, // Send plain password to PHP, PHP will hash
+          password: pendingRegistrationData.password,
         }),
       });
 
       const result = await response.json();
 
       if (result.success && result.data.appId) {
-        // Optionally, still save to localStorage for immediate local access if needed by login page
-        // or rely purely on API for next step. For now, let's keep localStorage as a backup.
+        // For local prototype, also save to localStorage for login page to pick up
+        // In a real app with sessions, this might not be needed or handled differently.
         const existingUsersString = localStorage.getItem("preRegisteredUsers");
-        const existingUsers = existingUsersString ? JSON.parse(existingUsersString) : [];
-        const newUserForLocalStorage = {
-            appId: result.data.appId,
-            surname: pendingRegistrationData.surname,
-            firstname: pendingRegistrationData.firstname,
-            othername: pendingRegistrationData.othername || "",
-            email: pendingRegistrationData.email,
-            password: pendingRegistrationData.password, // For local mock matching
-        };
-        const updatedUsers = [...existingUsers, newUserForLocalStorage];
-        localStorage.setItem("preRegisteredUsers", JSON.stringify(updatedUsers));
+        let existingUsers = existingUsersString ? JSON.parse(existingUsersString) : [];
+        // Prevent duplicates if API call fails but localStorage write succeeds
+        if (!existingUsers.find((u:any) => u.email === pendingRegistrationData.email)) {
+            const newUserForLocalStorage = {
+                appId: result.data.appId,
+                surname: pendingRegistrationData.surname,
+                firstname: pendingRegistrationData.firstname,
+                othername: pendingRegistrationData.othername || "",
+                email: pendingRegistrationData.email,
+                password: pendingRegistrationData.password, 
+            };
+            existingUsers.push(newUserForLocalStorage);
+            localStorage.setItem("preRegisteredUsers", JSON.stringify(existingUsers));
+        }
         
         toast({
           title: "Pre-registration Successful!",
@@ -143,7 +143,7 @@ export default function PreRegisterPage() {
         toast({
           variant: "destructive",
           title: "Pre-registration Failed",
-          description: result.message || "An unknown error occurred with the API.",
+          description: result.message || "An unknown error occurred with the API. Please check your details or try again later.",
         });
       }
     } catch (error) {
@@ -151,14 +151,13 @@ export default function PreRegisterPage() {
       toast({
         variant: "destructive",
         title: "Pre-registration Error",
-        description: "Could not connect to the registration service. Please try again later.",
+        description: "Could not connect to the registration service. Please check your internet connection or try again later.",
       });
     } finally {
       setIsLoading(false);
-      // Clear pending data regardless of success/failure of API for security
-      setPendingRegistrationData(null); 
-      setVerificationCodeInput("");
-      // Do not reset awaitingVerification here if API failed, let user retry code
+      // Do not clear pendingRegistrationData here if API call failed, allow retry
+      // setPendingRegistrationData(null); 
+      // setVerificationCodeInput(""); 
     }
   };
 
@@ -210,7 +209,7 @@ export default function PreRegisterPage() {
             </h1>
             <p className="text-muted-foreground mt-1">
               {awaitingVerification 
-                ? `A mock verification code was "sent" to ${pendingRegistrationData?.email}. Enter it below.`
+                ? `A mock verification code was "sent" to ${pendingRegistrationData?.email}. Please enter it below.`
                 : "Create your application account to get started."}
             </p>
           </div>
@@ -283,7 +282,7 @@ export default function PreRegisterPage() {
                       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                       {isLoading ? "Verifying & Registering..." : "Verify & Complete Registration"}
                   </Button>
-                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); setPendingRegistrationData(null); form.reset();}} className="w-full" disabled={isLoading}>
+                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); form.reset(pendingRegistrationData || undefined); setPendingRegistrationData(null);}} className="w-full" disabled={isLoading}>
                       Go Back & Edit Details
                   </Button>
               </div>
@@ -301,3 +300,4 @@ export default function PreRegisterPage() {
     </div>
   );
 }
+
