@@ -19,7 +19,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import ArewaLogo from "@/components/arewa-logo";
 import Link from "next/link";
-import type { PreRegisteredUser } from "@/types";
 import { Eye, EyeOff, Loader2, Check, KeyRound, MailWarning } from "lucide-react";
 
 const registrationSteps = [
@@ -44,7 +43,7 @@ const PreRegisterFormSchema = z.object({
 
 type PreRegisterFormValues = z.infer<typeof PreRegisterFormSchema>;
 
-const MOCK_VERIFICATION_CODE = "123456";
+const MOCK_VERIFICATION_CODE = "123456"; // Keep for UI simulation if API doesn't handle this part
 
 export default function PreRegisterPage() {
   const router = useRouter();
@@ -52,7 +51,7 @@ export default function PreRegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showRepeatPassword, setShowRepeatPassword] = useState(false);
-  const [awaitingVerification, setAwaitingVerification] = useState(false);
+  const [awaitingVerification, setAwaitingVerification] = useState(false); // Still used for UI flow
   const [verificationCodeInput, setVerificationCodeInput] = useState("");
   const [pendingRegistrationData, setPendingRegistrationData] = useState<PreRegisterFormValues | null>(null);
 
@@ -73,79 +72,93 @@ export default function PreRegisterPage() {
     },
   });
 
-  const handleInitialSubmit = (data: PreRegisterFormValues) => {
+  // This function is now the first step before actual API call
+  const handleProceedToVerification = (data: PreRegisterFormValues) => {
     setPendingRegistrationData(data);
     setAwaitingVerification(true);
+    // In a real scenario, an email would be sent by the backend.
+    // For this prototype, we still rely on a mock code displayed/known to the user.
     toast({
-      title: "Verification Code Sent (Mock)",
-      description: `A mock verification code has been "sent" to ${data.email}. Please enter ${MOCK_VERIFICATION_CODE} to proceed.`,
+      title: "Email Verification Step (Mock)",
+      description: `Please enter the mock verification code: ${MOCK_VERIFICATION_CODE} to complete your pre-registration. An email would normally be sent to ${data.email}.`,
       duration: 9000,
     });
   };
 
-  const handleVerifyAndRegister = () => {
-    setIsLoading(true);
+  const handleVerifyAndRegister = async () => {
     if (!pendingRegistrationData) {
         toast({ variant: "destructive", title: "Error", description: "No registration data found. Please start over."});
-        setIsLoading(false);
-        setAwaitingVerification(false);
         return;
     }
-
     if (verificationCodeInput !== MOCK_VERIFICATION_CODE) {
       toast({
         variant: "destructive",
         title: "Verification Failed",
         description: "The entered verification code is incorrect. Please try again.",
       });
-      setIsLoading(false);
       return;
     }
 
-    const appId = `SIAT-APP-${Date.now()}`;
-    const newUser: PreRegisteredUser = {
-      appId,
-      surname: pendingRegistrationData.surname,
-      firstname: pendingRegistrationData.firstname,
-      othername: pendingRegistrationData.othername || "",
-      email: pendingRegistrationData.email,
-      password: pendingRegistrationData.password, // In a real app, hash this
-    };
-
+    setIsLoading(true);
     try {
-      const existingUsersString = localStorage.getItem("preRegisteredUsers");
-      const existingUsers: PreRegisteredUser[] = existingUsersString ? JSON.parse(existingUsersString) : [];
-      
-      if (existingUsers.some(user => user.email === newUser.email)) {
+      const response = await fetch('https://sajfoods.net/api/siat/pre-register.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          surname: pendingRegistrationData.surname,
+          firstname: pendingRegistrationData.firstname,
+          othername: pendingRegistrationData.othername || "",
+          email: pendingRegistrationData.email,
+          password: pendingRegistrationData.password, // Send plain password to PHP, PHP will hash
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data.appId) {
+        // Optionally, still save to localStorage for immediate local access if needed by login page
+        // or rely purely on API for next step. For now, let's keep localStorage as a backup.
+        const existingUsersString = localStorage.getItem("preRegisteredUsers");
+        const existingUsers = existingUsersString ? JSON.parse(existingUsersString) : [];
+        const newUserForLocalStorage = {
+            appId: result.data.appId,
+            surname: pendingRegistrationData.surname,
+            firstname: pendingRegistrationData.firstname,
+            othername: pendingRegistrationData.othername || "",
+            email: pendingRegistrationData.email,
+            password: pendingRegistrationData.password, // For local mock matching
+        };
+        const updatedUsers = [...existingUsers, newUserForLocalStorage];
+        localStorage.setItem("preRegisteredUsers", JSON.stringify(updatedUsers));
+        
+        toast({
+          title: "Pre-registration Successful!",
+          description: `Your Application ID is ${result.data.appId}. Redirecting to login...`,
+          duration: 7000,
+        });
+        router.push(`/registration/login?appId=${result.data.appId}`);
+      } else {
         toast({
           variant: "destructive",
-          title: "Registration Failed",
-          description: "This email address is already registered.",
+          title: "Pre-registration Failed",
+          description: result.message || "An unknown error occurred with the API.",
         });
-        setIsLoading(false);
-        return;
       }
-      
-      const updatedUsers = [...existingUsers, newUser];
-      localStorage.setItem("preRegisteredUsers", JSON.stringify(updatedUsers));
-
-      toast({
-        title: "Pre-registration Successful!",
-        description: `Your Application ID is ${appId}. You can now login to complete your registration. Redirecting...`,
-        duration: 7000,
-      });
-      router.push(`/registration/login?appId=${appId}`);
     } catch (error) {
-      console.error("Error during pre-registration:", error);
+      console.error("Error during pre-registration API call:", error);
       toast({
         variant: "destructive",
-        title: "Registration Error",
-        description: "An unexpected error occurred. Please try again.",
+        title: "Pre-registration Error",
+        description: "Could not connect to the registration service. Please try again later.",
       });
     } finally {
       setIsLoading(false);
-      setPendingRegistrationData(null);
+      // Clear pending data regardless of success/failure of API for security
+      setPendingRegistrationData(null); 
       setVerificationCodeInput("");
+      // Do not reset awaitingVerification here if API failed, let user retry code
     }
   };
 
@@ -154,7 +167,6 @@ export default function PreRegisterPage() {
   return (
     <div className="min-h-screen bg-muted/30 py-8 md:py-12 flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-4xl grid md:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {/* Stepper */}
         <div className="md:col-span-4 lg:col-span-3 p-4 md:p-6 bg-background rounded-lg shadow-lg">
           <h3 className="text-lg font-semibold text-primary mb-6">Registration Progress</h3>
           <div className="relative space-y-8">
@@ -188,7 +200,6 @@ export default function PreRegisterPage() {
           </div>
         </div>
 
-        {/* Form Area */}
         <div className="md:col-span-8 lg:col-span-9 bg-background p-6 sm:p-8 rounded-lg shadow-xl">
           <div className="text-center mb-6">
             <Link href="/" className="inline-block mb-4">
@@ -204,9 +215,9 @@ export default function PreRegisterPage() {
             </p>
           </div>
 
-          <Form {...form}> {/* Moved FormProvider to wrap both conditional branches */}
+          <Form {...form}>
             {!awaitingVerification ? (
-              <form onSubmit={form.handleSubmit(handleInitialSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(handleProceedToVerification)} className="space-y-6">
                 <FormField control={form.control} name="surname" render={({ field }) => (
                   <FormItem><FormLabel>Surname</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
@@ -254,7 +265,7 @@ export default function PreRegisterPage() {
               </form>
             ) : (
               <div className="space-y-6">
-                  <FormItem> {/* This FormItem and FormLabel will now have context */}
+                  <FormItem>
                       <FormLabel htmlFor="verificationCode">Verification Code</FormLabel>
                       <Input
                           id="verificationCode"
@@ -270,7 +281,7 @@ export default function PreRegisterPage() {
                   </FormItem>
                   <Button onClick={handleVerifyAndRegister} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || verificationCodeInput.length !== 6}>
                       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                      {isLoading ? "Verifying..." : "Verify & Complete Registration"}
+                      {isLoading ? "Verifying & Registering..." : "Verify & Complete Registration"}
                   </Button>
                   <Button variant="outline" onClick={() => { setAwaitingVerification(false); setPendingRegistrationData(null); form.reset();}} className="w-full" disabled={isLoading}>
                       Go Back & Edit Details

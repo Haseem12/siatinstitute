@@ -19,11 +19,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import ArewaLogo from "@/components/arewa-logo";
 import Link from "next/link";
-import type { PreRegisteredUser } from "@/types";
-import { Eye, EyeOff, Loader2, Check } from "lucide-react";
+import { Eye, EyeOff, Loader2, Check, MailWarning } from "lucide-react";
 
 const registrationSteps = [
   { id: 1, title: "Pre-register Account" },
+  { id: 1.5, title: "Verify Email" },
   { id: 2, title: "Login & Continue" },
   { id: 3, title: "Complete Application Form" },
   { id: 4, title: "Submit & Await Decision" },
@@ -45,14 +45,6 @@ export default function RegistrationLoginPage() {
 
   const appIdFromUrl = searchParams.get("appId");
 
-  useEffect(() => {
-    console.log("RegistrationLoginPage mounted successfully.");
-    document.title = "Applicant Login - SIAT Institute";
-    if (appIdFromUrl) {
-      form.setValue("appIdOrEmail", appIdFromUrl);
-    }
-  }, []); // Removed appIdFromUrl from dep array as form is not yet defined here
-
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
@@ -62,39 +54,51 @@ export default function RegistrationLoginPage() {
   });
   
   useEffect(() => {
+    document.title = "Applicant Login - SIAT Institute";
+    console.log("RegistrationLoginPage mounted successfully.");
     if (appIdFromUrl && !form.getValues("appIdOrEmail")) {
       form.setValue("appIdOrEmail", appIdFromUrl);
     }
   }, [appIdFromUrl, form]);
 
 
-  const onSubmit = (data: LoginFormValues) => {
+  const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      const existingUsersString = localStorage.getItem("preRegisteredUsers");
-      const existingUsers: PreRegisteredUser[] = existingUsersString ? JSON.parse(existingUsersString) : [];
-      
-      const foundUser = existingUsers.find(
-        user => (user.appId === data.appIdOrEmail || user.email.toLowerCase() === data.appIdOrEmail.toLowerCase()) && user.password === data.password
-      );
+      const response = await fetch('https://sajfoods.net/api/siat/login-applicant.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          appIdOrEmail: data.appIdOrEmail,
+          password: data.password,
+        }),
+      });
 
-      if (foundUser) {
-        localStorage.setItem("currentApplicantSession", JSON.stringify({ appId: foundUser.appId, email: foundUser.email }));
+      const result = await response.json();
+
+      if (result.success && result.data.appId) {
+        localStorage.setItem("currentApplicantSession", JSON.stringify({ 
+            appId: result.data.appId, 
+            email: result.data.email,
+            admissionStatus: result.data.admissionStatus || "Not Submitted" // Store status from API
+        }));
         toast({ title: "Login Successful", description: "Redirecting to your application dashboard..." });
         router.push("/registration/dashboard");
       } else {
         toast({
           variant: "destructive",
           title: "Login Failed",
-          description: "Invalid Application ID/Email or Password.",
+          description: result.message || "Invalid Application ID/Email or Password.",
         });
       }
     } catch (error) {
-      console.error("Error during login:", error);
+      console.error("Error during login API call:", error);
       toast({
         variant: "destructive",
         title: "Login Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: "Could not connect to the login service. Please try again later.",
       });
     } finally {
       setIsLoading(false);
@@ -106,7 +110,6 @@ export default function RegistrationLoginPage() {
   return (
     <div className="min-h-screen bg-muted/30 py-8 md:py-12 flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-4xl grid md:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {/* Stepper */}
         <div className="md:col-span-4 lg:col-span-3 p-4 md:p-6 bg-background rounded-lg shadow-lg">
           <h3 className="text-lg font-semibold text-primary mb-6">Registration Progress</h3>
           <div className="relative space-y-8">
@@ -120,7 +123,7 @@ export default function RegistrationLoginPage() {
                       ${step.id > currentStepId ? 'bg-background border-border text-muted-foreground' : ''}
                     `}
                   >
-                    {step.id < currentStepId ? <Check className="w-5 h-5" /> : step.id}
+                    {step.id < currentStepId ? <Check className="w-5 h-5" /> : (step.id === 1.5 ? <MailWarning className="w-4 h-4"/> : Math.floor(step.id))}
                   </div>
                   {index < registrationSteps.length - 1 && (
                      <div className={`w-0.5 grow mt-2 
@@ -140,7 +143,6 @@ export default function RegistrationLoginPage() {
           </div>
         </div>
 
-        {/* Form Area */}
         <div className="md:col-span-8 lg:col-span-9 bg-background p-6 sm:p-8 rounded-lg shadow-xl">
            <div className="text-center mb-6">
             <Link href="/" className="inline-block mb-4">

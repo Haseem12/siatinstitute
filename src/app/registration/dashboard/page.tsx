@@ -43,7 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, PlusCircle, Trash2, UploadCloud, User as UserIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw, Check } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, UploadCloud, User as UserIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw, Check, MailWarning } from "lucide-react";
 import type { NewIntakeApplicationData, QualificationUpload, FileUploadInfo, PreRegisteredUser, OLevelSubject as OLevelSubjectType } from "@/types";
 import Image from "next/image";
 import {
@@ -59,7 +59,11 @@ import ArewaLogo from "@/components/arewa-logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 
-const MAX_QUALIFICATIONS = 5;
+const MAX_QUALIFICATIONS = 5; // Max A-level type qualifications
+const MAX_O_LEVEL_SITTINGS = 2;
+const MAX_O_LEVEL_SUBJECTS_PER_SITTING = 9;
+const MIN_O_LEVEL_SUBJECTS_PER_SITTING = 5;
+
 const MAX_EXPERIENCES = 3;
 const MAX_FILE_SIZE_MB = 2;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -99,7 +103,7 @@ const oLevelQualificationSchema = z.object({
   examType: z.string().min(1, "Exam type (e.g., WAEC, NECO) is required."),
   examYear: z.string().min(4, "Exam year is required.").max(4, "Invalid year."),
   examNumber: z.string().optional(),
-  subjects: z.array(oLevelSubjectSchema).min(5, "At least 5 O-Level subjects are required.").max(9, "Maximum 9 O-Level subjects."),
+  subjects: z.array(oLevelSubjectSchema).min(MIN_O_LEVEL_SUBJECTS_PER_SITTING, `At least ${MIN_O_LEVEL_SUBJECTS_PER_SITTING} O-Level subjects are required.`).max(MAX_O_LEVEL_SUBJECTS_PER_SITTING, `Maximum ${MAX_O_LEVEL_SUBJECTS_PER_SITTING} O-Level subjects.`),
   fileInput: documentFileSchema,
   file: fileSchema,
 });
@@ -133,15 +137,19 @@ const registrationDashboardFormSchema = z.object({
   nextOfKinPhone: z.string().min(10, "Next of kin phone is required."),
   nextOfKinRelationship: z.string().min(2, "Relationship to next of kin is required."),
 
-  oLevels: z.array(oLevelQualificationSchema).min(1, "At least one O-Level result is required.").max(2, "Maximum 2 O-Level sittings."),
+  oLevels: z.array(oLevelQualificationSchema).min(1, "At least one O-Level result is required.").max(MAX_O_LEVEL_SITTINGS, `Maximum ${MAX_O_LEVEL_SITTINGS} O-Level sittings.`),
   aLevels: z.array(aLevelQualificationSchema).max(MAX_QUALIFICATIONS, `Maximum ${MAX_QUALIFICATIONS} A-Level/Other qualifications.`).optional(),
+  
+  // Experiences moved to A-Level/Other for simplicity, or could be its own tab
+  experiences: z.array(aLevelQualificationSchema).max(MAX_EXPERIENCES, `Maximum ${MAX_EXPERIENCES} experiences.`).optional(),
+
 
   preferredProgram: z.string().min(1, "Please select a program."),
   preferredCampus: z.string().min(1, "Please select a campus."),
   entryMode: z.enum(["UTME", "Direct Entry", "Transfer"], { required_error: "Entry mode is required."}),
 
   terms: z.boolean().refine(val => val === true, "You must agree to the terms."),
-  admissionStatus: z.enum(["Pending", "Admitted", "Not Admitted"]).optional(),
+  admissionStatus: z.enum(["Pending", "Admitted", "Not Admitted", "Not Submitted"]).optional(),
   rejectionReason: z.string().optional(),
 });
 
@@ -150,7 +158,7 @@ type FormValues = z.infer<typeof registrationDashboardFormSchema>;
 const formTabs = [
   { id: "bio-data", name: "Bio-data", fields: ["photographFile", "fullName", "email", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
   { id: "o-level", name: "O-Level Qualifications", fields: ["oLevels"] as const },
-  { id: "a-level", name: "A-Level/Other Qualifications", fields: ["aLevels"] as const },
+  { id: "a-level", name: "A-Level/Other", fields: ["aLevels", "experiences"] as const }, // Combined Experience here for tab simplicity
   { id: "program", name: "Program Choice", fields: ["preferredProgram", "preferredCampus", "entryMode"] as const },
   { id: "preview", name: "Preview & Submit", fields: ["terms"] as const },
 ];
@@ -158,7 +166,7 @@ const formTabs = [
 const applicationCompletionSteps = [
   { id: "bio-data", title: "Bio-data Information" },
   { id: "o-level", title: "O-Level Qualifications" },
-  { id: "a-level", title: "A-Level/Other Qualifications" },
+  { id: "a-level", title: "A-Level/Other & Experience" },
   { id: "program", title: "Program Choice" },
   { id: "preview", title: "Preview & Submit" },
 ];
@@ -169,11 +177,12 @@ const availablePrograms = [
     "Accounting", "Electrical Engineering Technology", "Public Administration", "Science Laboratory Technology"
 ];
 const availableCampuses = ["Main Campus - Zaria", "Kaduna City Campus", "Kano Extension Center"];
-const aLevelQualificationTypes = ["A-Level (IJMB/JUPEB)", "National Diploma (ND)", "NCE", "Bachelor's Degree", "Other"];
+const aLevelQualificationTypes = ["A-Level (IJMB/JUPEB)", "National Diploma (ND)", "Higher National Diploma (HND)", "NCE", "Bachelor's Degree", "Other"];
+const experienceTypes = ["Work Experience", "Internship", "Volunteer Work"]; // Could be used for A-Level/Other type as well
 const genderOptions = ["Male", "Female", "Other"];
 const entryModes = ["UTME", "Direct Entry", "Transfer"];
 const oLevelExamTypes = ["WAEC", "NECO", "NABTEB", "GCE"];
-const oLevelSubjectsList = ["Mathematics", "English Language", "Physics", "Chemistry", "Biology", "Computer Studies", "Economics", "Government", "Literature in English", "CRK/IRK", "Geography", "Agricultural Science", "Further Mathematics", "Technical Drawing", "Commerce", "Financial Accounting"];
+const oLevelSubjectsList = ["Mathematics", "English Language", "Physics", "Chemistry", "Biology", "Computer Studies", "Economics", "Government", "Literature in English", "CRK/IRK", "Geography", "Agricultural Science", "Further Mathematics", "Technical Drawing", "Commerce", "Financial Accounting", "Civic Education", "Data Processing"];
 const oLevelGrades = ["A1", "B2", "B3", "C4", "C5", "C6", "D7", "E8", "F9"];
 
 const heroSliderImages = [
@@ -182,16 +191,28 @@ const heroSliderImages = [
   { src: "/assets/slider/slide-9.jpg", alt: "SIAT Students Collaborating", title: "Achieve Your Dreams", subtitle: "We are here to support your academic success.", dataAiHint: "students collaboration" },
 ];
 
+interface PreviewItemProps {
+  label: string;
+  value?: string | number | null;
+}
+const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
+  <div className="flex flex-col sm:flex-row sm:justify-between py-1 text-sm">
+    <dt className="font-medium text-muted-foreground">{label}:</dt>
+    <dd className="text-foreground sm:text-right">{String(value === undefined || value === null || String(value).trim() === '' ? "N/A" : value)}</dd>
+  </div>
+);
+
+
 interface OLevelSittingItemProps {
-  control: any; 
+  control: any;
   oLevelIndex: number;
   removeOLevelSitting: (index: number) => void;
-  form: ReturnType<typeof useForm<FormValues>>; 
+  form: ReturnType<typeof useForm<FormValues>>;
 }
 
 const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIndex, removeOLevelSitting, form }) => {
   const { fields: subjectFields, append: appendSubject, remove: removeSubject } = useFieldArray({
-    control, 
+    control,
     name: `oLevels.${oLevelIndex}.subjects`,
   });
 
@@ -199,10 +220,10 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
     <Card className="p-4 space-y-4 relative bg-muted/50">
       <div className="flex justify-between items-center">
         <h4 className="font-medium text-primary">O-Level Sitting {oLevelIndex + 1}</h4>
-        {oLevelIndex >= 0 && ( 
-            <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeOLevelSitting(oLevelIndex)}>
+        {oLevelIndex >= 0 && ( // Always allow removal if there's at least one
+          <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeOLevelSitting(oLevelIndex)}>
             <Trash2 className="h-4 w-4" /><span className="sr-only">Remove O-Level Sitting</span>
-            </Button>
+          </Button>
         )}
       </div>
       <FormField control={control} name={`oLevels.${oLevelIndex}.examType`} render={({ field }) => (
@@ -221,7 +242,7 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
         )} />
       </div>
 
-      <h5 className="font-medium pt-2">Subjects & Grades (Min 5, Max 9)</h5>
+      <h5 className="font-medium pt-2">Subjects & Grades (Min {MIN_O_LEVEL_SUBJECTS_PER_SITTING}, Max {MAX_O_LEVEL_SUBJECTS_PER_SITTING})</h5>
       {subjectFields.map((subjectItem, subjectIndex) => (
         <div key={subjectItem.id} className="grid grid-cols-10 gap-2 items-end">
           <FormField control={control} name={`oLevels.${oLevelIndex}.subjects.${subjectIndex}.subject`} render={({ field }) => (
@@ -238,14 +259,14 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
                 <SelectContent>{oLevelGrades.map(grd => <SelectItem key={grd} value={grd}>{grd}</SelectItem>)}</SelectContent>
               </Select><FormMessage /></FormItem>
           )} />
-          {subjectFields.length > 5 && (
-              <Button type="button" variant="ghost" size="icon" className="col-span-1 text-destructive hover:bg-destructive/10 h-9 w-9 self-end" onClick={() => removeSubject(subjectIndex)}>
+          {subjectFields.length > MIN_O_LEVEL_SUBJECTS_PER_SITTING && ( // Only show remove if more than min
+            <Button type="button" variant="ghost" size="icon" className="col-span-1 text-destructive hover:bg-destructive/10 h-9 w-9 self-end" onClick={() => removeSubject(subjectIndex)}>
               <Trash2 className="h-4 w-4" />
-              </Button>
+            </Button>
           )}
         </div>
       ))}
-      {subjectFields.length < 9 && (
+      {subjectFields.length < MAX_O_LEVEL_SUBJECTS_PER_SITTING && (
         <Button type="button" size="sm" variant="outline" className="mt-2 text-accent border-accent" onClick={() => appendSubject({ id: crypto.randomUUID(), subject: "", grade: "" })}>
           <PlusCircle className="mr-2 h-4 w-4" /> Add Subject
         </Button>
@@ -253,10 +274,9 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
       {(form.formState.errors.oLevels?.[oLevelIndex]?.subjects as any)?.root && (
         <FormMessage>{(form.formState.errors.oLevels?.[oLevelIndex]?.subjects as any)?.root?.message}</FormMessage>
       )}
-       {form.formState.errors.oLevels?.[oLevelIndex]?.subjects && !(form.formState.errors.oLevels?.[oLevelIndex]?.subjects as any)?.root && subjectFields.length < 5 && (
-        <FormMessage>Minimum of 5 subjects required.</FormMessage>
+       {form.formState.errors.oLevels?.[oLevelIndex]?.subjects && !(form.formState.errors.oLevels?.[oLevelIndex]?.subjects as any)?.root && subjectFields.length < MIN_O_LEVEL_SUBJECTS_PER_SITTING && (
+        <FormMessage>Minimum of {MIN_O_LEVEL_SUBJECTS_PER_SITTING} subjects required.</FormMessage>
       )}
-
 
       <FormField control={control} name={`oLevels.${oLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
         <FormItem><FormLabel>Upload O-Level Certificate/Statement</FormLabel>
@@ -270,41 +290,70 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
 };
 
 interface ALevelSittingItemProps {
-  control: any; 
+  control: any;
   aLevelIndex: number;
   removeALevelSitting: (index: number) => void;
+  form: ReturnType<typeof useForm<FormValues>>;
+  itemType: 'aLevel' | 'experience'; // To distinguish between A-Level and Experience
 }
 
-const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIndex, removeALevelSitting }) => {
+const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIndex, removeALevelSitting, form, itemType }) => {
+  const fieldNamePrefix = itemType === 'aLevel' ? 'aLevels' : 'experiences';
+  const title = itemType === 'aLevel' ? 'A-Level/Other Qualification' : 'Work Experience';
+  const typeOptions = itemType === 'aLevel' ? aLevelQualificationTypes : experienceTypes;
+
   return (
     <Card className="p-4 space-y-4 relative bg-muted/50">
       <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeALevelSitting(aLevelIndex)}>
-        <Trash2 className="h-4 w-4" /><span className="sr-only">Remove Qualification</span>
+        <Trash2 className="h-4 w-4" /><span className="sr-only">Remove {title}</span>
       </Button>
-      <h4 className="font-medium text-primary">A-Level/Other Qualification {aLevelIndex + 1}</h4>
-      <FormField control={control} name={`aLevels.${aLevelIndex}.type`} render={({ field }) => (
-        <FormItem><FormLabel>Qualification Type</FormLabel>
+      <h4 className="font-medium text-primary">{title} {aLevelIndex + 1}</h4>
+      
+      <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.type`} render={({ field }) => (
+        <FormItem><FormLabel>{itemType === 'aLevel' ? 'Qualification Type' : 'Experience Type'}</FormLabel>
           <Select onValueChange={field.onChange} defaultValue={field.value}>
-            <FormControl><SelectTrigger><SelectValue placeholder="e.g. A-Level, Diploma" /></SelectTrigger></FormControl>
-            <SelectContent>{aLevelQualificationTypes.map(q => <SelectItem key={q} value={q}>{q}</SelectItem>)}</SelectContent>
+            <FormControl><SelectTrigger><SelectValue placeholder={`Select ${itemType === 'aLevel' ? 'type' : 'experience type'}`} /></SelectTrigger></FormControl>
+            <SelectContent>{typeOptions.map(q => <SelectItem key={q} value={q}>{q}</SelectItem>)}</SelectContent>
           </Select><FormMessage /></FormItem>
       )} />
-      <FormField control={control} name={`aLevels.${aLevelIndex}.institution`} render={({ field }) => (
-        <FormItem><FormLabel>Institution Name</FormLabel><FormControl><Input placeholder="Name of school/body" {...field} /></FormControl><FormMessage /></FormItem>
+      
+      <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.institution`} render={({ field }) => (
+        <FormItem><FormLabel>{itemType === 'aLevel' ? 'Institution Name' : 'Organization Name'}</FormLabel><FormControl><Input placeholder={itemType === 'aLevel' ? 'Name of school/body' : 'Company Name'} {...field} /></FormControl><FormMessage /></FormItem>
       )} />
-      <FormField control={control} name={`aLevels.${aLevelIndex}.courseOfStudy`} render={({ field }) => (
-        <FormItem><FormLabel>Course of Study (if applicable)</FormLabel><FormControl><Input placeholder="e.g. Computer Engineering" {...field} /></FormControl><FormMessage /></FormItem>
-      )} />
-      <div className="grid md:grid-cols-2 gap-4">
-        <FormField control={control} name={`aLevels.${aLevelIndex}.gradeOrClass`} render={({ field }) => (
-          <FormItem><FormLabel>Grade/Class of Pass</FormLabel><FormControl><Input placeholder="e.g. Distinction, 10 points" {...field} /></FormControl><FormMessage /></FormItem>
+
+      {itemType === 'aLevel' && (
+        <FormField control={control} name={`aLevels.${aLevelIndex}.courseOfStudy`} render={({ field }) => (
+            <FormItem><FormLabel>Course of Study (if applicable)</FormLabel><FormControl><Input placeholder="e.g. Computer Engineering" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
-        <FormField control={control} name={`aLevels.${aLevelIndex}.yearAwarded`} render={({ field }) => (
-          <FormItem><FormLabel>Year Awarded</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
+      )}
+       {itemType === 'experience' && (
+        <FormField control={control} name={`experiences.${aLevelIndex}.role`} render={({ field }) => (
+            <FormItem><FormLabel>Role/Position</FormLabel><FormControl><Input placeholder="e.g. Software Developer Intern" {...field} /></FormControl><FormMessage /></FormItem>
+        )} />
+      )}
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {itemType === 'aLevel' && (
+            <FormField control={control} name={`aLevels.${aLevelIndex}.gradeOrClass`} render={({ field }) => (
+            <FormItem><FormLabel>Grade/Class of Pass</FormLabel><FormControl><Input placeholder="e.g. Distinction, 10 points" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+        )}
+         {itemType === 'experience' && (
+            <>
+            <FormField control={control} name={`experiences.${aLevelIndex}.startDate`} render={({ field }) => (
+                <FormItem><FormLabel>Start Date</FormLabel><FormControl><Input type="month" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={control} name={`experiences.${aLevelIndex}.endDate`} render={({ field }) => (
+                <FormItem><FormLabel>End Date</FormLabel><FormControl><Input type="month" placeholder="Or 'Present'" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            </>
+        )}
+        <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.yearAwarded`} render={({ field }) => (
+          <FormItem><FormLabel>{itemType === 'aLevel' ? 'Year Awarded' : 'Year Completed (approx)'}</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
       </div>
-      <FormField control={control} name={`aLevels.${aLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
-        <FormItem><FormLabel>Upload Certificate (PDF, JPG, PNG - Max 2MB)</FormLabel>
+      <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
+        <FormItem><FormLabel>Upload Certificate/Document (PDF, JPG, PNG - Max 2MB)</FormLabel>
           <FormControl><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold" /></FormControl>
           <FormMessage />
           {value && value.length > 0 && <p className="text-xs text-muted-foreground">Selected: {value[0].name}</p>}
@@ -313,18 +362,6 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIn
     </Card>
   );
 };
-
-
-interface PreviewItemProps {
-  label: string;
-  value?: string | number | null;
-}
-const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
-  <div className="flex flex-col sm:flex-row sm:justify-between py-1 text-sm">
-    <dt className="font-medium text-muted-foreground">{label}:</dt>
-    <dd className="text-foreground sm:text-right">{String(value === undefined || value === null || String(value).trim() === '' ? "N/A" : value)}</dd>
-  </div>
-);
 
 
 export default function RegistrationDashboardPage() {
@@ -350,11 +387,12 @@ export default function RegistrationDashboardPage() {
       nextOfKinRelationship: "",
       oLevels: [],
       aLevels: [],
+      experiences: [],
       preferredProgram: "",
       preferredCampus: "",
       entryMode: undefined,
       terms: false,
-      admissionStatus: "Pending",
+      admissionStatus: "Not Submitted",
       rejectionReason: undefined,
     },
   });
@@ -369,36 +407,60 @@ export default function RegistrationDashboardPage() {
   const [isAdmissionLetterDialogOpen, setIsAdmissionLetterDialogOpen] = useState(false);
   const admissionLetterContentRef = useRef<HTMLDivElement>(null);
 
-
-  const checkApplicationStatus = useCallback(() => {
+  const checkApplicationStatus = useCallback(async () => {
     if (applicantAppId && typeof window !== 'undefined') {
+      // First, try to fetch from API if we have a login mechanism that provides full app data
+      // For now, we rely on localStorage for this simulation
+      // If we had an API endpoint:
+      // try {
+      //   const response = await fetch(`https://sajfoods.net/api/siat/get-application-status.php?appId=${applicantAppId}`);
+      //   const apiData = await response.json();
+      //   if (apiData.success && apiData.data) {
+      //     setCompletedApplicationData(apiData.data);
+      //     // ... rest of status setting logic ...
+      //     return; // Exit if API data is found
+      //   }
+      // } catch (error) {
+      //   console.warn("Could not fetch application status from API, falling back to localStorage", error);
+      // }
+
+
+      // Fallback to localStorage
       const completedAppsString = localStorage.getItem("completedApplications");
       if (completedAppsString) {
         const completedApps: NewIntakeApplicationData[] = JSON.parse(completedAppsString);
         const currentApp = completedApps.find(app => app.applicationId === applicantAppId);
         if (currentApp) {
-          setCompletedApplicationData(currentApp);
+          setCompletedApplicationData(currentApp); // Store the fetched/found application
           if (currentApp.admissionStatus === "Admitted") {
             setApplicationStatus("admitted");
           } else if (currentApp.admissionStatus === "Not Admitted") {
             setApplicationStatus("not_admitted");
-          } else {
+          } else { // Includes "Pending" or undefined
             setApplicationStatus("submitted");
           }
+          // Reset form with data from completed application
           const formDataForReset = {
             ...currentApp,
             dateOfBirth: currentApp.dateOfBirth ? new Date(currentApp.dateOfBirth) : undefined,
-            photographFile: null, // Cannot pre-fill FileList, user must re-select if editing
-             oLevels: currentApp.oLevels?.map(ol => ({
+            photographFile: null, 
+            oLevels: currentApp.oLevels?.map(ol => ({
               ...ol,
-              fileInput: null, // Cannot pre-fill FileList
-              file: ol.file ? {...ol.file} : undefined, // Keep existing metadata if any
+              fileInput: null, 
+              file: ol.file ? {...ol.file} : undefined,
               subjects: ol.subjects || []
             })) || [],
             aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null, file: al.file ? {...al.file} : undefined })) || [],
-            terms: true, // Assume terms were agreed if application was completed
+            experiences: currentApp.experiences?.map(exp => ({...exp, fileInput: null, file: exp.file ? {...exp.file} : undefined })) || [],
+            terms: true, 
           };
-          form.reset(formDataForReset as any);
+          form.reset(formDataForReset as any); // Use 'as any' if type mismatches are complex with FileList
+          if (currentApp.photograph?.name) { // If a photograph was previously stored (metadata)
+            // We can't reconstruct the File object, so maybe show placeholder or saved image name.
+            // For a real app, you'd load the image from a URL if available.
+            setPhotographPreview(`https://placehold.co/150x150.png?text=${currentApp.photograph.name.substring(0,10)}`); // Mock preview
+          }
+
 
         } else {
           setApplicationStatus("incomplete");
@@ -416,8 +478,12 @@ export default function RegistrationDashboardPage() {
     document.title = "Applicant Dashboard - SIAT Institute";
     const sessionString = localStorage.getItem("currentApplicantSession");
     if (sessionString) {
-      const session = JSON.parse(sessionString) as { appId: string; email: string };
+      const session = JSON.parse(sessionString) as { appId: string; email: string; admissionStatus?: string };
       setApplicantAppId(session.appId);
+      if (session.admissionStatus && session.admissionStatus !== "Not Submitted") {
+        // If login API provided a status, use it initially
+        // This is useful if checkApplicationStatus will fetch more detailed app data later
+      }
     } else {
       toast({ variant: "destructive", title: "Unauthorized", description: "Please login to continue your application." });
       router.push("/registration/login");
@@ -426,23 +492,27 @@ export default function RegistrationDashboardPage() {
 
   useEffect(() => {
     if (applicantAppId && !initialDataLoaded) {
-      const preRegisteredUsersString = localStorage.getItem("preRegisteredUsers");
-      if (preRegisteredUsersString) {
-        const preRegisteredUsers: PreRegisteredUser[] = JSON.parse(preRegisteredUsersString);
-        const currentUser = preRegisteredUsers.find(u => u.appId === applicantAppId);
-        if (currentUser) {
-          form.reset({
-            ...form.getValues(), // Keep existing form values
-            applicationId: currentUser.appId,
-            email: currentUser.email,
-            fullName: `${currentUser.surname} ${currentUser.firstname} ${currentUser.othername || ''}`.trim(),
-          });
+      // Pre-fill from pre-registration data if this is the first load and application isn't completed
+      if (applicationStatus === "incomplete") {
+        const preRegisteredUsersString = localStorage.getItem("preRegisteredUsers");
+        if (preRegisteredUsersString) {
+          const preRegisteredUsers: PreRegisteredUser[] = JSON.parse(preRegisteredUsersString);
+          const currentUser = preRegisteredUsers.find(u => u.appId === applicantAppId);
+          if (currentUser) {
+            form.reset({
+              ...form.getValues(),
+              applicationId: currentUser.appId,
+              email: currentUser.email,
+              fullName: `${currentUser.surname} ${currentUser.firstname} ${currentUser.othername || ''}`.trim(),
+              admissionStatus: "Not Submitted", // Initial status before full form submission
+            });
+          }
         }
       }
-      checkApplicationStatus(); // Check if a completed application exists for this App ID
+      checkApplicationStatus(); 
       setInitialDataLoaded(true);
     }
-  }, [applicantAppId, form, initialDataLoaded, checkApplicationStatus]);
+  }, [applicantAppId, form, initialDataLoaded, checkApplicationStatus, applicationStatus]);
 
 
   const { fields: oLevelFields, append: appendOLevel, remove: removeOLevel } = useFieldArray({
@@ -455,6 +525,11 @@ export default function RegistrationDashboardPage() {
     control: form.control,
     name: "aLevels",
   });
+  const { fields: experienceFields, append: appendExperience, remove: removeExperience } = useFieldArray({
+    control: form.control,
+    name: "experiences",
+  });
+
 
   const handlePhotographChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -464,14 +539,14 @@ export default function RegistrationDashboardPage() {
         toast({ variant: "destructive", title: "Invalid File Type", description: "Only JPG, JPEG, and PNG images are allowed for photograph."});
         setPhotographPreview(null);
         form.setValue('photographFile', null);
-        event.target.value = "";
+        event.target.value = ""; // Clear the input
         return;
       }
       if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({ variant: "destructive", title: "File Too Large", description: `Photograph size cannot exceed ${MAX_FILE_SIZE_MB}MB.`});
         setPhotographPreview(null);
         form.setValue('photographFile', null);
-        event.target.value = "";
+        event.target.value = ""; // Clear the input
         return;
       }
 
@@ -488,10 +563,10 @@ export default function RegistrationDashboardPage() {
   };
 
   const handleAddOLevel = () => {
-    if (oLevelFields.length < 2) {
+    if (oLevelFields.length < MAX_O_LEVEL_SITTINGS) {
       appendOLevel({ id: crypto.randomUUID(), examType: "", examYear: "", examNumber: "", subjects: [], fileInput: null, file: undefined });
     } else {
-      toast({ title: "Limit Reached", description: "You can add a maximum of 2 O-Level sittings.", variant: "destructive" });
+      toast({ title: "Limit Reached", description: `You can add a maximum of ${MAX_O_LEVEL_SITTINGS} O-Level sittings.`, variant: "destructive" });
     }
   };
 
@@ -502,6 +577,15 @@ export default function RegistrationDashboardPage() {
       toast({ title: "Limit Reached", description: `Maximum ${MAX_QUALIFICATIONS} A-Level/Other qualifications.`, variant: "destructive" });
     }
   };
+  const handleAddExperience = () => {
+     if ((experienceFields?.length || 0) < MAX_EXPERIENCES) {
+      // Re-using aLevelQualificationSchema for experiences for simplicity, adjust if specific fields differ significantly
+      appendExperience({ id: crypto.randomUUID(), type: "", institution: "", courseOfStudy:"", gradeOrClass:"", yearAwarded: "", fileInput: null, file: undefined });
+    } else {
+      toast({ title: "Limit Reached", description: `Maximum ${MAX_EXPERIENCES} work experiences.`, variant: "destructive" });
+    }
+  };
+
 
   const processFileUpload = (fileList: FileList | null | undefined): FileUploadInfo | undefined => {
     if (fileList && fileList.length > 0) {
@@ -514,8 +598,8 @@ export default function RegistrationDashboardPage() {
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
 
-    if (applicationStatus !== "incomplete") {
-        toast({ title: "Application Already Submitted", description: "Your application is already under review or has a decision.", duration: 5000 });
+    if (applicationStatus !== "incomplete" && applicationStatus !== "Not Submitted") { // Prevent resubmission
+        toast({ title: "Application Status", description: "Your application is already submitted or has a decision.", duration: 5000 });
         setIsLoading(false);
         return;
     }
@@ -526,41 +610,55 @@ export default function RegistrationDashboardPage() {
       oLevels: data.oLevels.map(ol => ({
         ...ol,
         file: processFileUpload(ol.fileInput),
-        subjects: ol.subjects || [] // Ensure subjects is always an array
+        subjects: ol.subjects || [] 
       })),
       aLevels: data.aLevels?.map(al => ({
         ...al,
         file: processFileUpload(al.fileInput),
       })) || [],
-      admissionStatus: "Pending", // Set initial admission status
+      experiences: data.experiences?.map(exp => ({ // Assuming experiences use a similar structure to aLevels for file processing
+        ...exp, // spread all fields from the experience item
+        file: processFileUpload(exp.fileInput) 
+      })) || [],
+      admissionStatus: "Pending",
     };
 
-    // Clean up FileList objects before saving
+    // Clean up FileList objects before saving/sending
     delete (applicationDataToSubmit as any).photographFile;
     applicationDataToSubmit.oLevels?.forEach(ol => delete (ol as any).fileInput);
     applicationDataToSubmit.aLevels?.forEach(al => delete (al as any).fileInput);
+    applicationDataToSubmit.experiences?.forEach(exp => delete (exp as any).fileInput);
     delete (applicationDataToSubmit as any).terms;
 
     try {
-        // Save to localStorage
-        const existingApplicationsString = localStorage.getItem("completedApplications");
-        let existingApplications: NewIntakeApplicationData[] = existingApplicationsString ? JSON.parse(existingApplicationsString) : [];
-        
-        // Check if this application already exists and update it, or add new
-        const appIndex = existingApplications.findIndex(app => app.applicationId === applicationDataToSubmit.applicationId);
-        if (appIndex > -1) {
-            existingApplications[appIndex] = applicationDataToSubmit;
-        } else {
-            existingApplications.push(applicationDataToSubmit);
-        }
-        localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
+        const response = await fetch('https://sajfoods.net/api/siat/submit-application.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(applicationDataToSubmit),
+        });
+        const result = await response.json();
 
-        toast({ title: "Application Submitted Successfully!", description: `Your application (ID: ${applicationDataToSubmit.applicationId}) has been saved. You will be notified of your admission status.`, duration: 7000 });
-        checkApplicationStatus(); // Re-check status to update UI to "submitted"
+        if (result.success) {
+            // Also update localStorage for consistency in the prototype
+            const existingApplicationsString = localStorage.getItem("completedApplications");
+            let existingApplications: NewIntakeApplicationData[] = existingApplicationsString ? JSON.parse(existingApplicationsString) : [];
+            const appIndex = existingApplications.findIndex(app => app.applicationId === applicationDataToSubmit.applicationId);
+            if (appIndex > -1) {
+                existingApplications[appIndex] = applicationDataToSubmit;
+            } else {
+                existingApplications.push(applicationDataToSubmit);
+            }
+            localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
+
+            toast({ title: "Application Submitted Successfully!", description: `API: ${result.message}. Your application (ID: ${applicationDataToSubmit.applicationId}) is now under review.`, duration: 7000 });
+            checkApplicationStatus(); 
+        } else {
+            toast({ variant: "destructive", title: "API Submission Failed", description: result.message || "The application could not be submitted to the server." });
+        }
 
       } catch (e) {
-        console.error("Failed to save application to localStorage", e);
-        toast({ variant: "destructive", title: "Submission Failed", description: "Your application could not be saved locally." });
+        console.error("Failed to submit application to API or save to localStorage", e);
+        toast({ variant: "destructive", title: "Submission Error", description: "Your application could not be submitted. Please check your connection or try again later." });
       }
 
     setIsLoading(false);
@@ -581,10 +679,16 @@ export default function RegistrationDashboardPage() {
         if (!termsOutput) output = false;
     }
 
-    if (!output) return;
+    if (!output) {
+        toast({variant: "destructive", title:"Incomplete Section", description: `Please complete all required fields in the "${formTabs[currentTabIndex].name}" section before proceeding.`});
+        return;
+    }
 
     if (currentTabIndex < formTabs.length - 1) {
       setCurrentTab(formTabs[currentTabIndex + 1].id);
+       // Scroll to top of form area when tab changes
+      const formArea = document.getElementById('application-form-area');
+      if (formArea) formArea.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -592,6 +696,8 @@ export default function RegistrationDashboardPage() {
     const currentTabIndex = formTabs.findIndex(t => t.id === currentTab);
     if (currentTabIndex > 0) {
       setCurrentTab(formTabs[currentTabIndex - 1].id);
+       const formArea = document.getElementById('application-form-area');
+      if (formArea) formArea.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -622,14 +728,12 @@ export default function RegistrationDashboardPage() {
 `
         );
         printWindow.document.write('</head><body>');
-        // Inject CSS variables for theme colors
         const rootStyles = getComputedStyle(document.documentElement);
         const cssVars = `--primary: ${rootStyles.getPropertyValue('--primary')}; --foreground: ${rootStyles.getPropertyValue('--foreground')};`;
-        printWindow.document.write(`<div style="${cssVars}">`); // Apply CSS vars to a wrapper
-        // Replace SVG with an img tag for printing to avoid potential issues with SVG rendering in print
+        printWindow.document.write(`<div style="${cssVars}">`); 
+        
         const logoHtml = `<img src="/assets/arewa-logo.svg" alt="Institute Logo" style="max-height: 70px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" data-ai-hint="school logo print" />`;
         let contentHtml = content.innerHTML;
-        // Regex to find the ArewaLogo SVG component specifically. This might need adjustment if the rendered SVG structure changes.
         contentHtml = contentHtml.replace(/<svg.*arewa-logo.*?svg>/s, logoHtml);
         
         printWindow.document.write(contentHtml);
@@ -650,7 +754,7 @@ export default function RegistrationDashboardPage() {
 
   if (!initialDataLoaded) {
       return (
-          <div className="flex items-center justify-center min-h-screen">
+          <div className="flex items-center justify-center min-h-[calc(100vh-var(--header-height,4rem)-var(--footer-height,4rem))]">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2">Loading application dashboard...</p>
           </div>
@@ -676,8 +780,7 @@ export default function RegistrationDashboardPage() {
         </Carousel>
 
       <div className="grid md:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {/* Stepper for Application Form Completion */}
-        {applicationStatus === "incomplete" && (
+        {(applicationStatus === "incomplete" || applicationStatus === "Not Submitted") && (
           <div className="md:col-span-4 lg:col-span-3 p-4 md:p-6 bg-background rounded-lg shadow-lg">
             <h3 className="text-lg font-semibold text-primary mb-6">Application Progress</h3>
             <div className="relative space-y-8">
@@ -698,9 +801,8 @@ export default function RegistrationDashboardPage() {
                       <div className={cn(
                         "w-0.5 grow mt-2",
                         index < currentStepperStepIndex ? 'bg-primary' : 'bg-border',
-                        // Adjust height for the last connector based on completion status
-                        (applicationCompletionSteps.length - 1 - index) === 1 && index < currentStepperStepIndex ? 'h-8' : '', // Shorter if next is last and current is done
-                        (applicationCompletionSteps.length - 1 - index) > 1 || index >= currentStepperStepIndex ? 'h-10' : '' // Default or longer if more steps or current is not done
+                        (applicationCompletionSteps.length - 1 - index) === 1 && index < currentStepperStepIndex ? 'h-8' : '', 
+                        (applicationCompletionSteps.length - 1 - index) > 1 || index >= currentStepperStepIndex ? 'h-10' : '' 
                       )}></div>
                     )}
                   </div>
@@ -718,9 +820,8 @@ export default function RegistrationDashboardPage() {
           </div>
         )}
 
-        {/* Main Content Area (Status Card and Form/Info) */}
-        <div className={cn(
-          applicationStatus === "incomplete" ? "md:col-span-8 lg:col-span-9" : "md:col-span-12" // Full width if form is not shown
+        <div id="application-form-area" className={cn(
+          (applicationStatus === "incomplete" || applicationStatus === "Not Submitted") ? "md:col-span-8 lg:col-span-9" : "md:col-span-12" 
         )}>
             <Card className="shadow-xl border-primary/10">
                 <CardHeader>
@@ -728,7 +829,7 @@ export default function RegistrationDashboardPage() {
                     <CardDescription>Application ID: <span className="font-semibold text-accent">{applicantAppId}</span></CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {applicationStatus === "incomplete" && (
+                    {(applicationStatus === "incomplete" || applicationStatus === "Not Submitted") && (
                         <div className="flex items-center p-4 bg-muted/50 rounded-md">
                             <FileClock className="h-8 w-8 text-destructive mr-4" />
                             <div>
@@ -781,7 +882,7 @@ export default function RegistrationDashboardPage() {
                 </CardFooter>
             </Card>
 
-            {applicationStatus === "incomplete" && (
+            {(applicationStatus === "incomplete" || applicationStatus === "Not Submitted") && (
                 <Card className="w-full shadow-xl border-2 border-primary/10 mt-8">
                     <CardHeader className="text-center">
                         <CardTitle className="text-xl md:text-2xl font-bold text-primary">Complete Your Application Form</CardTitle>
@@ -798,24 +899,21 @@ export default function RegistrationDashboardPage() {
                                     const currentTabIndex = formTabs.findIndex(t => t.id === currentTab);
                                     const targetTabIndex = formTabs.findIndex(t => t.id === tab.id);
                                     
-                                    // Allow navigating to previous tabs freely
                                     if (targetTabIndex <= currentTabIndex) {
                                         setCurrentTab(tab.id);
                                         return;
                                     }
 
-                                    // If trying to move to a future tab, validate current tab first
                                     const fieldsToValidate = formTabs[currentTabIndex].fields as FieldName[] | undefined;
                                     if (fieldsToValidate) {
                                         const isValid = await form.trigger(fieldsToValidate, { shouldFocus: true });
                                         if (isValid) {
                                             setCurrentTab(tab.id);
                                         } else {
-                                            e.preventDefault(); // Prevent tab switch
+                                            e.preventDefault(); 
                                             toast({variant: "destructive", title:"Incomplete Section", description: `Please complete all required fields in the "${formTabs[currentTabIndex].name}" section before proceeding.`})
                                         }
                                     } else {
-                                        // If no specific fields to validate for current tab (e.g., preview tab before terms)
                                         setCurrentTab(tab.id);
                                     }
                                 }}>
@@ -928,7 +1026,7 @@ export default function RegistrationDashboardPage() {
                                         form={form}
                                     />
                                     ))}
-                                    {oLevelFields.length < 2 && (
+                                    {oLevelFields.length < MAX_O_LEVEL_SITTINGS && (
                                         <Button type="button" variant="outline" onClick={handleAddOLevel} className="text-accent border-accent hover:bg-accent/10">
                                             <PlusCircle className="mr-2 h-4 w-4" /> Add O-Level Sitting
                                         </Button>
@@ -936,6 +1034,9 @@ export default function RegistrationDashboardPage() {
                                     {(form.formState.errors.oLevels as any)?.root && oLevelFields.length === 0 && (
                                         <FormMessage>{(form.formState.errors.oLevels as any).root.message}</FormMessage>
                                     )}
+                                     {form.formState.errors.oLevels && !form.formState.errors.oLevels?.root && oLevelFields.length === 0 && (
+                                        <FormMessage>At least one O-Level sitting is required.</FormMessage>
+                                     )}
                                 </TabsContent>
 
                                 <TabsContent value="a-level" className="space-y-6 animate-in fade-in-50">
@@ -946,11 +1047,30 @@ export default function RegistrationDashboardPage() {
                                         control={form.control}
                                         aLevelIndex={index}
                                         removeALevelSitting={removeALevel}
+                                        form={form}
+                                        itemType="aLevel"
                                     />
                                     ))}
                                     {(aLevelFields?.length || 0) < MAX_QUALIFICATIONS && (
                                         <Button type="button" variant="outline" onClick={handleAddALevel} className="text-accent border-accent hover:bg-accent/10">
                                             <PlusCircle className="mr-2 h-4 w-4" /> Add A-Level/Other Qualification
+                                        </Button>
+                                    )}
+                                    
+                                    <CardTitle className="text-xl text-primary pt-4 border-t">Work Experience (Optional)</CardTitle>
+                                    {experienceFields.map((item, index) => (
+                                    <ALevelSittingItem // Re-using for similar structure
+                                        key={item.id}
+                                        control={form.control}
+                                        aLevelIndex={index} // Index within experienceFields
+                                        removeALevelSitting={removeExperience} // Use removeExperience
+                                        form={form}
+                                        itemType="experience"
+                                    />
+                                    ))}
+                                    {(experienceFields?.length || 0) < MAX_EXPERIENCES && (
+                                        <Button type="button" variant="outline" onClick={handleAddExperience} className="text-accent border-accent hover:bg-accent/10">
+                                            <PlusCircle className="mr-2 h-4 w-4" /> Add Work Experience
                                         </Button>
                                     )}
                                 </TabsContent>
@@ -986,12 +1106,16 @@ export default function RegistrationDashboardPage() {
 
                                     <div className="space-y-4">
                                         <h3 className="font-semibold text-lg text-primary border-b pb-1">Bio-data</h3>
-                                        <PreviewItem label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || "Not uploaded"} />
-                                        {photographPreview && (
+                                        <PreviewItem label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || form.getValues("photograph")?.name || "Not uploaded"} />
+                                        {photographPreview ? (
                                             <div className="text-center">
                                                 <Image src={photographPreview} alt="Photograph Preview" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="application passport photo"/>
                                             </div>
-                                        )}
+                                        ) : form.getValues("photograph")?.name ? (
+                                             <div className="text-center">
+                                                <Image src={`https://placehold.co/100x100.png?text=${form.getValues("photograph")?.name?.substring(0,10)}`} alt="Photograph" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="applicant passport photo"/>
+                                            </div>
+                                        ) : null}
                                         <PreviewItem label="Full Name" value={form.getValues("fullName")} />
                                         <PreviewItem label="Email" value={form.getValues("email")} />
                                         <PreviewItem label="Phone Number" value={form.getValues("phoneNumber")} />
@@ -1016,7 +1140,7 @@ export default function RegistrationDashboardPage() {
                                                 <ul className="list-disc list-inside pl-4 text-sm">
                                                     {(ol.subjects || []).map(sub => <li key={sub.id}>{sub.subject}: {sub.grade}</li>)}
                                                 </ul>
-                                                <PreviewItem label="Certificate" value={processFileUpload(ol.fileInput)?.name || "Not uploaded"} />
+                                                <PreviewItem label="Certificate" value={processFileUpload(ol.fileInput)?.name || ol.file?.name || "Not uploaded"} />
                                             </div>
                                         ))}
 
@@ -1030,7 +1154,21 @@ export default function RegistrationDashboardPage() {
                                                     <PreviewItem label="Course" value={al.courseOfStudy || "N/A"} />
                                                     <PreviewItem label="Grade/Class" value={al.gradeOrClass || "N/A"} />
                                                     <PreviewItem label="Year Awarded" value={al.yearAwarded} />
-                                                    <PreviewItem label="Certificate" value={processFileUpload(al.fileInput)?.name || "Not uploaded"} />
+                                                    <PreviewItem label="Certificate" value={processFileUpload(al.fileInput)?.name || al.file?.name || "Not uploaded"} />
+                                                </div>
+                                                ))}
+                                            </>
+                                        )}
+
+                                        {form.getValues("experiences") && form.getValues("experiences")!.length > 0 && (
+                                            <>
+                                                <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Work Experience</h3>
+                                                {form.getValues("experiences")!.map((exp, i) => (
+                                                <div key={exp.id} className="p-3 border rounded-md bg-muted/30">
+                                                    <p className="font-medium">Experience {i + 1}: {exp.type} - {exp.institution}</p> {/* Mapped 'institution' to 'Organization' and 'type' to 'Experience Type' for this shared component */}
+                                                    <PreviewItem label="Role" value={exp.courseOfStudy || "N/A"} /> {/* Mapped 'courseOfStudy' to 'Role' */}
+                                                    <PreviewItem label="Duration" value={`${exp.gradeOrClass || 'N/A'} to ${exp.yearAwarded || 'N/A'}`} /> {/* Mapped 'gradeOrClass' to 'Start Date' and 'yearAwarded' to 'End Date' */}
+                                                    <PreviewItem label="Document" value={processFileUpload(exp.fileInput)?.name || exp.file?.name || "Not uploaded"} />
                                                 </div>
                                                 ))}
                                             </>
@@ -1126,6 +1264,7 @@ export default function RegistrationDashboardPage() {
                               <li>Present original copies of your credentials for verification during departmental screening. This includes:
                                   <ul className="list-[circle] pl-5">
                                     <li>O-Level Certificate(s)</li>
+                                    {completedApplicationData.oLevels?.map(ol => ol.file?.name).filter(Boolean).length > 0 && <li>O-Level Certificate(s)</li>}
                                     {completedApplicationData.aLevels && completedApplicationData.aLevels.length > 0 && <li>A-Level/Diploma/NCE Certificate(s)</li>}
                                     <li>Birth Certificate / Declaration of Age</li>
                                     <li>State of Origin Certificate</li>
