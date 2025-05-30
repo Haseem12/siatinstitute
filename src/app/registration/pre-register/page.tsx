@@ -52,7 +52,6 @@ export default function PreRegisterPage() {
   const [awaitingVerification, setAwaitingVerification] = useState(false);
   const [verificationCodeInput, setVerificationCodeInput] = useState("");
   const [pendingRegistrationData, setPendingRegistrationData] = useState<PreRegisterFormValues | null>(null);
-  // const MOCK_VERIFICATION_CODE = "123456"; // This will be replaced by actual email sending logic
 
   useEffect(() => {
     document.title = "Pre-register - SIAT Institute";
@@ -73,31 +72,34 @@ export default function PreRegisterPage() {
 
   const handleProceedToVerification = async (data: PreRegisterFormValues) => {
     setIsLoading(true);
-    setPendingRegistrationData(data);
+    setPendingRegistrationData(data); // Store data to use after verification
+
+    const payload = {
+        surname: data.surname,
+        firstname: data.firstname,
+        othername: data.othername,
+        email: data.email,
+        password: data.password, // Send plaintext password to backend for temporary storage and email sending
+    };
+
+    console.log("Attempting to pre-register with payload:", JSON.stringify(payload, null, 2)); // Log the payload
 
     try {
       const response = await fetch('https://sajfoods.net/api/siat/pre-register.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          surname: data.surname,
-          firstname: data.firstname,
-          othername: data.othername,
-          email: data.email,
-          password: data.password, // Send plaintext password to backend for temporary storage and email sending
-        }),
+        body: JSON.stringify(payload),
       });
 
-      // Check if the response is OK (status in the range 200-299)
       if (!response.ok) {
         // Try to parse the error message from the server if it's JSON
-        let serverMessage = "Server responded with an error.";
+        let serverMessage = `Server responded with status ${response.status}.`;
         try {
             const errorResult = await response.json();
             serverMessage = errorResult.message || serverMessage;
         } catch (e) {
-            // If not JSON, use the status text
-            serverMessage = `Server error: ${response.status} ${response.statusText}`;
+            // If not JSON, use the status text or a generic message
+            serverMessage = `Error: ${response.status} ${response.statusText}. The server might be down or a script error occurred. Check PHP error logs.`;
         }
         throw new Error(serverMessage);
       }
@@ -124,8 +126,8 @@ export default function PreRegisterPage() {
       toast({
         variant: "destructive",
         title: "Pre-registration Network Error",
-        description: error.message || "Could not connect to the pre-registration service. This might be due to network issues, CORS policy on the server, or the server being unavailable. Please check your internet connection and try again. If the problem persists, contact support.",
-        duration: 10000,
+        description: `Failed to connect to the pre-registration service. Details: ${error.message}. This might be due to network issues, CORS policy on the server, or the server being unavailable. Please check your internet connection and server logs, then try again. If the problem persists, contact support.`,
+        duration: 15000,
       });
       setPendingRegistrationData(null);
     } finally {
@@ -144,33 +146,34 @@ export default function PreRegisterPage() {
     }
 
     setIsLoading(true);
+    const payload = {
+        email: pendingRegistrationData.email,
+        verificationCode: verificationCodeInput,
+        originalPassword: pendingRegistrationData.password, // Send original password for final hashing at backend
+    };
+    console.log("Attempting to verify email with payload:", JSON.stringify(payload, null, 2)); // Log the payload
+
     try {
       const response = await fetch('https://sajfoods.net/api/siat/verify-email.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: pendingRegistrationData.email,
-          verificationCode: verificationCodeInput,
-          originalPassword: pendingRegistrationData.password, // Send original password for hashing at the backend
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        let serverMessage = "Server responded with an error during verification.";
+        let serverMessage = `Server responded with status ${response.status} during verification.`;
         try {
             const errorResult = await response.json();
             serverMessage = errorResult.message || serverMessage;
         } catch (e) {
-            serverMessage = `Server error: ${response.status} ${response.statusText}`;
+             serverMessage = `Error: ${response.status} ${response.statusText}. The server might be down or a script error occurred. Check PHP error logs.`;
         }
         throw new Error(serverMessage);
       }
 
       const result = await response.json();
 
-      if (result.success && result.data.appId) {
-        // No need to save to localStorage if API is the source of truth
-        // localStorage.setItem("preRegisteredUsers", ...); 
+      if (result.success && result.data && result.data.appId) {
         toast({
           title: "Email Verified & Pre-registration Complete!",
           description: `Your Application ID is ${result.data.appId}. Redirecting to login...`,
@@ -189,8 +192,8 @@ export default function PreRegisterPage() {
       toast({
         variant: "destructive",
         title: "Verification Network Error",
-        description: error.message || "Could not connect to the verification service. Please check your internet and try again. If the problem persists, contact support.",
-        duration: 10000,
+        description: `Failed to connect to the verification service. Details: ${error.message}. Please check your internet and server logs, then try again. If the problem persists, contact support.`,
+        duration: 15000,
       });
     } finally {
       setIsLoading(false);
@@ -309,6 +312,7 @@ export default function PreRegisterPage() {
                           onChange={(e) => setVerificationCodeInput(e.target.value)}
                           placeholder="Enter 6-digit code"
                           maxLength={6}
+                          className="text-center text-lg tracking-[0.3em]"
                       />
                   </FormItem>
                   <Button onClick={handleVerifyCodeAndCompleteRegistration} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || verificationCodeInput.length !== 6}>
@@ -333,3 +337,5 @@ export default function PreRegisterPage() {
     </div>
   );
 }
+
+
