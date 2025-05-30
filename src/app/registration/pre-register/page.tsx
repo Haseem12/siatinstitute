@@ -24,7 +24,7 @@ import { Eye, EyeOff, Loader2, Check, KeyRound, MailWarning } from "lucide-react
 
 const registrationSteps = [
   { id: 1, title: "Pre-register Account" },
-  { id: 1.5, title: "Verify Email" }, // Added verification step
+  { id: 1.5, title: "Verify Email" },
   { id: 2, title: "Login & Continue" },
   { id: 3, title: "Complete Application Form" },
   { id: 4, title: "Submit & Await Decision" },
@@ -44,7 +44,7 @@ const PreRegisterFormSchema = z.object({
 
 type PreRegisterFormValues = z.infer<typeof PreRegisterFormSchema>;
 
-const MOCK_VERIFICATION_CODE = "123456"; // Static code for this simulation
+const MOCK_VERIFICATION_CODE = "123456";
 
 export default function PreRegisterPage() {
   const router = useRouter();
@@ -58,6 +58,7 @@ export default function PreRegisterPage() {
 
   useEffect(() => {
     document.title = "Pre-register - SIAT Institute";
+    console.log("PreRegisterPage mounted successfully.");
   }, []);
 
   const form = useForm<PreRegisterFormValues>({
@@ -145,7 +146,6 @@ export default function PreRegisterPage() {
       setIsLoading(false);
       setPendingRegistrationData(null);
       setVerificationCodeInput("");
-      // setAwaitingVerification(false); // Keep true or handle redirect state
     }
   };
 
@@ -204,8 +204,8 @@ export default function PreRegisterPage() {
             </p>
           </div>
 
-          {!awaitingVerification ? (
-            <Form {...form}>
+          <Form {...form}> {/* Moved FormProvider to wrap both conditional branches */}
+            {!awaitingVerification ? (
               <form onSubmit={form.handleSubmit(handleInitialSubmit)} className="space-y-6">
                 <FormField control={form.control} name="surname" render={({ field }) => (
                   <FormItem><FormLabel>Surname</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
@@ -252,32 +252,32 @@ export default function PreRegisterPage() {
                   {isLoading ? "Processing..." : "Proceed to Email Verification"}
                 </Button>
               </form>
-            </Form>
-          ) : (
-            <div className="space-y-6">
-                <FormItem>
-                    <FormLabel htmlFor="verificationCode">Verification Code</FormLabel>
-                    <Input 
-                        id="verificationCode"
-                        type="text" 
-                        value={verificationCodeInput}
-                        onChange={(e) => setVerificationCodeInput(e.target.value)}
-                        placeholder="Enter 6-digit code"
-                        maxLength={6}
-                    />
-                     <p className="text-xs text-muted-foreground mt-1">
-                        For this prototype, enter: <span className="font-bold text-accent">{MOCK_VERIFICATION_CODE}</span>
-                    </p>
-                </FormItem>
-                <Button onClick={handleVerifyAndRegister} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || verificationCodeInput.length !== 6}>
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                    {isLoading ? "Verifying..." : "Verify & Complete Registration"}
-                </Button>
-                <Button variant="outline" onClick={() => { setAwaitingVerification(false); setPendingRegistrationData(null); form.reset();}} className="w-full" disabled={isLoading}>
-                    Go Back & Edit Details
-                </Button>
-            </div>
-          )}
+            ) : (
+              <div className="space-y-6">
+                  <FormItem> {/* This FormItem and FormLabel will now have context */}
+                      <FormLabel htmlFor="verificationCode">Verification Code</FormLabel>
+                      <Input
+                          id="verificationCode"
+                          type="text"
+                          value={verificationCodeInput}
+                          onChange={(e) => setVerificationCodeInput(e.target.value)}
+                          placeholder="Enter 6-digit code"
+                          maxLength={6}
+                      />
+                       <p className="text-xs text-muted-foreground mt-1">
+                          For this prototype, enter: <span className="font-bold text-accent">{MOCK_VERIFICATION_CODE}</span>
+                      </p>
+                  </FormItem>
+                  <Button onClick={handleVerifyAndRegister} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || verificationCodeInput.length !== 6}>
+                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                      {isLoading ? "Verifying..." : "Verify & Complete Registration"}
+                  </Button>
+                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); setPendingRegistrationData(null); form.reset();}} className="w-full" disabled={isLoading}>
+                      Go Back & Edit Details
+                  </Button>
+              </div>
+            )}
+          </Form>
 
           <div className="mt-6 text-center text-sm">
             <p className="text-muted-foreground">Already have an Application ID?</p>
