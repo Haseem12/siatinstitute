@@ -52,9 +52,11 @@ export default function PreRegisterPage() {
   const [awaitingVerification, setAwaitingVerification] = useState(false);
   const [verificationCodeInput, setVerificationCodeInput] = useState("");
   const [pendingRegistrationData, setPendingRegistrationData] = useState<PreRegisterFormValues | null>(null);
+  // const MOCK_VERIFICATION_CODE = "123456"; // This will be replaced by actual email sending logic
 
   useEffect(() => {
     document.title = "Pre-register - SIAT Institute";
+    console.log("PreRegisterPage mounted successfully.");
   }, []);
 
   const form = useForm<PreRegisterFormValues>({
@@ -71,7 +73,7 @@ export default function PreRegisterPage() {
 
   const handleProceedToVerification = async (data: PreRegisterFormValues) => {
     setIsLoading(true);
-    setPendingRegistrationData(data); // Store data for the next step
+    setPendingRegistrationData(data);
 
     try {
       const response = await fetch('https://sajfoods.net/api/siat/pre-register.php', {
@@ -82,9 +84,24 @@ export default function PreRegisterPage() {
           firstname: data.firstname,
           othername: data.othername,
           email: data.email,
-          password: data.password, // Send plaintext password to backend for temporary storage
+          password: data.password, // Send plaintext password to backend for temporary storage and email sending
         }),
       });
+
+      // Check if the response is OK (status in the range 200-299)
+      if (!response.ok) {
+        // Try to parse the error message from the server if it's JSON
+        let serverMessage = "Server responded with an error.";
+        try {
+            const errorResult = await response.json();
+            serverMessage = errorResult.message || serverMessage;
+        } catch (e) {
+            // If not JSON, use the status text
+            serverMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(serverMessage);
+      }
+      
       const result = await response.json();
 
       if (result.success) {
@@ -100,14 +117,15 @@ export default function PreRegisterPage() {
           title: "Pre-registration Failed",
           description: result.message || "Could not initiate email verification. Please try again.",
         });
-        setPendingRegistrationData(null); // Clear pending data if initiation failed
+        setPendingRegistrationData(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error calling pre-register API:", error);
       toast({
         variant: "destructive",
-        title: "Network Error",
-        description: "Could not connect to the pre-registration service. Please check your internet connection.",
+        title: "Pre-registration Network Error",
+        description: error.message || "Could not connect to the pre-registration service. This might be due to network issues, CORS policy on the server, or the server being unavailable. Please check your internet connection and try again. If the problem persists, contact support.",
+        duration: 10000,
       });
       setPendingRegistrationData(null);
     } finally {
@@ -120,7 +138,7 @@ export default function PreRegisterPage() {
         toast({ variant: "destructive", title: "Error", description: "No registration data found. Please start over."});
         return;
     }
-    if (verificationCodeInput.length !== 6) {
+    if (verificationCodeInput.length !== 6) { // Assuming 6-digit code
         toast({ variant: "destructive", title: "Invalid Code", description: "Verification code must be 6 digits."});
         return;
     }
@@ -133,30 +151,26 @@ export default function PreRegisterPage() {
         body: JSON.stringify({
           email: pendingRegistrationData.email,
           verificationCode: verificationCodeInput,
-          originalPassword: pendingRegistrationData.password, // Send original password for backend hashing
+          originalPassword: pendingRegistrationData.password, // Send original password for hashing at the backend
         }),
       });
+
+      if (!response.ok) {
+        let serverMessage = "Server responded with an error during verification.";
+        try {
+            const errorResult = await response.json();
+            serverMessage = errorResult.message || serverMessage;
+        } catch (e) {
+            serverMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(serverMessage);
+      }
+
       const result = await response.json();
 
       if (result.success && result.data.appId) {
-        // Save preRegisteredUser to localStorage for login step (as a backup or for purely client-side versions)
-        // In a fully API-driven approach, this might not be strictly necessary if login always hits the API.
-        const existingUsersString = localStorage.getItem("preRegisteredUsers");
-        let existingUsers = existingUsersString ? JSON.parse(existingUsersString) : [];
-        const newUserForLocalStorage = {
-            appId: result.data.appId,
-            surname: pendingRegistrationData.surname,
-            firstname: pendingRegistrationData.firstname,
-            othername: pendingRegistrationData.othername || "",
-            email: pendingRegistrationData.email,
-            // For security, do NOT store plaintext password in localStorage after successful verification
-            // The backend has hashed it. The login page will verify against the backend.
-        };
-        if (!existingUsers.find((u:any) => u.email === newUserForLocalStorage.email)) {
-            existingUsers.push(newUserForLocalStorage);
-            localStorage.setItem("preRegisteredUsers", JSON.stringify(existingUsers));
-        }
-
+        // No need to save to localStorage if API is the source of truth
+        // localStorage.setItem("preRegisteredUsers", ...); 
         toast({
           title: "Email Verified & Pre-registration Complete!",
           description: `Your Application ID is ${result.data.appId}. Redirecting to login...`,
@@ -170,12 +184,13 @@ export default function PreRegisterPage() {
           description: result.message || "Could not verify your code. Please try again or pre-register anew.",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error calling verify-email API:", error);
       toast({
         variant: "destructive",
-        title: "Network Error",
-        description: "Could not connect to the verification service. Please check your internet connection.",
+        title: "Verification Network Error",
+        description: error.message || "Could not connect to the verification service. Please check your internet and try again. If the problem persists, contact support.",
+        duration: 10000,
       });
     } finally {
       setIsLoading(false);
@@ -229,7 +244,7 @@ export default function PreRegisterPage() {
                 {awaitingVerification ? "Verify Your Email" : "New Intake Pre-registration"}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {awaitingVerification 
+              {awaitingVerification
                 ? `A verification code was sent to ${pendingRegistrationData?.email}. Please enter it below.`
                 : "Create your application account to get started."}
             </p>
@@ -285,7 +300,7 @@ export default function PreRegisterPage() {
               </form>
             ) : (
               <div className="space-y-6">
-                  <FormItem> {/* No need for FormField here as it's direct state */}
+                  <FormItem> {}
                       <FormLabel htmlFor="verificationCode">Verification Code</FormLabel>
                       <Input
                           id="verificationCode"
@@ -300,7 +315,7 @@ export default function PreRegisterPage() {
                       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                       {isLoading ? "Verifying..." : "Verify & Complete Registration"}
                   </Button>
-                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); form.reset(pendingRegistrationData || undefined); /* Don't clear pendingRegistrationData yet */}} className="w-full" disabled={isLoading}>
+                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); /* form.reset(pendingRegistrationData || undefined); */ /* Don't clear pendingRegistrationData yet */}} className="w-full" disabled={isLoading}>
                       Go Back & Edit Details
                   </Button>
               </div>
@@ -318,5 +333,3 @@ export default function PreRegisterPage() {
     </div>
   );
 }
-
-    
