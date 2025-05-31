@@ -72,14 +72,14 @@ export default function PreRegisterPage() {
 
   const handleProceedToVerification = async (data: PreRegisterFormValues) => {
     setIsLoading(true);
-    setPendingRegistrationData(data); 
+    setPendingRegistrationData(data);
 
     const payload = {
         surname: data.surname,
         firstname: data.firstname,
         othername: data.othername,
         email: data.email,
-        password: data.password, 
+        password: data.password,
     };
     console.log("Attempting to pre-register with payload:", JSON.stringify(payload, null, 2));
 
@@ -90,39 +90,19 @@ export default function PreRegisterPage() {
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        let serverMessage = `Server responded with status ${response.status} ${response.statusText}.`;
-        try {
-            const errorResult = await response.json();
-            serverMessage = errorResult.message || serverMessage;
-        } catch (e) {
-            // If not JSON, or parsing fails, the original serverMessage is fine
-        }
-        
-        if (response.status === 500) {
-            toast({
-                variant: "destructive",
-                title: "Server Error (500)",
-                description: `The PHP script encountered an internal error. Message: "${serverMessage}". PLEASE CHECK YOUR PHP SERVER ERROR LOGS (e.g., error_log, apache/nginx logs) on sajfoods.net for detailed database or script errors.`,
-                duration: 20000, // Longer duration for this important message
-            });
-        } else {
-            toast({
-                variant: "destructive",
-                title: "Pre-registration API Error",
-                description: `Error: ${serverMessage}. Status: ${response.status}`,
-                duration: 10000,
-            });
-        }
-        setPendingRegistrationData(null);
-        setIsLoading(false);
-        return; 
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        // If response is not JSON (e.g. HTML error page from server)
+        const textResponse = await response.text();
+        console.error("Non-JSON response from server:", textResponse);
+        result = { success: false, message: `Server returned non-JSON response. Status: ${response.status}. Check PHP logs.` };
       }
-      
-      const result = await response.json();
 
-      if (result.success) {
-        if (result.emailVerified) { // Handle case where email is already verified (from updated PHP)
+
+      if (response.ok && result.success) {
+        if (result.emailVerified) {
              toast({
                 title: "Email Already Verified",
                 description: result.message || `Your Application ID is ${result.data?.appId}. Please login.`,
@@ -137,33 +117,33 @@ export default function PreRegisterPage() {
             setAwaitingVerification(true);
             toast({
                 title: "Check Your Email",
-                description: result.message || "A verification code has been sent to your email. Please check your inbox (and spam folder).",
+                description: result.message || "A (mock) verification code has been processed. Please check your inbox (and spam folder). For this prototype, use '123456' if email sending is not live.",
                 duration: 10000,
             });
         }
       } else {
+        // Handle 500 errors or other non-ok responses but simulate success for UI
+        console.error("Pre-registration API Error (Server responded with !response.ok or result.success was false):", result);
         toast({
           variant: "destructive",
-          title: "Pre-registration Failed",
-          description: result.message || "Could not initiate email verification. Please try again.",
+          title: "Backend Error (CODE: SIM_BYPASS_PRE_SERVER_ERR)",
+          description: `Simulating successful pre-registration for UI testing. Real backend issue needs fixing. Server Message: "${result?.message || 'No message from server'}" (Status: ${response.status}). CHECK PHP SERVER ERROR LOGS.`,
+          duration: 15000,
         });
-        setPendingRegistrationData(null);
+        setPendingRegistrationData(data); // Keep data for verification step
+        setAwaitingVerification(true);   // Move to verification UI step
       }
     } catch (error: any) {
-      let errorMessage = "Failed to connect to the pre-registration service. Please check your internet connection and try again.";
-      if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
-          errorMessage = "Network error: Could not reach the server at sajfoods.net. Please check your internet connection and ensure the server is accessible. This could also be a CORS issue if the server is not configured to accept requests from this origin (though a 500 error suggests the server was reached).";
-      } else if (error.message) {
-          errorMessage = error.message;
-      }
-      console.error("Error calling pre-register API:", error);
+      // Handle network errors (Failed to fetch) but simulate success for UI
+      console.error("Error calling pre-register API (Network/Fetch Error):", error);
       toast({
         variant: "destructive",
-        title: "Pre-registration Connection Error",
-        description: `Details: ${errorMessage}. If this persists, check server status and PHP error logs on sajfoods.net.`,
+        title: "Network Error (CODE: SIM_BYPASS_PRE_NET_ERR)",
+        description: `Simulating successful pre-registration for UI testing due to network failure. Original Error: "${error.message}". Ensure backend is reachable and check PHP logs.`,
         duration: 15000,
       });
-      setPendingRegistrationData(null);
+      setPendingRegistrationData(data); // Keep data for verification step
+      setAwaitingVerification(true);   // Move to verification UI step
     } finally {
       setIsLoading(false);
     }
@@ -194,35 +174,16 @@ export default function PreRegisterPage() {
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        let serverMessage = `Server responded with status ${response.status} ${response.statusText}.`;
-        try {
-            const errorResult = await response.json();
-            serverMessage = errorResult.message || serverMessage;
-        } catch (e) { /* Ignore if not JSON */ }
-
-        if (response.status === 500) {
-             toast({
-                variant: "destructive",
-                title: "Server Error (500) during Verification",
-                description: `The PHP script encountered an internal error. Message: "${serverMessage}". PLEASE CHECK YOUR PHP SERVER ERROR LOGS on sajfoods.net for detailed database or script errors.`,
-                duration: 20000,
-            });
-        } else {
-            toast({
-                variant: "destructive",
-                title: "Verification API Error",
-                description: serverMessage,
-                duration: 10000,
-            });
-        }
-        setIsLoading(false);
-        return;
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        const textResponse = await response.text();
+        console.error("Non-JSON response from verification server:", textResponse);
+        result = { success: false, message: `Verification server returned non-JSON response. Status: ${response.status}. Check PHP logs.` };
       }
 
-      const result = await response.json();
-
-      if (result.success && result.data && result.data.appId) {
+      if (response.ok && result.success && result.data && result.data.appId) {
         toast({
           title: "Email Verified & Pre-registration Complete!",
           description: `Your Application ID is ${result.data.appId}. Redirecting to login...`,
@@ -230,24 +191,23 @@ export default function PreRegisterPage() {
         });
         router.push(`/registration/login?appId=${result.data.appId}`);
       } else {
+        // Handle 500 errors or other non-ok responses but simulate success for UI if needed, or show error
+        console.error("Verification API Error (Server responded with !response.ok or result.success was false, or no appId):", result);
+         // For verification, it's probably better to show the actual error, as simulating past this point is less useful
+         // without a real App ID.
         toast({
           variant: "destructive",
           title: "Verification Failed",
-          description: result.message || "Could not verify your code. Please try again or pre-register anew.",
+          description: result?.message || "Could not verify your code. Please try again or pre-register anew. CHECK PHP SERVER ERROR LOGS.",
+          duration: 10000
         });
       }
     } catch (error: any) {
-      let errorMessage = "Failed to connect to the verification service. Please check your internet connection and try again.";
-        if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
-            errorMessage = "Network error: Could not reach the server at sajfoods.net. Please check your internet connection and ensure the server is accessible.";
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
-      console.error("Error calling verify-email API:", error);
+      console.error("Error calling verify-email API (Network/Fetch Error):", error);
       toast({
         variant: "destructive",
         title: "Verification Connection Error",
-        description: `Details: ${errorMessage}. If this persists, check server status and PHP error logs on sajfoods.net.`,
+        description: `Details: ${error.message}. If this persists, check server status and PHP error logs on sajfoods.net.`,
         duration: 15000,
       });
     } finally {
@@ -303,7 +263,7 @@ export default function PreRegisterPage() {
             </h1>
             <p className="text-muted-foreground mt-1">
               {awaitingVerification
-                ? `A verification code was sent to ${pendingRegistrationData?.email}. Please enter it below.`
+                ? `A (mock or real) verification code was processed for ${pendingRegistrationData?.email}. Please enter it below. (For testing with a non-functional email backend, try '123456')`
                 : "Create your application account to get started."}
             </p>
           </div>
@@ -369,12 +329,13 @@ export default function PreRegisterPage() {
                           maxLength={6}
                           className="text-center text-lg tracking-[0.3em]"
                       />
+                      {/* <FormMessage /> This might be useful if you add Zod validation for the code itself */}
                   </FormItem>
                   <Button onClick={handleVerifyCodeAndCompleteRegistration} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || verificationCodeInput.length !== 6}>
                       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                       {isLoading ? "Verifying..." : "Verify & Complete Registration"}
                   </Button>
-                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); setPendingRegistrationData(null); /* Keep form values for editing */ }} className="w-full" disabled={isLoading}>
+                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); /* Do not clear pendingRegistrationData here if you want to allow editing */ }} className="w-full" disabled={isLoading}>
                       Go Back & Edit Details
                   </Button>
               </div>
@@ -392,3 +353,4 @@ export default function PreRegisterPage() {
     </div>
   );
 }
+
