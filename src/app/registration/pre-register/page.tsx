@@ -72,17 +72,16 @@ export default function PreRegisterPage() {
 
   const handleProceedToVerification = async (data: PreRegisterFormValues) => {
     setIsLoading(true);
-    setPendingRegistrationData(data); // Store data to use after verification
+    setPendingRegistrationData(data); 
 
     const payload = {
         surname: data.surname,
         firstname: data.firstname,
         othername: data.othername,
         email: data.email,
-        password: data.password, // Send plaintext password to backend for temporary storage and email sending
+        password: data.password, 
     };
-
-    console.log("Attempting to pre-register with payload:", JSON.stringify(payload, null, 2)); // Log the payload
+    console.log("Attempting to pre-register with payload:", JSON.stringify(payload, null, 2));
 
     try {
       const response = await fetch('https://sajfoods.net/api/siat/pre-register.php', {
@@ -92,27 +91,56 @@ export default function PreRegisterPage() {
       });
 
       if (!response.ok) {
-        // Try to parse the error message from the server if it's JSON
-        let serverMessage = `Server responded with status ${response.status}.`;
+        let serverMessage = `Server responded with status ${response.status} ${response.statusText}.`;
         try {
             const errorResult = await response.json();
             serverMessage = errorResult.message || serverMessage;
         } catch (e) {
-            // If not JSON, use the status text or a generic message
-            serverMessage = `Error: ${response.status} ${response.statusText}. The server might be down or a script error occurred. Check PHP error logs.`;
+            // If not JSON, or parsing fails, the original serverMessage is fine
         }
-        throw new Error(serverMessage);
+        
+        if (response.status === 500) {
+            toast({
+                variant: "destructive",
+                title: "Server Error (500)",
+                description: `The PHP script encountered an internal error. Message: "${serverMessage}". PLEASE CHECK YOUR PHP SERVER ERROR LOGS (e.g., error_log, apache/nginx logs) on sajfoods.net for detailed database or script errors.`,
+                duration: 20000, // Longer duration for this important message
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Pre-registration API Error",
+                description: `Error: ${serverMessage}. Status: ${response.status}`,
+                duration: 10000,
+            });
+        }
+        setPendingRegistrationData(null);
+        setIsLoading(false);
+        return; 
       }
       
       const result = await response.json();
 
       if (result.success) {
-        setAwaitingVerification(true);
-        toast({
-          title: "Check Your Email",
-          description: result.message || "A verification code has been sent to your email. Please check your inbox (and spam folder).",
-          duration: 10000,
-        });
+        if (result.emailVerified) { // Handle case where email is already verified (from updated PHP)
+             toast({
+                title: "Email Already Verified",
+                description: result.message || `Your Application ID is ${result.data?.appId}. Please login.`,
+                duration: 7000,
+            });
+            if (result.data?.appId) {
+                router.push(`/registration/login?appId=${result.data.appId}`);
+            } else {
+                router.push('/registration/login');
+            }
+        } else {
+            setAwaitingVerification(true);
+            toast({
+                title: "Check Your Email",
+                description: result.message || "A verification code has been sent to your email. Please check your inbox (and spam folder).",
+                duration: 10000,
+            });
+        }
       } else {
         toast({
           variant: "destructive",
@@ -122,11 +150,17 @@ export default function PreRegisterPage() {
         setPendingRegistrationData(null);
       }
     } catch (error: any) {
+      let errorMessage = "Failed to connect to the pre-registration service. Please check your internet connection and try again.";
+      if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
+          errorMessage = "Network error: Could not reach the server at sajfoods.net. Please check your internet connection and ensure the server is accessible. This could also be a CORS issue if the server is not configured to accept requests from this origin (though a 500 error suggests the server was reached).";
+      } else if (error.message) {
+          errorMessage = error.message;
+      }
       console.error("Error calling pre-register API:", error);
       toast({
         variant: "destructive",
-        title: "Pre-registration Network Error",
-        description: `Failed to connect to the pre-registration service. Details: ${error.message}. This might be due to network issues, CORS policy on the server, or the server being unavailable. Please check your internet connection and server logs, then try again. If the problem persists, contact support.`,
+        title: "Pre-registration Connection Error",
+        description: `Details: ${errorMessage}. If this persists, check server status and PHP error logs on sajfoods.net.`,
         duration: 15000,
       });
       setPendingRegistrationData(null);
@@ -140,7 +174,7 @@ export default function PreRegisterPage() {
         toast({ variant: "destructive", title: "Error", description: "No registration data found. Please start over."});
         return;
     }
-    if (verificationCodeInput.length !== 6) { // Assuming 6-digit code
+    if (verificationCodeInput.length !== 6) {
         toast({ variant: "destructive", title: "Invalid Code", description: "Verification code must be 6 digits."});
         return;
     }
@@ -149,9 +183,9 @@ export default function PreRegisterPage() {
     const payload = {
         email: pendingRegistrationData.email,
         verificationCode: verificationCodeInput,
-        originalPassword: pendingRegistrationData.password, // Send original password for final hashing at backend
+        originalPassword: pendingRegistrationData.password,
     };
-    console.log("Attempting to verify email with payload:", JSON.stringify(payload, null, 2)); // Log the payload
+    console.log("Attempting to verify email with payload:", JSON.stringify(payload, null, 2));
 
     try {
       const response = await fetch('https://sajfoods.net/api/siat/verify-email.php', {
@@ -161,14 +195,29 @@ export default function PreRegisterPage() {
       });
 
       if (!response.ok) {
-        let serverMessage = `Server responded with status ${response.status} during verification.`;
+        let serverMessage = `Server responded with status ${response.status} ${response.statusText}.`;
         try {
             const errorResult = await response.json();
             serverMessage = errorResult.message || serverMessage;
-        } catch (e) {
-             serverMessage = `Error: ${response.status} ${response.statusText}. The server might be down or a script error occurred. Check PHP error logs.`;
+        } catch (e) { /* Ignore if not JSON */ }
+
+        if (response.status === 500) {
+             toast({
+                variant: "destructive",
+                title: "Server Error (500) during Verification",
+                description: `The PHP script encountered an internal error. Message: "${serverMessage}". PLEASE CHECK YOUR PHP SERVER ERROR LOGS on sajfoods.net for detailed database or script errors.`,
+                duration: 20000,
+            });
+        } else {
+            toast({
+                variant: "destructive",
+                title: "Verification API Error",
+                description: serverMessage,
+                duration: 10000,
+            });
         }
-        throw new Error(serverMessage);
+        setIsLoading(false);
+        return;
       }
 
       const result = await response.json();
@@ -188,11 +237,17 @@ export default function PreRegisterPage() {
         });
       }
     } catch (error: any) {
+      let errorMessage = "Failed to connect to the verification service. Please check your internet connection and try again.";
+        if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
+            errorMessage = "Network error: Could not reach the server at sajfoods.net. Please check your internet connection and ensure the server is accessible.";
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
       console.error("Error calling verify-email API:", error);
       toast({
         variant: "destructive",
-        title: "Verification Network Error",
-        description: `Failed to connect to the verification service. Details: ${error.message}. Please check your internet and server logs, then try again. If the problem persists, contact support.`,
+        title: "Verification Connection Error",
+        description: `Details: ${errorMessage}. If this persists, check server status and PHP error logs on sajfoods.net.`,
         duration: 15000,
       });
     } finally {
@@ -319,7 +374,7 @@ export default function PreRegisterPage() {
                       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                       {isLoading ? "Verifying..." : "Verify & Complete Registration"}
                   </Button>
-                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); /* form.reset(pendingRegistrationData || undefined); */ /* Don't clear pendingRegistrationData yet */}} className="w-full" disabled={isLoading}>
+                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); setPendingRegistrationData(null); /* Keep form values for editing */ }} className="w-full" disabled={isLoading}>
                       Go Back & Edit Details
                   </Button>
               </div>
@@ -337,5 +392,3 @@ export default function PreRegisterPage() {
     </div>
   );
 }
-
-
