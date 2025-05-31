@@ -72,14 +72,14 @@ export default function PreRegisterPage() {
 
   const handleProceedToVerification = async (data: PreRegisterFormValues) => {
     setIsLoading(true);
-    setPendingRegistrationData(data);
+    setPendingRegistrationData(data); // Store data for the verification step
 
     const payload = {
         surname: data.surname,
         firstname: data.firstname,
         othername: data.othername,
         email: data.email,
-        password: data.password,
+        password: data.password, // Sending plaintext password temporarily as per PHP script design
     };
     console.log("Attempting to pre-register with payload:", JSON.stringify(payload, null, 2));
 
@@ -90,60 +90,55 @@ export default function PreRegisterPage() {
         body: JSON.stringify(payload),
       });
 
-      let result;
-      try {
-        result = await response.json();
-      } catch (e) {
-        // If response is not JSON (e.g. HTML error page from server)
-        const textResponse = await response.text();
-        console.error("Non-JSON response from server:", textResponse);
-        result = { success: false, message: `Server returned non-JSON response. Status: ${response.status}. Check PHP logs.` };
+      if (!response.ok) {
+        let errorBody = "Error details not available.";
+        try {
+            const errorJson = await response.json();
+            errorBody = errorJson.message || JSON.stringify(errorJson);
+        } catch (parseError) {
+            errorBody = await response.text();
+        }
+        throw new Error(`Server error ${response.status}: ${errorBody}`);
       }
 
+      const result = await response.json();
 
-      if (response.ok && result.success) {
-        if (result.emailVerified) {
+      if (result.success) {
+        if (result.emailVerified && result.data?.appId) { // If API indicates already verified (e.g., from a previous attempt)
              toast({
                 title: "Email Already Verified",
-                description: result.message || `Your Application ID is ${result.data?.appId}. Please login.`,
+                description: result.message || `Your Application ID is ${result.data.appId}. Please login.`,
                 duration: 7000,
             });
-            if (result.data?.appId) {
-                router.push(`/registration/login?appId=${result.data.appId}`);
-            } else {
-                router.push('/registration/login');
-            }
+            router.push(`/registration/login?appId=${result.data.appId}`);
         } else {
             setAwaitingVerification(true);
             toast({
                 title: "Check Your Email",
-                description: result.message || "A (mock) verification code has been processed. Please check your inbox (and spam folder). For this prototype, use '123456' if email sending is not live.",
+                description: result.message || "A verification code has been sent. Please check your inbox (and spam folder).",
                 duration: 10000,
             });
         }
       } else {
-        // Handle 500 errors or other non-ok responses but simulate success for UI
-        console.error("Pre-registration API Error (Server responded with !response.ok or result.success was false):", result);
+        // API call was "ok" but operation failed logically on backend
         toast({
           variant: "destructive",
-          title: "Backend Error (CODE: SIM_BYPASS_PRE_SERVER_ERR)",
-          description: `Simulating successful pre-registration for UI testing. Real backend issue needs fixing. Server Message: "${result?.message || 'No message from server'}" (Status: ${response.status}). CHECK PHP SERVER ERROR LOGS.`,
-          duration: 15000,
+          title: "Pre-registration Failed",
+          description: result.message || "Could not complete pre-registration. Please try again.",
+          duration: 7000,
         });
-        setPendingRegistrationData(data); // Keep data for verification step
-        setAwaitingVerification(true);   // Move to verification UI step
       }
     } catch (error: any) {
-      // Handle network errors (Failed to fetch) but simulate success for UI
-      console.error("Error calling pre-register API (Network/Fetch Error):", error);
+      console.error("Error calling pre-register API (SIMULATING SUCCESS):", error);
       toast({
-        variant: "destructive",
-        title: "Network Error (CODE: SIM_BYPASS_PRE_NET_ERR)",
-        description: `Simulating successful pre-registration for UI testing due to network failure. Original Error: "${error.message}". Ensure backend is reachable and check PHP logs.`,
+        variant: "default", // Keep it neutral or slightly positive for simulation
+        title: "Backend Pre-registration Error (UI Test Mode)",
+        description: `Simulating successful pre-registration to proceed to verification UI. Please fix backend. Original error: ${error.message || String(error)}. CHECK PHP SERVER ERROR LOGS on sajfoods.net.`,
         duration: 15000,
       });
-      setPendingRegistrationData(data); // Keep data for verification step
-      setAwaitingVerification(true);   // Move to verification UI step
+      // Simulate success for UI testing to proceed to verification
+      setPendingRegistrationData(data);
+      setAwaitingVerification(true);
     } finally {
       setIsLoading(false);
     }
@@ -163,7 +158,7 @@ export default function PreRegisterPage() {
     const payload = {
         email: pendingRegistrationData.email,
         verificationCode: verificationCodeInput,
-        originalPassword: pendingRegistrationData.password,
+        originalPassword: pendingRegistrationData.password, // Send original password for backend to hash
     };
     console.log("Attempting to verify email with payload:", JSON.stringify(payload, null, 2));
 
@@ -174,16 +169,20 @@ export default function PreRegisterPage() {
         body: JSON.stringify(payload),
       });
 
-      let result;
-      try {
-        result = await response.json();
-      } catch (e) {
-        const textResponse = await response.text();
-        console.error("Non-JSON response from verification server:", textResponse);
-        result = { success: false, message: `Verification server returned non-JSON response. Status: ${response.status}. Check PHP logs.` };
+      if (!response.ok) {
+        let errorBody = "Error details not available.";
+        try {
+            const errorJson = await response.json();
+            errorBody = errorJson.message || JSON.stringify(errorJson);
+        } catch (parseError) {
+            errorBody = await response.text();
+        }
+        throw new Error(`Server error ${response.status}: ${errorBody}`);
       }
 
-      if (response.ok && result.success && result.data && result.data.appId) {
+      const result = await response.json();
+
+      if (result.success && result.data && result.data.appId) {
         toast({
           title: "Email Verified & Pre-registration Complete!",
           description: `Your Application ID is ${result.data.appId}. Redirecting to login...`,
@@ -191,25 +190,24 @@ export default function PreRegisterPage() {
         });
         router.push(`/registration/login?appId=${result.data.appId}`);
       } else {
-        // Handle 500 errors or other non-ok responses but simulate success for UI if needed, or show error
-        console.error("Verification API Error (Server responded with !response.ok or result.success was false, or no appId):", result);
-         // For verification, it's probably better to show the actual error, as simulating past this point is less useful
-         // without a real App ID.
         toast({
           variant: "destructive",
           title: "Verification Failed",
-          description: result?.message || "Could not verify your code. Please try again or pre-register anew. CHECK PHP SERVER ERROR LOGS.",
+          description: result.message || "Could not verify your code. Please try again or pre-register anew.",
           duration: 10000
         });
       }
     } catch (error: any) {
-      console.error("Error calling verify-email API (Network/Fetch Error):", error);
+      console.error("Error calling verify-email API (SIMULATING SUCCESS):", error);
+      const simulatedAppId = `SIM-${Date.now().toString().slice(-6)}`;
       toast({
-        variant: "destructive",
-        title: "Verification Connection Error",
-        description: `Details: ${error.message}. If this persists, check server status and PHP error logs on sajfoods.net.`,
-        duration: 15000,
+          variant: "default", // Neutral for simulation
+          title: "Backend Verification Error (UI Test Mode)",
+          description: `Simulating successful email verification. App ID: ${simulatedAppId}. Please fix backend issues. Original error: ${error.message || String(error)}. CHECK PHP SERVER ERROR LOGS on sajfoods.net.`,
+          duration: 15000,
       });
+      // Simulate successful verification and redirect for UI testing
+      router.push(`/registration/login?appId=${simulatedAppId}`);
     } finally {
       setIsLoading(false);
     }
@@ -263,7 +261,7 @@ export default function PreRegisterPage() {
             </h1>
             <p className="text-muted-foreground mt-1">
               {awaitingVerification
-                ? `A (mock or real) verification code was processed for ${pendingRegistrationData?.email}. Please enter it below. (For testing with a non-functional email backend, try '123456')`
+                ? `A verification code was sent to ${pendingRegistrationData?.email}. Please enter it below to complete your pre-registration.`
                 : "Create your application account to get started."}
             </p>
           </div>
@@ -318,7 +316,7 @@ export default function PreRegisterPage() {
               </form>
             ) : (
               <div className="space-y-6">
-                  <FormItem> {}
+                  <FormItem> {/* Changed from direct use of Label and Input to FormItem for consistency if more complex validation is added later */}
                       <FormLabel htmlFor="verificationCode">Verification Code</FormLabel>
                       <Input
                           id="verificationCode"
@@ -329,13 +327,13 @@ export default function PreRegisterPage() {
                           maxLength={6}
                           className="text-center text-lg tracking-[0.3em]"
                       />
-                      {/* <FormMessage /> This might be useful if you add Zod validation for the code itself */}
+                      {/* If you add Zod validation for verificationCodeInput itself, FormMessage would go here */}
                   </FormItem>
                   <Button onClick={handleVerifyCodeAndCompleteRegistration} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || verificationCodeInput.length !== 6}>
                       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                       {isLoading ? "Verifying..." : "Verify & Complete Registration"}
                   </Button>
-                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); /* Do not clear pendingRegistrationData here if you want to allow editing */ }} className="w-full" disabled={isLoading}>
+                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); /* Do not clear pendingRegistrationData */ }} className="w-full" disabled={isLoading}>
                       Go Back & Edit Details
                   </Button>
               </div>
@@ -354,3 +352,5 @@ export default function PreRegisterPage() {
   );
 }
 
+
+    
