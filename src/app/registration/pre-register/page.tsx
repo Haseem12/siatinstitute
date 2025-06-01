@@ -79,26 +79,43 @@ export default function PreRegisterPage() {
         email: data.email,
         password: data.password,
     };
-    console.log("Attempting to pre-register with payload:", JSON.stringify(payload, null, 2));
+
+    const bodyString = JSON.stringify(payload);
+    console.log(
+        "PRE-REGISTER PAYLOAD DEBUG (handleProceedToVerification):\n",
+        "Type of payload:", typeof payload, "\n",
+        "Payload object:", payload, "\n",
+        "JSON.stringify(payload):", bodyString, "\n",
+        "Length of stringified body:", bodyString.length
+    );
 
     try {
       const response = await fetch('https://sajfoods.net/api/siat/pre-register.php', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: bodyString,
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Pre-registration API error response text:", errorText);
+        let errorText = await response.text();
+        let errorJson = null;
+        try {
+          errorJson = JSON.parse(errorText);
+        } catch (e) {
+          // Not a JSON response, use raw text
+        }
+        const errorMessage = errorJson?.message || errorText.substring(0, 200) + (errorText.length > 200 ? "..." : "");
+        console.error(`Pre-registration API error response text (HTTP ${response.status}):`, errorText);
+
         toast({
           variant: "destructive",
           title: `Pre-registration Server Error (${response.status})`,
-          description: `The server responded with an error. Please check server logs. Raw response: ${errorText.substring(0, 200)}...`, // Show a snippet
-          duration: 10000,
+          description: `Server msg: ${errorMessage}. CHECK PHP SERVER LOGS on sajfoods.net for detailed errors (e.g., in api/siat/php-error.log). Simulating success for UI testing.`,
+          duration: 15000,
         });
-        // Simulate success for UI testing if backend issue persists
-        console.warn("SIMULATING pre-registration success for UI testing due to backend error.");
+        // Simulate success for UI testing
         setPendingRegistrationData(data);
         setAwaitingVerification(true);
         setIsLoading(false);
@@ -116,7 +133,7 @@ export default function PreRegisterPage() {
             });
             router.push(`/registration/login?appId=${result.data.appId}`);
         } else {
-            setPendingRegistrationData(data); // Store data for the verification step
+            setPendingRegistrationData(data);
             setAwaitingVerification(true);
             toast({
                 title: "Check Your Email",
@@ -134,22 +151,16 @@ export default function PreRegisterPage() {
       }
     } catch (error: any) {
       console.error("Error calling pre-register API:", error);
-      let errorMessage = "An unexpected error occurred during pre-registration.";
-      if (error instanceof SyntaxError && error.message.includes("JSON")) {
-        errorMessage = "Received an invalid response from the server (not JSON). Please check PHP script output/errors.";
-      } else if (error.message.toLowerCase().includes('failed to fetch')) {
-        errorMessage = "Failed to connect to the pre-registration server. Check your internet connection or server status (CORS or server offline).";
-      }
+      const errMessageForToast = error.message.includes("JSON.parse") ? "Received invalid (non-JSON) response from server." : error.message;
       toast({
         variant: "destructive",
-        title: "Pre-registration Error",
-        description: errorMessage,
-        duration: 10000,
+        title: "Pre-registration Network/Client Error",
+        description: `Error: ${errMessageForToast}. Simulating successful pre-registration for UI testing. Check PHP server logs.`,
+        duration: 15000,
       });
-      // Simulate success for UI testing if backend issue persists
-      console.warn("SIMULATING pre-registration success for UI testing due to API call failure:", error.message);
-      setPendingRegistrationData(data); // Set pending data even on error for simulation
-      setAwaitingVerification(true);      // Move to verification step for simulation
+      // Simulate success for UI testing
+      setPendingRegistrationData(data);
+      setAwaitingVerification(true);
     } finally {
       setIsLoading(false);
     }
@@ -171,26 +182,35 @@ export default function PreRegisterPage() {
         verificationCode: verificationCodeInput,
         originalPassword: pendingRegistrationData.password,
     };
-    console.log("Attempting to verify email with payload:", JSON.stringify(payload, null, 2));
+
+    const bodyString = JSON.stringify(payload);
+     console.log(
+        "VERIFY EMAIL PAYLOAD DEBUG (handleVerifyCodeAndCompleteRegistration):\n",
+        "Type of payload:", typeof payload, "\n",
+        "Payload object:", payload, "\n",
+        "JSON.stringify(payload):", bodyString, "\n",
+        "Length of stringified body:", bodyString.length
+    );
 
     try {
       const response = await fetch('https://sajfoods.net/api/siat/verify-email.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: bodyString,
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Verification API error response text:", errorText);
+        let errorText = await response.text();
+        let errorJson = null;
+        try { errorJson = JSON.parse(errorText); } catch (e) {/*ignore*/}
+        const errorMessage = errorJson?.message || errorText.substring(0, 200) + (errorText.length > 200 ? "..." : "");
+        console.error(`Verification API error response text (HTTP ${response.status}):`, errorText);
         toast({
           variant: "destructive",
-          title: `Verification Server Error (${response.status})`,
-          description: `The server responded with an error. Please check server logs. Raw response: ${errorText.substring(0, 200)}...`,
-          duration: 10000,
+          title: `Backend Verification Error (${response.status}) (UI Test Mode)`,
+          description: `Server msg: ${errorMessage}. Simulating successful verification. Check PHP server logs.`,
+          duration: 15000,
         });
-        // Simulate success for UI testing if backend issue persists
-        console.warn("SIMULATING verification success for UI testing due to backend error.");
         const simulatedAppId = `SIM-${Date.now().toString().slice(-6)}`;
         router.push(`/registration/login?appId=${simulatedAppId}`);
         setIsLoading(false);
@@ -216,20 +236,13 @@ export default function PreRegisterPage() {
       }
     } catch (error: any) {
       console.error("Error calling verify-email API:", error);
-      let errorMessage = "An unexpected error occurred during verification.";
-       if (error instanceof SyntaxError && error.message.includes("JSON")) {
-        errorMessage = "Received an invalid response from the server (not JSON) during verification. Please check PHP script output/errors.";
-      } else if (error.message.toLowerCase().includes('failed to fetch')) {
-        errorMessage = "Failed to connect to the verification server. Check your internet connection or server status (CORS or server offline).";
-      }
+      const errMessageForToast = error.message.includes("JSON.parse") ? "Received invalid (non-JSON) response from server." : error.message;
       toast({
         variant: "destructive",
-        title: "Verification Error",
-        description: errorMessage,
-        duration: 10000,
+        title: "Verification Network/Client Error (UI Test Mode)",
+        description: `Error: ${errMessageForToast}. Simulating successful verification. Check PHP server logs.`,
+        duration: 15000,
       });
-      // Simulate successful verification and redirect for UI testing
-      console.warn("SIMULATING successful email verification for UI testing due to API call failure:", error.message);
       const simulatedAppId = `SIM-${Date.now().toString().slice(-6)}`;
       router.push(`/registration/login?appId=${simulatedAppId}`);
     } finally {
@@ -356,7 +369,7 @@ export default function PreRegisterPage() {
                       {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
                       {isLoading ? "Verifying..." : "Verify & Complete Registration"}
                   </Button>
-                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); }} className="w-full" disabled={isLoading}>
+                  <Button variant="outline" onClick={() => { setAwaitingVerification(false); setVerificationCodeInput(""); form.reset(); }} className="w-full" disabled={isLoading}>
                       Go Back & Edit Details
                   </Button>
               </div>
@@ -374,5 +387,3 @@ export default function PreRegisterPage() {
     </div>
   );
 }
-
-    
