@@ -140,7 +140,6 @@ const registrationDashboardFormSchema = z.object({
   oLevels: z.array(oLevelQualificationSchema).min(1, "At least one O-Level result is required.").max(MAX_O_LEVEL_SITTINGS, `Maximum ${MAX_O_LEVEL_SITTINGS} O-Level sittings.`),
   aLevels: z.array(aLevelQualificationSchema).max(MAX_QUALIFICATIONS, `Maximum ${MAX_QUALIFICATIONS} A-Level/Other qualifications.`).optional(),
   
-  // Experiences moved to A-Level/Other for simplicity, or could be its own tab
   experiences: z.array(aLevelQualificationSchema).max(MAX_EXPERIENCES, `Maximum ${MAX_EXPERIENCES} experiences.`).optional(),
 
 
@@ -158,7 +157,7 @@ type FormValues = z.infer<typeof registrationDashboardFormSchema>;
 const formTabs = [
   { id: "bio-data", name: "Bio-data", fields: ["photographFile", "fullName", "email", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
   { id: "o-level", name: "O-Level Qualifications", fields: ["oLevels"] as const },
-  { id: "a-level", name: "A-Level/Other", fields: ["aLevels", "experiences"] as const }, // Combined Experience here for tab simplicity
+  { id: "a-level", name: "A-Level/Other", fields: ["aLevels", "experiences"] as const },
   { id: "program", name: "Program Choice", fields: ["preferredProgram", "preferredCampus", "entryMode"] as const },
   { id: "preview", name: "Preview & Submit", fields: ["terms"] as const },
 ];
@@ -178,7 +177,7 @@ const availablePrograms = [
 ];
 const availableCampuses = ["Main Campus - Zaria", "Kaduna City Campus", "Kano Extension Center"];
 const aLevelQualificationTypes = ["A-Level (IJMB/JUPEB)", "National Diploma (ND)", "Higher National Diploma (HND)", "NCE", "Bachelor's Degree", "Other"];
-const experienceTypes = ["Work Experience", "Internship", "Volunteer Work"]; // Could be used for A-Level/Other type as well
+const experienceTypes = ["Work Experience", "Internship", "Volunteer Work"];
 const genderOptions = ["Male", "Female", "Other"];
 const entryModes = ["UTME", "Direct Entry", "Transfer"];
 const oLevelExamTypes = ["WAEC", "NECO", "NABTEB", "GCE"];
@@ -220,7 +219,7 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
     <Card className="p-4 space-y-4 relative bg-muted/50">
       <div className="flex justify-between items-center">
         <h4 className="font-medium text-primary">O-Level Sitting {oLevelIndex + 1}</h4>
-        {oLevelIndex >= 0 && ( // Always allow removal if there's at least one
+        {oLevelIndex >= 0 && (
           <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeOLevelSitting(oLevelIndex)}>
             <Trash2 className="h-4 w-4" /><span className="sr-only">Remove O-Level Sitting</span>
           </Button>
@@ -259,7 +258,7 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
                 <SelectContent>{oLevelGrades.map(grd => <SelectItem key={grd} value={grd}>{grd}</SelectItem>)}</SelectContent>
               </Select><FormMessage /></FormItem>
           )} />
-          {subjectFields.length > MIN_O_LEVEL_SUBJECTS_PER_SITTING && ( // Only show remove if more than min
+          {subjectFields.length > MIN_O_LEVEL_SUBJECTS_PER_SITTING && ( 
             <Button type="button" variant="ghost" size="icon" className="col-span-1 text-destructive hover:bg-destructive/10 h-9 w-9 self-end" onClick={() => removeSubject(subjectIndex)}>
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -294,7 +293,7 @@ interface ALevelSittingItemProps {
   aLevelIndex: number;
   removeALevelSitting: (index: number) => void;
   form: ReturnType<typeof useForm<FormValues>>;
-  itemType: 'aLevel' | 'experience'; // To distinguish between A-Level and Experience
+  itemType: 'aLevel' | 'experience';
 }
 
 const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIndex, removeALevelSitting, form, itemType }) => {
@@ -327,7 +326,7 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIn
         )} />
       )}
        {itemType === 'experience' && (
-        <FormField control={control} name={`experiences.${aLevelIndex}.role`} render={({ field }) => (
+        <FormField control={control} name={`experiences.${aLevelIndex}.role`} render={({ field }) => ( /* Changed from courseOfStudy to role for experience */
             <FormItem><FormLabel>Role/Position</FormLabel><FormControl><Input placeholder="e.g. Software Developer Intern" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
       )}
@@ -340,15 +339,15 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIn
         )}
          {itemType === 'experience' && (
             <>
-            <FormField control={control} name={`experiences.${aLevelIndex}.startDate`} render={({ field }) => (
+            <FormField control={control} name={`experiences.${aLevelIndex}.startDate`} render={({ field }) => ( /* Changed from gradeOrClass to startDate for experience */
                 <FormItem><FormLabel>Start Date</FormLabel><FormControl><Input type="month" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={control} name={`experiences.${aLevelIndex}.endDate`} render={({ field }) => (
+            <FormField control={control} name={`experiences.${aLevelIndex}.endDate`} render={({ field }) => ( /* Added endDate for experience */
                 <FormItem><FormLabel>End Date</FormLabel><FormControl><Input type="month" placeholder="Or 'Present'" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             </>
         )}
-        <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.yearAwarded`} render={({ field }) => (
+        <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.yearAwarded`} render={({ field }) => ( /* yearAwarded kept for A-level, could be 'yearCompleted' for experience */
           <FormItem><FormLabel>{itemType === 'aLevel' ? 'Year Awarded' : 'Year Completed (approx)'}</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
       </div>
@@ -407,71 +406,6 @@ export default function RegistrationDashboardPage() {
   const [isAdmissionLetterDialogOpen, setIsAdmissionLetterDialogOpen] = useState(false);
   const admissionLetterContentRef = useRef<HTMLDivElement>(null);
 
-  const checkApplicationStatus = useCallback(async () => {
-    if (applicantAppId && typeof window !== 'undefined') {
-      // First, try to fetch from API if we have a login mechanism that provides full app data
-      // For now, we rely on localStorage for this simulation
-      // If we had an API endpoint:
-      // try {
-      //   const response = await fetch(`https://sajfoods.net/api/siat/get-application-status.php?appId=${applicantAppId}`);
-      //   const apiData = await response.json();
-      //   if (apiData.success && apiData.data) {
-      //     setCompletedApplicationData(apiData.data);
-      //     // ... rest of status setting logic ...
-      //     return; // Exit if API data is found
-      //   }
-      // } catch (error) {
-      //   console.warn("Could not fetch application status from API, falling back to localStorage", error);
-      // }
-
-
-      // Fallback to localStorage
-      const completedAppsString = localStorage.getItem("completedApplications");
-      if (completedAppsString) {
-        const completedApps: NewIntakeApplicationData[] = JSON.parse(completedAppsString);
-        const currentApp = completedApps.find(app => app.applicationId === applicantAppId);
-        if (currentApp) {
-          setCompletedApplicationData(currentApp); // Store the fetched/found application
-          if (currentApp.admissionStatus === "Admitted") {
-            setApplicationStatus("admitted");
-          } else if (currentApp.admissionStatus === "Not Admitted") {
-            setApplicationStatus("not_admitted");
-          } else { // Includes "Pending" or undefined
-            setApplicationStatus("submitted");
-          }
-          // Reset form with data from completed application
-          const formDataForReset = {
-            ...currentApp,
-            dateOfBirth: currentApp.dateOfBirth ? new Date(currentApp.dateOfBirth) : undefined,
-            photographFile: null, 
-            oLevels: currentApp.oLevels?.map(ol => ({
-              ...ol,
-              fileInput: null, 
-              file: ol.file ? {...ol.file} : undefined,
-              subjects: ol.subjects || []
-            })) || [],
-            aLevels: currentApp.aLevels?.map(al => ({...al, fileInput: null, file: al.file ? {...al.file} : undefined })) || [],
-            experiences: currentApp.experiences?.map(exp => ({...exp, fileInput: null, file: exp.file ? {...exp.file} : undefined })) || [],
-            terms: true, 
-          };
-          form.reset(formDataForReset as any); // Use 'as any' if type mismatches are complex with FileList
-          if (currentApp.photograph?.name) { // If a photograph was previously stored (metadata)
-            // We can't reconstruct the File object, so maybe show placeholder or saved image name.
-            // For a real app, you'd load the image from a URL if available.
-            setPhotographPreview(`https://placehold.co/150x150.png?text=${currentApp.photograph.name.substring(0,10)}`); // Mock preview
-          }
-
-
-        } else {
-          setApplicationStatus("incomplete");
-          setCompletedApplicationData(null);
-        }
-      } else {
-        setApplicationStatus("incomplete");
-        setCompletedApplicationData(null);
-      }
-    }
-  }, [applicantAppId, form]);
 
   useEffect(() => {
     console.log("RegistrationDashboardPage mounted successfully.");
@@ -480,39 +414,101 @@ export default function RegistrationDashboardPage() {
     if (sessionString) {
       const session = JSON.parse(sessionString) as { appId: string; email: string; admissionStatus?: string };
       setApplicantAppId(session.appId);
-      if (session.admissionStatus && session.admissionStatus !== "Not Submitted") {
-        // If login API provided a status, use it initially
-        // This is useful if checkApplicationStatus will fetch more detailed app data later
-      }
     } else {
       toast({ variant: "destructive", title: "Unauthorized", description: "Please login to continue your application." });
       router.push("/registration/login");
     }
   }, [router, toast]);
 
-  useEffect(() => {
-    if (applicantAppId && !initialDataLoaded) {
-      // Pre-fill from pre-registration data if this is the first load and application isn't completed
-      if (applicationStatus === "incomplete") {
+useEffect(() => {
+    if (!applicantAppId || initialDataLoaded) {
+        return;
+    }
+
+    let dataForFormReset: Partial<FormValues> = {
+        ...form.formState.defaultValues, // Start with Zod's default values
+        applicationId: applicantAppId,    // Ensure appId from session is set
+        admissionStatus: "Not Submitted", // Default if no completed app is found
+    };
+    let determinedAppStatus: "incomplete" | "submitted" | "admitted" | "not_admitted" = "incomplete";
+    let photoToPreview: string | null = null;
+    let hasCompletedApplication = false;
+
+    // 1. Try to load from "completedApplications"
+    const completedAppsString = localStorage.getItem("completedApplications");
+    if (completedAppsString) {
+        const completedApps: NewIntakeApplicationData[] = JSON.parse(completedAppsString);
+        const foundCompletedApp = completedApps.find(app => app.applicationId === applicantAppId);
+
+        if (foundCompletedApp) {
+            hasCompletedApplication = true;
+            setCompletedApplicationData(foundCompletedApp);
+
+            dataForFormReset = {
+                ...form.formState.defaultValues, // Start with defaults
+                ...foundCompletedApp, // Spread all fields from saved app
+                applicationId: foundCompletedApp.applicationId || applicantAppId, // Prioritize foundApp's ID
+                dateOfBirth: foundCompletedApp.dateOfBirth ? new Date(foundCompletedApp.dateOfBirth) : undefined,
+                photographFile: null,
+                oLevels: foundCompletedApp.oLevels?.map(ol => ({
+                    ...ol,
+                    fileInput: null,
+                    file: ol.file ? { ...ol.file } : undefined,
+                    subjects: ol.subjects || [],
+                })) || [],
+                aLevels: foundCompletedApp.aLevels?.map(al => ({
+                    ...al,
+                    fileInput: null,
+                    file: al.file ? { ...al.file } : undefined,
+                })) || [],
+                experiences: foundCompletedApp.experiences?.map(exp => ({
+                    ...exp,
+                    fileInput: null,
+                    file: exp.file ? { ...exp.file } : undefined,
+                })) || [],
+                terms: true,
+            };
+
+            if (foundCompletedApp.photograph?.name) {
+                photoToPreview = `https://placehold.co/150x150.png?text=${foundCompletedApp.photograph.name.substring(0,10)}`;
+            }
+
+            if (foundCompletedApp.admissionStatus === "Admitted") determinedAppStatus = "admitted";
+            else if (foundCompletedApp.admissionStatus === "Not Admitted") determinedAppStatus = "not_admitted";
+            else determinedAppStatus = "submitted";
+        }
+    }
+
+    // 2. If no "completedApplication" was found, pre-fill essentials from "preRegisteredUsers"
+    if (!hasCompletedApplication) {
+        determinedAppStatus = "incomplete"; // Explicitly set if no completed app
         const preRegisteredUsersString = localStorage.getItem("preRegisteredUsers");
         if (preRegisteredUsersString) {
-          const preRegisteredUsers: PreRegisteredUser[] = JSON.parse(preRegisteredUsersString);
-          const currentUser = preRegisteredUsers.find(u => u.appId === applicantAppId);
-          if (currentUser) {
-            form.reset({
-              ...form.getValues(),
-              applicationId: currentUser.appId,
-              email: currentUser.email,
-              fullName: `${currentUser.surname} ${currentUser.firstname} ${currentUser.othername || ''}`.trim(),
-              admissionStatus: "Not Submitted", // Initial status before full form submission
-            });
-          }
+            const preRegisteredUsers: PreRegisteredUser[] = JSON.parse(preRegisteredUsersString);
+            const currentUser = preRegisteredUsers.find(u => u.appId === applicantAppId);
+            if (currentUser) {
+                dataForFormReset.email = currentUser.email;
+                dataForFormReset.fullName = `${currentUser.surname} ${currentUser.firstname} ${currentUser.othername || ''}`.trim();
+                dataForFormReset.applicationId = currentUser.appId; // Critical: ensure appId from pre-registration is used
+                dataForFormReset.admissionStatus = "Not Submitted"; // If no completed app, it's "Not Submitted"
+            }
         }
-      }
-      checkApplicationStatus(); 
-      setInitialDataLoaded(true);
     }
-  }, [applicantAppId, form, initialDataLoaded, checkApplicationStatus, applicationStatus]);
+    
+    // Final check to ensure appId is set if it somehow got missed
+    if (!dataForFormReset.applicationId && applicantAppId) {
+        dataForFormReset.applicationId = applicantAppId;
+    }
+
+
+    form.reset(dataForFormReset as FormValues);
+    setApplicationStatus(determinedAppStatus);
+    if (photoToPreview) {
+        setPhotographPreview(photoToPreview);
+    }
+    setInitialDataLoaded(true);
+
+}, [applicantAppId, form, initialDataLoaded]);
 
 
   const { fields: oLevelFields, append: appendOLevel, remove: removeOLevel } = useFieldArray({
@@ -539,14 +535,14 @@ export default function RegistrationDashboardPage() {
         toast({ variant: "destructive", title: "Invalid File Type", description: "Only JPG, JPEG, and PNG images are allowed for photograph."});
         setPhotographPreview(null);
         form.setValue('photographFile', null);
-        event.target.value = ""; // Clear the input
+        event.target.value = ""; 
         return;
       }
       if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({ variant: "destructive", title: "File Too Large", description: `Photograph size cannot exceed ${MAX_FILE_SIZE_MB}MB.`});
         setPhotographPreview(null);
         form.setValue('photographFile', null);
-        event.target.value = ""; // Clear the input
+        event.target.value = ""; 
         return;
       }
 
@@ -579,7 +575,6 @@ export default function RegistrationDashboardPage() {
   };
   const handleAddExperience = () => {
      if ((experienceFields?.length || 0) < MAX_EXPERIENCES) {
-      // Re-using aLevelQualificationSchema for experiences for simplicity, adjust if specific fields differ significantly
       appendExperience({ id: crypto.randomUUID(), type: "", institution: "", courseOfStudy:"", gradeOrClass:"", yearAwarded: "", fileInput: null, file: undefined });
     } else {
       toast({ title: "Limit Reached", description: `Maximum ${MAX_EXPERIENCES} work experiences.`, variant: "destructive" });
@@ -598,7 +593,7 @@ export default function RegistrationDashboardPage() {
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
 
-    if (applicationStatus !== "incomplete" && applicationStatus !== "Not Submitted") { // Prevent resubmission
+    if (applicationStatus !== "incomplete" && applicationStatus !== "Not Submitted") { 
         toast({ title: "Application Status", description: "Your application is already submitted or has a decision.", duration: 5000 });
         setIsLoading(false);
         return;
@@ -616,14 +611,13 @@ export default function RegistrationDashboardPage() {
         ...al,
         file: processFileUpload(al.fileInput),
       })) || [],
-      experiences: data.experiences?.map(exp => ({ // Assuming experiences use a similar structure to aLevels for file processing
-        ...exp, // spread all fields from the experience item
+      experiences: data.experiences?.map(exp => ({
+        ...exp, 
         file: processFileUpload(exp.fileInput) 
       })) || [],
-      admissionStatus: "Pending",
+      admissionStatus: "Pending", 
     };
 
-    // Clean up FileList objects before saving/sending
     delete (applicationDataToSubmit as any).photographFile;
     applicationDataToSubmit.oLevels?.forEach(ol => delete (ol as any).fileInput);
     applicationDataToSubmit.aLevels?.forEach(al => delete (al as any).fileInput);
@@ -639,7 +633,6 @@ export default function RegistrationDashboardPage() {
         const result = await response.json();
 
         if (result.success) {
-            // Also update localStorage for consistency in the prototype
             const existingApplicationsString = localStorage.getItem("completedApplications");
             let existingApplications: NewIntakeApplicationData[] = existingApplicationsString ? JSON.parse(existingApplicationsString) : [];
             const appIndex = existingApplications.findIndex(app => app.applicationId === applicationDataToSubmit.applicationId);
@@ -651,7 +644,20 @@ export default function RegistrationDashboardPage() {
             localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
 
             toast({ title: "Application Submitted Successfully!", description: `API: ${result.message}. Your application (ID: ${applicationDataToSubmit.applicationId}) is now under review.`, duration: 7000 });
-            checkApplicationStatus(); 
+            
+            // Re-check status after successful submission to update UI correctly
+            const updatedCompletedAppsString = localStorage.getItem("completedApplications");
+            if (updatedCompletedAppsString) {
+                const updatedCompletedApps: NewIntakeApplicationData[] = JSON.parse(updatedCompletedAppsString);
+                const currentApp = updatedCompletedApps.find(app => app.applicationId === applicantAppId);
+                if (currentApp) {
+                    setCompletedApplicationData(currentApp);
+                    if (currentApp.admissionStatus === "Admitted") setApplicationStatus("admitted");
+                    else if (currentApp.admissionStatus === "Not Admitted") setApplicationStatus("not_admitted");
+                    else setApplicationStatus("submitted");
+                }
+            }
+
         } else {
             toast({ variant: "destructive", title: "API Submission Failed", description: result.message || "The application could not be submitted to the server." });
         }
@@ -674,7 +680,7 @@ export default function RegistrationDashboardPage() {
       output = await form.trigger(currentFields, { shouldFocus: true });
     }
 
-    if (currentTabIndex === formTabs.length - 1) { // Preview & Submit Tab
+    if (currentTabIndex === formTabs.length - 1) { 
         const termsOutput = await form.trigger(["terms"]);
         if (!termsOutput) output = false;
     }
@@ -686,7 +692,6 @@ export default function RegistrationDashboardPage() {
 
     if (currentTabIndex < formTabs.length - 1) {
       setCurrentTab(formTabs[currentTabIndex + 1].id);
-       // Scroll to top of form area when tab changes
       const formArea = document.getElementById('application-form-area');
       if (formArea) formArea.scrollIntoView({ behavior: 'smooth' });
     }
@@ -876,8 +881,11 @@ export default function RegistrationDashboardPage() {
                     )}
                 </CardContent>
                 <CardFooter>
-                    <Button variant="outline" onClick={() => { checkApplicationStatus(); toast({title:"Status Refreshed", description:"Your application status has been updated."})}}>
-                        <RefreshCw className="mr-2 h-4 w-4"/> Refresh Status
+                    <Button variant="outline" onClick={() => { 
+                        setInitialDataLoaded(false); // Trigger reload of data
+                        toast({title:"Status Refreshed", description:"Your application status and data are being updated."})
+                    }}>
+                        <RefreshCw className="mr-2 h-4 w-4"/> Refresh Status & Data
                     </Button>
                 </CardFooter>
             </Card>
@@ -1059,11 +1067,11 @@ export default function RegistrationDashboardPage() {
                                     
                                     <CardTitle className="text-xl text-primary pt-4 border-t">Work Experience (Optional)</CardTitle>
                                     {experienceFields.map((item, index) => (
-                                    <ALevelSittingItem // Re-using for similar structure
+                                    <ALevelSittingItem 
                                         key={item.id}
                                         control={form.control}
-                                        aLevelIndex={index} // Index within experienceFields
-                                        removeALevelSitting={removeExperience} // Use removeExperience
+                                        aLevelIndex={index} 
+                                        removeALevelSitting={removeExperience} 
                                         form={form}
                                         itemType="experience"
                                     />
@@ -1165,9 +1173,8 @@ export default function RegistrationDashboardPage() {
                                                 <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Work Experience</h3>
                                                 {form.getValues("experiences")!.map((exp, i) => (
                                                 <div key={exp.id} className="p-3 border rounded-md bg-muted/30">
-                                                    <p className="font-medium">Experience {i + 1}: {exp.type} - {exp.institution}</p> {/* Mapped 'institution' to 'Organization' and 'type' to 'Experience Type' for this shared component */}
-                                                    <PreviewItem label="Role" value={exp.courseOfStudy || "N/A"} /> {/* Mapped 'courseOfStudy' to 'Role' */}
-                                                    <PreviewItem label="Duration" value={`${exp.gradeOrClass || 'N/A'} to ${exp.yearAwarded || 'N/A'}`} /> {/* Mapped 'gradeOrClass' to 'Start Date' and 'yearAwarded' to 'End Date' */}
+                                                    <p className="font-medium">Experience {i + 1}: {(exp as any).role /* Mapped from type */} at {exp.institution}</p>
+                                                    <PreviewItem label="Duration" value={`${(exp as any).startDate /* Mapped from gradeOrClass */} to ${(exp as any).endDate /* Mapped from yearAwarded */}`} />
                                                     <PreviewItem label="Document" value={processFileUpload(exp.fileInput)?.name || exp.file?.name || "Not uploaded"} />
                                                 </div>
                                                 ))}
@@ -1305,3 +1312,5 @@ export default function RegistrationDashboardPage() {
     </div>
   );
 }
+
+    
