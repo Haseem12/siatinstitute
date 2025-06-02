@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 interface ApplicantSession {
   appId: string;
   email: string;
-  fullName: string;
+  fullName?: string; // FullName is now optional in the session from login
   admissionStatus?: string;
 }
 
@@ -27,17 +27,17 @@ export default function RegistrationDashboardLayout({
   const [isClient, setIsClient] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
 
-
   useEffect(() => {
     setIsClient(true);
     const sessionString = localStorage.getItem("currentApplicantSession");
     if (sessionString) {
       try {
         const session = JSON.parse(sessionString) as ApplicantSession;
-        if (session.appId && session.email && session.fullName) {
+        // Only appId and email are strictly required from login session now
+        if (session.appId && session.email) { 
           setApplicantSession(session);
         } else {
-          throw new Error("Incomplete session data.");
+          throw new Error("Incomplete session data (appId or email missing).");
         }
       } catch (error) {
         console.error("Failed to parse applicant session:", error);
@@ -46,8 +46,7 @@ export default function RegistrationDashboardLayout({
         router.push("/registration/login");
       }
     } else {
-       // No session, handled by individual page redirect logic if still needed
-       // For layout, simply don't set applicantSession
+       // No session, individual page will handle redirect if needed
     }
     setIsLoadingSession(false);
   }, [router, toast]);
@@ -70,10 +69,6 @@ export default function RegistrationDashboardLayout({
     );
   }
   
-  // If no applicantSession, the page component itself should handle redirection if necessary
-  // This layout will only render children if session is valid on the page,
-  // but provides header/footer structure if session is not fully established yet by the page.
-
   return (
     <div className="min-h-screen flex flex-col bg-muted/40">
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -89,7 +84,8 @@ export default function RegistrationDashboardLayout({
             {applicantSession && (
               <>
                 <span className="text-sm text-muted-foreground hidden sm:flex items-center gap-1">
-                   <UserCircle className="h-4 w-4"/> {applicantSession.fullName} (ID: {applicantSession.appId})
+                   <UserCircle className="h-4 w-4"/> 
+                   {applicantSession.fullName ? `${applicantSession.fullName} (ID: ${applicantSession.appId})` : `ID: ${applicantSession.appId}`}
                 </span>
                 <Button variant="outline" size="sm" onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" /> Logout
@@ -105,6 +101,8 @@ export default function RegistrationDashboardLayout({
         </div>
       </header>
       <main className="flex-grow container mx-auto px-4 py-8">
+        {/* Render children only if session is established enough for them */}
+        {/* The page component will handle full session validation & redirection */}
         {children} 
       </main>
       <footer className="py-6 text-center text-xs text-muted-foreground border-t bg-background">
@@ -113,3 +111,4 @@ export default function RegistrationDashboardLayout({
     </div>
   );
 }
+    

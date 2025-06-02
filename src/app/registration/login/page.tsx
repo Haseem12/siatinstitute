@@ -64,6 +64,10 @@ export default function RegistrationLoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     let rawResponseText = "";
+    console.log("LOGIN PAYLOAD DEBUG:", JSON.stringify({
+        appIdOrEmail: data.appIdOrEmail,
+        password: data.password,
+    }));
     try {
       const response = await fetch('https://sajfoods.net/api/siat/login-applicant.php', {
         method: 'POST',
@@ -81,42 +85,41 @@ export default function RegistrationLoginPage() {
       try {
         result = JSON.parse(rawResponseText);
       } catch (e) {
-        // If parsing fails, it's likely an HTML error page from PHP
         console.error("Failed to parse JSON response from login API:", rawResponseText);
         toast({
           variant: "destructive",
           title: "Login Error",
-          description: `Received invalid (non-JSON) response from server. Please check server logs. Response snippet: ${rawResponseText.substring(0,100)}`,
+          description: `Received invalid response from server. Snippet: ${rawResponseText.substring(0,100)}...`,
           duration: 10000,
         });
         setIsLoading(false);
         return;
       }
 
-
-      if (!response.ok) { // HTTP error status (4xx, 5xx)
+      if (!response.ok) {
         const errorMsg = result.message || `Server error (${response.status}).`;
         throw new Error(errorMsg);
       }
       
-      // Expecting surname, firstname, othername (optional), appId, email, admissionStatus
-      if (result.success && result.data?.appId && result.data?.email && result.data?.surname && result.data?.firstname) {
-        const { appId, email, surname, firstname, othername, admissionStatus } = result.data;
-        const constructedFullName = `${surname} ${firstname}${othername ? ' ' + othername : ''}`.trim();
-
+      // Expecting appId, email, admissionStatus. FullName will be fetched on dashboard.
+      if (result.success && result.data?.appId && result.data?.email) {
+        const { appId, email, admissionStatus } = result.data;
+        
+        // Store essential session info. fullName will be fetched by the dashboard.
         localStorage.setItem("currentApplicantSession", JSON.stringify({ 
             appId: appId, 
             email: email,
-            fullName: constructedFullName,
+            // fullName is intentionally omitted here, will be fetched by dashboard
             admissionStatus: admissionStatus || "Not Submitted"
         }));
         toast({ title: "Login Successful", description: "Redirecting to your application dashboard..." });
         router.push("/registration/dashboard");
       } else {
          let description = result.message || "Invalid Application ID/Email or Password.";
-         if (result.success && (!result.data?.email || !result.data?.surname || !result.data?.firstname || !result.data?.appId)) {
-            description = "Login data incomplete from server. Required name parts, email, or App ID missing.";
-             console.error("Incomplete data from server:", result.data);
+         // Check if essential data (appId, email) is missing from a successful response
+         if (result.success && (!result.data?.email || !result.data?.appId)) {
+            description = "Login data incomplete from server. App ID or Email missing.";
+            console.error("Incomplete data from login API:", result.data);
         }
         toast({
           variant: "destructive",
@@ -224,3 +227,4 @@ export default function RegistrationLoginPage() {
     </div>
   );
 }
+    

@@ -219,7 +219,7 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
     <Card className="p-4 space-y-4 relative bg-muted/50">
       <div className="flex justify-between items-center">
         <h4 className="font-medium text-primary">O-Level Sitting {oLevelIndex + 1}</h4>
-        {oLevelIndex >= 0 && ( // Allow removing first sitting if only one, user can add new one. Changed from oLevelIndex > 0
+        {oLevelIndex >= 0 && ( 
           <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeOLevelSitting(oLevelIndex)}>
             <Trash2 className="h-4 w-4" /><span className="sr-only">Remove O-Level Sitting</span>
           </Button>
@@ -365,7 +365,7 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIn
 interface ApplicantSessionData {
     appId: string;
     email: string;
-    fullName: string;
+    fullName?: string; // fullName is optional from login, fetched later
     admissionStatus?: string;
 }
 
@@ -376,8 +376,8 @@ export default function RegistrationDashboardPage() {
     resolver: zodResolver(registrationDashboardFormSchema),
     defaultValues: {
       applicationId: "",
-      fullName: "",
-      email: "",
+      fullName: "", // Will be populated by get-applicant-data.php
+      email: "",     // Will be populated by session from login
       phoneNumber: "",
       dateOfBirth: undefined,
       gender: undefined,
@@ -421,24 +421,18 @@ export default function RegistrationDashboardPage() {
         if (!response.ok) {
             const errorText = await response.text();
             let errorMsg = `Failed to fetch application data (${response.status}).`;
-            try {
-                const errorJson = JSON.parse(errorText);
-                errorMsg = errorJson.message || errorMsg;
-            } catch (e) { /*  Ignore if not JSON */ }
+            try { const errorJson = JSON.parse(errorText); errorMsg = errorJson.message || errorMsg; } catch (e) { /*  Ignore */ }
             toast({ variant: "destructive", title: "Fetch Error", description: errorMsg });
             // Pre-fill with session data if API fails
             form.reset({
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
-                fullName: session.fullName,
+                fullName: session.fullName || "", // Use session fullName if available, else empty
                 admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
             });
-            setCompletedApplicationData(null); // No completed data from API
-            if (session.admissionStatus === "Admitted") setCurrentTab("preview"); // Go to preview if session says admitted
-            else if (session.admissionStatus === "Not Admitted") setCurrentTab("preview");
-            else if (session.admissionStatus === "Pending") setCurrentTab("preview");
-            else setCurrentTab(formTabs[0].id); // Default to first tab
+            setCompletedApplicationData(null); 
+            setCurrentTab(formTabs[0].id);
             return;
         }
 
@@ -446,35 +440,34 @@ export default function RegistrationDashboardPage() {
         if (result.success && result.data) {
             const fetchedData = result.data as NewIntakeApplicationData;
             form.reset({
-                ...form.formState.defaultValues,
-                ...fetchedData,
-                applicationId: fetchedData.applicationId || session.appId,
-                email: fetchedData.email || session.email,
-                fullName: fetchedData.fullName || session.fullName,
+                ...form.formState.defaultValues, // Start with defaults
+                ...fetchedData, // Override with fetched data
+                applicationId: fetchedData.applicationId || session.appId, // Prioritize fetched, then session
+                email: fetchedData.email || session.email, // Prioritize fetched, then session
+                fullName: fetchedData.fullName || session.fullName || "", // Prioritize fetched, then session, then empty
                 dateOfBirth: fetchedData.dateOfBirth ? new Date(fetchedData.dateOfBirth) : undefined,
-                photographFile: null, // FileList cannot be directly set
+                photographFile: null, 
                 oLevels: fetchedData.oLevels?.map(ol => ({ ...ol, fileInput: null, subjects: ol.subjects || [] })) || [],
                 aLevels: fetchedData.aLevels?.map(al => ({ ...al, fileInput: null })) || [],
                 experiences: fetchedData.experiences?.map(exp => ({ ...exp, fileInput: null })) || [],
-                terms: !!fetchedData.applicationId, // Assume terms accepted if data exists
+                terms: !!fetchedData.applicationId, 
                 admissionStatus: fetchedData.admissionStatus || session.admissionStatus || "Not Submitted"
             });
             setCompletedApplicationData(fetchedData);
-            if (fetchedData.photograph?.name) { // Assuming photograph is FileUploadInfo
-                 setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); // Placeholder or actual URL if stored
+            if (fetchedData.photograph?.name) { 
+                 setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); 
             }
             if (fetchedData.admissionStatus === "Admitted" || fetchedData.admissionStatus === "Not Admitted" || fetchedData.admissionStatus === "Pending") {
-                setCurrentTab("preview"); // User should see their status
+                setCurrentTab("preview"); 
             } else {
                 setCurrentTab(formTabs[0].id);
             }
         } else {
-            // No data from API, or API reported success:false
             form.reset({
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
-                fullName: session.fullName,
+                fullName: session.fullName || "",
                 admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
             });
             setCompletedApplicationData(null);
@@ -483,12 +476,12 @@ export default function RegistrationDashboardPage() {
         }
     } catch (error: any) {
         console.error("Error fetching applicant data:", error);
-        toast({ variant: "destructive", title: "Network Error", description: "Could not fetch your application data. Using session defaults." });
+        toast({ variant: "destructive", title: "Network Error", description: "Could not fetch your application data." });
         form.reset({
             ...form.formState.defaultValues,
             applicationId: session.appId,
             email: session.email,
-            fullName: session.fullName,
+            fullName: session.fullName || "",
             admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
         });
         setCompletedApplicationData(null);
@@ -505,11 +498,12 @@ export default function RegistrationDashboardPage() {
     if (sessionString) {
       try {
         const parsedSession = JSON.parse(sessionString) as ApplicantSessionData;
-        if (parsedSession.appId && parsedSession.email && parsedSession.fullName) {
-          setApplicantSession(parsedSession);
-          fetchAndSetInitialData(parsedSession);
+        // Only appId and email are strictly required from login session now
+        if (parsedSession.appId && parsedSession.email) {
+          setApplicantSession(parsedSession); // Store the session data (appId, email, optional fullName, admissionStatus)
+          fetchAndSetInitialData(parsedSession); // Fetch full data using the session
         } else {
-          throw new Error("Incomplete session data from localStorage.");
+          throw new Error("Incomplete session data from localStorage (appId or email missing).");
         }
       } catch (error) {
         console.error("Failed to parse session or incomplete session:", error);
@@ -614,7 +608,7 @@ export default function RegistrationDashboardPage() {
 
     const applicationDataToSubmit: NewIntakeApplicationData = {
       ...data,
-      photograph: processFileUpload(data.photographFile) || data.photograph, // Keep existing if no new file
+      photograph: processFileUpload(data.photographFile) || data.photograph, 
       oLevels: data.oLevels.map(ol => ({
         ...ol,
         file: processFileUpload(ol.fileInput) || ol.file,
@@ -628,7 +622,7 @@ export default function RegistrationDashboardPage() {
         ...exp, 
         file: processFileUpload(exp.fileInput) || exp.file 
       })) || [],
-      admissionStatus: "Pending", // Always set to pending on submit/re-submit
+      admissionStatus: "Pending", 
     };
 
     delete (applicationDataToSubmit as any).photographFile;
@@ -655,8 +649,8 @@ export default function RegistrationDashboardPage() {
 
         if (result.success) {
             toast({ title: "Application Submitted Successfully!", description: `API: ${result.message}. Your application (ID: ${applicationDataToSubmit.applicationId}) is now under review.`, duration: 7000 });
-            setCompletedApplicationData(applicationDataToSubmit); // Update local state with submitted data
-            setCurrentTab("preview"); // Go to preview to see submitted status
+            setCompletedApplicationData(applicationDataToSubmit); 
+            setCurrentTab("preview"); 
         } else {
             toast({ variant: "destructive", title: "API Submission Failed", description: result.message || "The application could not be submitted to the server." });
         }
@@ -755,7 +749,7 @@ export default function RegistrationDashboardPage() {
 
   const currentStepperStepIndex = applicationCompletionSteps.findIndex(step => step.id === currentTab);
 
-  if (isFetchingData || !applicantSession) {
+  if (isFetchingData || !applicantSession) { // applicantSession must be present to proceed
       return (
           <div className="flex items-center justify-center min-h-[calc(100vh-var(--header-height,4rem)-var(--footer-height,4rem))]">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -965,10 +959,10 @@ export default function RegistrationDashboardPage() {
                                         </div>
                                     )}
                                     <FormField control={form.control} name="fullName" render={({ field }) => (
-                                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="Your full name" {...field} disabled /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="Your full name" {...field} disabled={!!completedApplicationData?.fullName} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                     <FormField control={form.control} name="email" render={({ field }) => (
-                                        <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="your.email@example.com" {...field} disabled/></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="your.email@example.com" {...field} disabled={!!completedApplicationData?.email}/></FormControl><FormMessage /></FormItem>
                                     )} />
                                     <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                                         <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" placeholder="08012345678" {...field} /></FormControl><FormMessage /></FormItem>
@@ -1317,3 +1311,5 @@ export default function RegistrationDashboardPage() {
     </div>
   );
 }
+
+    
