@@ -59,7 +59,7 @@ import ArewaLogo from "@/components/arewa-logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 
-const MAX_QUALIFICATIONS = 5; // Max A-level type qualifications
+const MAX_QUALIFICATIONS = 5; 
 const MAX_O_LEVEL_SITTINGS = 2;
 const MAX_O_LEVEL_SUBJECTS_PER_SITTING = 9;
 const MIN_O_LEVEL_SUBJECTS_PER_SITTING = 5;
@@ -219,7 +219,7 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
     <Card className="p-4 space-y-4 relative bg-muted/50">
       <div className="flex justify-between items-center">
         <h4 className="font-medium text-primary">O-Level Sitting {oLevelIndex + 1}</h4>
-        {oLevelIndex >= 0 && (
+        {oLevelIndex >= 0 && ( // Allow removing first sitting if only one, user can add new one. Changed from oLevelIndex > 0
           <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => removeOLevelSitting(oLevelIndex)}>
             <Trash2 className="h-4 w-4" /><span className="sr-only">Remove O-Level Sitting</span>
           </Button>
@@ -326,7 +326,7 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIn
         )} />
       )}
        {itemType === 'experience' && (
-        <FormField control={control} name={`experiences.${aLevelIndex}.role`} render={({ field }) => ( /* Changed from courseOfStudy to role for experience */
+        <FormField control={control} name={`experiences.${aLevelIndex}.role`} render={({ field }) => ( 
             <FormItem><FormLabel>Role/Position</FormLabel><FormControl><Input placeholder="e.g. Software Developer Intern" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
       )}
@@ -339,15 +339,15 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIn
         )}
          {itemType === 'experience' && (
             <>
-            <FormField control={control} name={`experiences.${aLevelIndex}.startDate`} render={({ field }) => ( /* Changed from gradeOrClass to startDate for experience */
+            <FormField control={control} name={`experiences.${aLevelIndex}.startDate`} render={({ field }) => ( 
                 <FormItem><FormLabel>Start Date</FormLabel><FormControl><Input type="month" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={control} name={`experiences.${aLevelIndex}.endDate`} render={({ field }) => ( /* Added endDate for experience */
+            <FormField control={control} name={`experiences.${aLevelIndex}.endDate`} render={({ field }) => ( 
                 <FormItem><FormLabel>End Date</FormLabel><FormControl><Input type="month" placeholder="Or 'Present'" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             </>
         )}
-        <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.yearAwarded`} render={({ field }) => ( /* yearAwarded kept for A-level, could be 'yearCompleted' for experience */
+        <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.yearAwarded`} render={({ field }) => ( 
           <FormItem><FormLabel>{itemType === 'aLevel' ? 'Year Awarded' : 'Year Completed (approx)'}</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
       </div>
@@ -362,6 +362,12 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIn
   );
 };
 
+interface ApplicantSessionData {
+    appId: string;
+    email: string;
+    fullName: string;
+    admissionStatus?: string;
+}
 
 export default function RegistrationDashboardPage() {
   const router = useRouter();
@@ -398,117 +404,123 @@ export default function RegistrationDashboardPage() {
 
   const [currentTab, setCurrentTab] = useState(formTabs[0].id);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isFetchingData, setIsFetchingData] = React.useState(true);
   const [photographPreview, setPhotographPreview] = React.useState<string | null>(null);
-  const [applicantAppId, setApplicantAppId] = useState<string | null>(null);
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-  const [applicationStatus, setApplicationStatus] = useState<"incomplete" | "submitted" | "admitted" | "not_admitted">("incomplete");
+  
+  const [applicantSession, setApplicantSession] = useState<ApplicantSessionData | null>(null);
+  
   const [completedApplicationData, setCompletedApplicationData] = useState<NewIntakeApplicationData | null>(null);
   const [isAdmissionLetterDialogOpen, setIsAdmissionLetterDialogOpen] = useState(false);
   const admissionLetterContentRef = useRef<HTMLDivElement>(null);
 
 
+  const fetchAndSetInitialData = useCallback(async (session: ApplicantSessionData) => {
+    setIsFetchingData(true);
+    try {
+        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-data.php?appId=${session.appId}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMsg = `Failed to fetch application data (${response.status}).`;
+            try {
+                const errorJson = JSON.parse(errorText);
+                errorMsg = errorJson.message || errorMsg;
+            } catch (e) { /*  Ignore if not JSON */ }
+            toast({ variant: "destructive", title: "Fetch Error", description: errorMsg });
+            // Pre-fill with session data if API fails
+            form.reset({
+                ...form.formState.defaultValues,
+                applicationId: session.appId,
+                email: session.email,
+                fullName: session.fullName,
+                admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
+            });
+            setCompletedApplicationData(null); // No completed data from API
+            if (session.admissionStatus === "Admitted") setCurrentTab("preview"); // Go to preview if session says admitted
+            else if (session.admissionStatus === "Not Admitted") setCurrentTab("preview");
+            else if (session.admissionStatus === "Pending") setCurrentTab("preview");
+            else setCurrentTab(formTabs[0].id); // Default to first tab
+            return;
+        }
+
+        const result = await response.json();
+        if (result.success && result.data) {
+            const fetchedData = result.data as NewIntakeApplicationData;
+            form.reset({
+                ...form.formState.defaultValues,
+                ...fetchedData,
+                applicationId: fetchedData.applicationId || session.appId,
+                email: fetchedData.email || session.email,
+                fullName: fetchedData.fullName || session.fullName,
+                dateOfBirth: fetchedData.dateOfBirth ? new Date(fetchedData.dateOfBirth) : undefined,
+                photographFile: null, // FileList cannot be directly set
+                oLevels: fetchedData.oLevels?.map(ol => ({ ...ol, fileInput: null, subjects: ol.subjects || [] })) || [],
+                aLevels: fetchedData.aLevels?.map(al => ({ ...al, fileInput: null })) || [],
+                experiences: fetchedData.experiences?.map(exp => ({ ...exp, fileInput: null })) || [],
+                terms: !!fetchedData.applicationId, // Assume terms accepted if data exists
+                admissionStatus: fetchedData.admissionStatus || session.admissionStatus || "Not Submitted"
+            });
+            setCompletedApplicationData(fetchedData);
+            if (fetchedData.photograph?.name) { // Assuming photograph is FileUploadInfo
+                 setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); // Placeholder or actual URL if stored
+            }
+            if (fetchedData.admissionStatus === "Admitted" || fetchedData.admissionStatus === "Not Admitted" || fetchedData.admissionStatus === "Pending") {
+                setCurrentTab("preview"); // User should see their status
+            } else {
+                setCurrentTab(formTabs[0].id);
+            }
+        } else {
+            // No data from API, or API reported success:false
+            form.reset({
+                ...form.formState.defaultValues,
+                applicationId: session.appId,
+                email: session.email,
+                fullName: session.fullName,
+                admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
+            });
+            setCompletedApplicationData(null);
+            toast({ title: "Application Data", description: result.message || "No previous application data found. Please start fresh." });
+            setCurrentTab(formTabs[0].id);
+        }
+    } catch (error: any) {
+        console.error("Error fetching applicant data:", error);
+        toast({ variant: "destructive", title: "Network Error", description: "Could not fetch your application data. Using session defaults." });
+        form.reset({
+            ...form.formState.defaultValues,
+            applicationId: session.appId,
+            email: session.email,
+            fullName: session.fullName,
+            admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
+        });
+        setCompletedApplicationData(null);
+        setCurrentTab(formTabs[0].id);
+    } finally {
+        setIsFetchingData(false);
+    }
+  }, [form, toast]);
+
+
   useEffect(() => {
-    console.log("RegistrationDashboardPage mounted successfully.");
     document.title = "Applicant Dashboard - SIAT Institute";
     const sessionString = localStorage.getItem("currentApplicantSession");
     if (sessionString) {
-      const session = JSON.parse(sessionString) as { appId: string; email: string; admissionStatus?: string };
-      setApplicantAppId(session.appId);
+      try {
+        const parsedSession = JSON.parse(sessionString) as ApplicantSessionData;
+        if (parsedSession.appId && parsedSession.email && parsedSession.fullName) {
+          setApplicantSession(parsedSession);
+          fetchAndSetInitialData(parsedSession);
+        } else {
+          throw new Error("Incomplete session data from localStorage.");
+        }
+      } catch (error) {
+        console.error("Failed to parse session or incomplete session:", error);
+        toast({ variant: "destructive", title: "Session Error", description: "Invalid session. Please log in again." });
+        router.push("/registration/login");
+      }
     } else {
-      toast({ variant: "destructive", title: "Unauthorized", description: "Please login to continue your application." });
+      toast({ variant: "destructive", title: "Unauthorized", description: "Please login to access your dashboard." });
       router.push("/registration/login");
     }
-  }, [router, toast]);
-
-useEffect(() => {
-    if (!applicantAppId || initialDataLoaded) {
-        return;
-    }
-
-    let dataForFormReset: Partial<FormValues> = {
-        ...form.formState.defaultValues, // Start with Zod's default values
-        applicationId: applicantAppId,    // Ensure appId from session is set
-        admissionStatus: "Not Submitted", // Default if no completed app is found
-    };
-    let determinedAppStatus: "incomplete" | "submitted" | "admitted" | "not_admitted" = "incomplete";
-    let photoToPreview: string | null = null;
-    let hasCompletedApplication = false;
-
-    // 1. Try to load from "completedApplications"
-    const completedAppsString = localStorage.getItem("completedApplications");
-    if (completedAppsString) {
-        const completedApps: NewIntakeApplicationData[] = JSON.parse(completedAppsString);
-        const foundCompletedApp = completedApps.find(app => app.applicationId === applicantAppId);
-
-        if (foundCompletedApp) {
-            hasCompletedApplication = true;
-            setCompletedApplicationData(foundCompletedApp);
-
-            dataForFormReset = {
-                ...form.formState.defaultValues, // Start with defaults
-                ...foundCompletedApp, // Spread all fields from saved app
-                applicationId: foundCompletedApp.applicationId || applicantAppId, // Prioritize foundApp's ID
-                dateOfBirth: foundCompletedApp.dateOfBirth ? new Date(foundCompletedApp.dateOfBirth) : undefined,
-                photographFile: null,
-                oLevels: foundCompletedApp.oLevels?.map(ol => ({
-                    ...ol,
-                    fileInput: null,
-                    file: ol.file ? { ...ol.file } : undefined,
-                    subjects: ol.subjects || [],
-                })) || [],
-                aLevels: foundCompletedApp.aLevels?.map(al => ({
-                    ...al,
-                    fileInput: null,
-                    file: al.file ? { ...al.file } : undefined,
-                })) || [],
-                experiences: foundCompletedApp.experiences?.map(exp => ({
-                    ...exp,
-                    fileInput: null,
-                    file: exp.file ? { ...exp.file } : undefined,
-                })) || [],
-                terms: true,
-            };
-
-            if (foundCompletedApp.photograph?.name) {
-                photoToPreview = `https://placehold.co/150x150.png?text=${foundCompletedApp.photograph.name.substring(0,10)}`;
-            }
-
-            if (foundCompletedApp.admissionStatus === "Admitted") determinedAppStatus = "admitted";
-            else if (foundCompletedApp.admissionStatus === "Not Admitted") determinedAppStatus = "not_admitted";
-            else determinedAppStatus = "submitted";
-        }
-    }
-
-    // 2. If no "completedApplication" was found, pre-fill essentials from "preRegisteredUsers"
-    if (!hasCompletedApplication) {
-        determinedAppStatus = "incomplete"; // Explicitly set if no completed app
-        const preRegisteredUsersString = localStorage.getItem("preRegisteredUsers");
-        if (preRegisteredUsersString) {
-            const preRegisteredUsers: PreRegisteredUser[] = JSON.parse(preRegisteredUsersString);
-            const currentUser = preRegisteredUsers.find(u => u.appId === applicantAppId);
-            if (currentUser) {
-                dataForFormReset.email = currentUser.email;
-                dataForFormReset.fullName = `${currentUser.surname} ${currentUser.firstname} ${currentUser.othername || ''}`.trim();
-                dataForFormReset.applicationId = currentUser.appId; // Critical: ensure appId from pre-registration is used
-                dataForFormReset.admissionStatus = "Not Submitted"; // If no completed app, it's "Not Submitted"
-            }
-        }
-    }
-    
-    // Final check to ensure appId is set if it somehow got missed
-    if (!dataForFormReset.applicationId && applicantAppId) {
-        dataForFormReset.applicationId = applicantAppId;
-    }
-
-
-    form.reset(dataForFormReset as FormValues);
-    setApplicationStatus(determinedAppStatus);
-    if (photoToPreview) {
-        setPhotographPreview(photoToPreview);
-    }
-    setInitialDataLoaded(true);
-
-}, [applicantAppId, form, initialDataLoaded]);
+  }, [router, toast, fetchAndSetInitialData]);
 
 
   const { fields: oLevelFields, append: appendOLevel, remove: removeOLevel } = useFieldArray({
@@ -593,29 +605,30 @@ useEffect(() => {
   const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
 
-    if (applicationStatus !== "incomplete" && applicationStatus !== "Not Submitted") { 
-        toast({ title: "Application Status", description: "Your application is already submitted or has a decision.", duration: 5000 });
+    const currentStatus = completedApplicationData?.admissionStatus || applicantSession?.admissionStatus;
+    if (currentStatus && currentStatus !== "Not Submitted" && currentStatus !== "Pending") {
+        toast({ title: "Application Status", description: `Your application is already ${currentStatus.toLowerCase()}. No further submissions allowed.`, duration: 5000 });
         setIsLoading(false);
         return;
     }
 
     const applicationDataToSubmit: NewIntakeApplicationData = {
       ...data,
-      photograph: processFileUpload(data.photographFile),
+      photograph: processFileUpload(data.photographFile) || data.photograph, // Keep existing if no new file
       oLevels: data.oLevels.map(ol => ({
         ...ol,
-        file: processFileUpload(ol.fileInput),
+        file: processFileUpload(ol.fileInput) || ol.file,
         subjects: ol.subjects || [] 
       })),
       aLevels: data.aLevels?.map(al => ({
         ...al,
-        file: processFileUpload(al.fileInput),
+        file: processFileUpload(al.fileInput) || al.file,
       })) || [],
       experiences: data.experiences?.map(exp => ({
         ...exp, 
-        file: processFileUpload(exp.fileInput) 
+        file: processFileUpload(exp.fileInput) || exp.file 
       })) || [],
-      admissionStatus: "Pending", 
+      admissionStatus: "Pending", // Always set to pending on submit/re-submit
     };
 
     delete (applicationDataToSubmit as any).photographFile;
@@ -630,41 +643,27 @@ useEffect(() => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(applicationDataToSubmit),
         });
-        const result = await response.json();
+        
+        const rawResponseText = await response.text();
+        let result;
+        try {
+            result = JSON.parse(rawResponseText);
+        } catch (e) {
+            throw new Error(`Invalid JSON response from server: ${rawResponseText.substring(0,100)}`);
+        }
+
 
         if (result.success) {
-            const existingApplicationsString = localStorage.getItem("completedApplications");
-            let existingApplications: NewIntakeApplicationData[] = existingApplicationsString ? JSON.parse(existingApplicationsString) : [];
-            const appIndex = existingApplications.findIndex(app => app.applicationId === applicationDataToSubmit.applicationId);
-            if (appIndex > -1) {
-                existingApplications[appIndex] = applicationDataToSubmit;
-            } else {
-                existingApplications.push(applicationDataToSubmit);
-            }
-            localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
-
             toast({ title: "Application Submitted Successfully!", description: `API: ${result.message}. Your application (ID: ${applicationDataToSubmit.applicationId}) is now under review.`, duration: 7000 });
-            
-            // Re-check status after successful submission to update UI correctly
-            const updatedCompletedAppsString = localStorage.getItem("completedApplications");
-            if (updatedCompletedAppsString) {
-                const updatedCompletedApps: NewIntakeApplicationData[] = JSON.parse(updatedCompletedAppsString);
-                const currentApp = updatedCompletedApps.find(app => app.applicationId === applicantAppId);
-                if (currentApp) {
-                    setCompletedApplicationData(currentApp);
-                    if (currentApp.admissionStatus === "Admitted") setApplicationStatus("admitted");
-                    else if (currentApp.admissionStatus === "Not Admitted") setApplicationStatus("not_admitted");
-                    else setApplicationStatus("submitted");
-                }
-            }
-
+            setCompletedApplicationData(applicationDataToSubmit); // Update local state with submitted data
+            setCurrentTab("preview"); // Go to preview to see submitted status
         } else {
             toast({ variant: "destructive", title: "API Submission Failed", description: result.message || "The application could not be submitted to the server." });
         }
 
-      } catch (e) {
-        console.error("Failed to submit application to API or save to localStorage", e);
-        toast({ variant: "destructive", title: "Submission Error", description: "Your application could not be submitted. Please check your connection or try again later." });
+      } catch (e: any) {
+        console.error("Failed to submit application to API:", e);
+        toast({ variant: "destructive", title: "Submission Error", description: e.message || "Your application could not be submitted. Please check your connection or try again later." });
       }
 
     setIsLoading(false);
@@ -756,8 +755,7 @@ useEffect(() => {
 
   const currentStepperStepIndex = applicationCompletionSteps.findIndex(step => step.id === currentTab);
 
-
-  if (!initialDataLoaded) {
+  if (isFetchingData || !applicantSession) {
       return (
           <div className="flex items-center justify-center min-h-[calc(100vh-var(--header-height,4rem)-var(--footer-height,4rem))]">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -765,6 +763,9 @@ useEffect(() => {
           </div>
       );
   }
+  
+  const appStatus = completedApplicationData?.admissionStatus || applicantSession?.admissionStatus || "Not Submitted";
+
 
   return (
     <div className="space-y-6">
@@ -785,7 +786,7 @@ useEffect(() => {
         </Carousel>
 
       <div className="grid md:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {(applicationStatus === "incomplete" || applicationStatus === "Not Submitted") && (
+        {(appStatus === "Not Submitted" || appStatus === "Pending" && currentTab !== "preview") && (
           <div className="md:col-span-4 lg:col-span-3 p-4 md:p-6 bg-background rounded-lg shadow-lg">
             <h3 className="text-lg font-semibold text-primary mb-6">Application Progress</h3>
             <div className="relative space-y-8">
@@ -826,15 +827,15 @@ useEffect(() => {
         )}
 
         <div id="application-form-area" className={cn(
-          (applicationStatus === "incomplete" || applicationStatus === "Not Submitted") ? "md:col-span-8 lg:col-span-9" : "md:col-span-12" 
+          (appStatus === "Not Submitted" || appStatus === "Pending" && currentTab !== "preview") ? "md:col-span-8 lg:col-span-9" : "md:col-span-12" 
         )}>
             <Card className="shadow-xl border-primary/10">
                 <CardHeader>
                     <CardTitle className="text-xl md:text-2xl font-bold text-primary">Application Status</CardTitle>
-                    <CardDescription>Application ID: <span className="font-semibold text-accent">{applicantAppId}</span></CardDescription>
+                    <CardDescription>Application ID: <span className="font-semibold text-accent">{applicantSession.appId}</span></CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {(applicationStatus === "incomplete" || applicationStatus === "Not Submitted") && (
+                    {appStatus === "Not Submitted" && (
                         <div className="flex items-center p-4 bg-muted/50 rounded-md">
                             <FileClock className="h-8 w-8 text-destructive mr-4" />
                             <div>
@@ -843,7 +844,7 @@ useEffect(() => {
                             </div>
                         </div>
                     )}
-                    {applicationStatus === "submitted" && (
+                    {appStatus === "Pending" && (
                         <div className="flex items-center p-4 bg-secondary/20 rounded-md">
                             <Hourglass className="h-8 w-8 text-secondary-foreground mr-4" />
                             <div>
@@ -852,7 +853,7 @@ useEffect(() => {
                             </div>
                         </div>
                     )}
-                    {applicationStatus === "admitted" && completedApplicationData && (
+                    {appStatus === "Admitted" && completedApplicationData && (
                         <div className="flex flex-col sm:flex-row items-center p-4 bg-primary/10 rounded-md">
                             <UserCheck className="h-10 w-10 text-primary mr-4 mb-2 sm:mb-0" />
                             <div className="text-center sm:text-left">
@@ -864,7 +865,7 @@ useEffect(() => {
                             </div>
                         </div>
                     )}
-                    {applicationStatus === "not_admitted" && completedApplicationData && (
+                    {appStatus === "Not Admitted" && completedApplicationData && (
                         <div className="flex items-center p-4 bg-destructive/10 rounded-md">
                             <XCircle className="h-8 w-8 text-destructive mr-4" />
                             <div>
@@ -882,20 +883,19 @@ useEffect(() => {
                 </CardContent>
                 <CardFooter>
                     <Button variant="outline" onClick={() => { 
-                        setInitialDataLoaded(false); // Trigger reload of data
-                        toast({title:"Status Refreshed", description:"Your application status and data are being updated."})
+                        if(applicantSession) fetchAndSetInitialData(applicantSession);
                     }}>
                         <RefreshCw className="mr-2 h-4 w-4"/> Refresh Status & Data
                     </Button>
                 </CardFooter>
             </Card>
 
-            {(applicationStatus === "incomplete" || applicationStatus === "Not Submitted") && (
+            {(appStatus === "Not Submitted" || (appStatus === "Pending" && currentTab !== "preview")) && (
                 <Card className="w-full shadow-xl border-2 border-primary/10 mt-8">
                     <CardHeader className="text-center">
                         <CardTitle className="text-xl md:text-2xl font-bold text-primary">Complete Your Application Form</CardTitle>
                         <CardDescription className="text-md">
-                        Fill all required fields in each tab. Your Application ID is <span className="font-semibold text-accent">{applicantAppId}</span>.
+                        Fill all required fields in each tab. Your Application ID is <span className="font-semibold text-accent">{applicantSession.appId}</span>.
                         </CardDescription>
                     </CardHeader>
 
@@ -952,7 +952,12 @@ useEffect(() => {
                                             <Image src={photographPreview} alt="Photograph Preview" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="applicant passport"/>
                                         </div>
                                     )}
-                                    {!photographPreview && (
+                                    {!photographPreview && form.getValues("photograph")?.name && (
+                                         <div className="mt-2 text-center">
+                                            <Image src={`https://placehold.co/150x150.png?text=PHOTO`} alt="Photograph Placeholder" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="applicant photo"/>
+                                        </div>
+                                    )}
+                                     {!photographPreview && !form.getValues("photograph")?.name && (
                                         <div className="mt-2 text-center">
                                             <div className="w-[150px] h-[150px] bg-muted rounded-md border flex items-center justify-center mx-auto">
                                                 <UserIcon className="w-16 h-16 text-muted-foreground" data-ai-hint="photo placeholder" />
@@ -1121,7 +1126,7 @@ useEffect(() => {
                                             </div>
                                         ) : form.getValues("photograph")?.name ? (
                                              <div className="text-center">
-                                                <Image src={`https://placehold.co/100x100.png?text=${form.getValues("photograph")?.name?.substring(0,10)}`} alt="Photograph" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="applicant passport photo"/>
+                                                <Image src={`https://placehold.co/100x100.png?text=PHOTO`} alt="Photograph" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="applicant passport photo"/>
                                             </div>
                                         ) : null}
                                         <PreviewItem label="Full Name" value={form.getValues("fullName")} />
@@ -1173,8 +1178,8 @@ useEffect(() => {
                                                 <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Work Experience</h3>
                                                 {form.getValues("experiences")!.map((exp, i) => (
                                                 <div key={exp.id} className="p-3 border rounded-md bg-muted/30">
-                                                    <p className="font-medium">Experience {i + 1}: {(exp as any).role /* Mapped from type */} at {exp.institution}</p>
-                                                    <PreviewItem label="Duration" value={`${(exp as any).startDate /* Mapped from gradeOrClass */} to ${(exp as any).endDate /* Mapped from yearAwarded */}`} />
+                                                    <p className="font-medium">Experience {i + 1}: {(exp as any).role || exp.type /* Mapped from type */} at {exp.institution}</p>
+                                                    <PreviewItem label="Duration" value={`${(exp as any).startDate || exp.gradeOrClass /* Mapped from gradeOrClass */} to ${(exp as any).endDate || exp.yearAwarded /* Mapped from yearAwarded */}`} />
                                                     <PreviewItem label="Document" value={processFileUpload(exp.fileInput)?.name || exp.file?.name || "Not uploaded"} />
                                                 </div>
                                                 ))}
@@ -1312,5 +1317,3 @@ useEffect(() => {
     </div>
   );
 }
-
-    
