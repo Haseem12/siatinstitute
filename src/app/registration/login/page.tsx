@@ -77,33 +77,46 @@ export default function RegistrationLoginPage() {
       });
 
       rawResponseText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(rawResponseText);
+      } catch (e) {
+        // If parsing fails, it's likely an HTML error page from PHP
+        console.error("Failed to parse JSON response from login API:", rawResponseText);
+        toast({
+          variant: "destructive",
+          title: "Login Error",
+          description: `Received invalid (non-JSON) response from server. Please check server logs. Response snippet: ${rawResponseText.substring(0,100)}`,
+          duration: 10000,
+        });
+        setIsLoading(false);
+        return;
+      }
 
-      if (!response.ok) {
-        let errorMsg = `Server error (${response.status}).`;
-        try {
-          const errorJson = JSON.parse(rawResponseText);
-          errorMsg = errorJson.message || errorMsg;
-        } catch (e) {
-          errorMsg += ` Raw response: ${rawResponseText.substring(0,100)}`;
-        }
+
+      if (!response.ok) { // HTTP error status (4xx, 5xx)
+        const errorMsg = result.message || `Server error (${response.status}).`;
         throw new Error(errorMsg);
       }
       
-      const result = JSON.parse(rawResponseText);
+      // Expecting surname, firstname, othername (optional), appId, email, admissionStatus
+      if (result.success && result.data?.appId && result.data?.email && result.data?.surname && result.data?.firstname) {
+        const { appId, email, surname, firstname, othername, admissionStatus } = result.data;
+        const constructedFullName = `${surname} ${firstname}${othername ? ' ' + othername : ''}`.trim();
 
-      if (result.success && result.data?.appId && result.data?.email && result.data?.fullName) {
         localStorage.setItem("currentApplicantSession", JSON.stringify({ 
-            appId: result.data.appId, 
-            email: result.data.email,
-            fullName: result.data.fullName, // Expecting fullName from backend
-            admissionStatus: result.data.admissionStatus || "Not Submitted"
+            appId: appId, 
+            email: email,
+            fullName: constructedFullName,
+            admissionStatus: admissionStatus || "Not Submitted"
         }));
         toast({ title: "Login Successful", description: "Redirecting to your application dashboard..." });
         router.push("/registration/dashboard");
       } else {
          let description = result.message || "Invalid Application ID/Email or Password.";
-        if (result.success && (!result.data?.email || !result.data?.fullName)) {
-            description = "Login data incomplete from server. Full name or email missing.";
+         if (result.success && (!result.data?.email || !result.data?.surname || !result.data?.firstname || !result.data?.appId)) {
+            description = "Login data incomplete from server. Required name parts, email, or App ID missing.";
+             console.error("Incomplete data from server:", result.data);
         }
         toast({
           variant: "destructive",
@@ -114,9 +127,7 @@ export default function RegistrationLoginPage() {
     } catch (error: any) {
       console.error("Error during login API call:", error);
       let description = "Could not connect to the login service. Please try again later.";
-      if (error.message.includes("JSON.parse")) {
-        description = `Received invalid (non-JSON) response from server: ${rawResponseText.substring(0,100)}`;
-      } else if (error.message) {
+      if (error.message) {
         description = error.message;
       }
       toast({
