@@ -122,7 +122,10 @@ const aLevelQualificationSchema = z.object({
 
 const registrationDashboardFormSchema = z.object({
   applicationId: z.string(),
-  fullName: z.string().min(3, "Full name must be at least 3 characters."),
+  fullName: z.string().optional(), // Can be constructed or fetched
+  surname: z.string().min(3, "Surname must be at least 3 characters.").optional(),
+  firstname: z.string().min(3, "First name must be at least 3 characters.").optional(),
+  othername: z.string().optional(),
   email: z.string().email("Invalid email address."),
   phoneNumber: z.string().min(10, "Valid phone number is required."),
   dateOfBirth: z.date({ required_error: "Date of birth is required." }),
@@ -155,7 +158,7 @@ const registrationDashboardFormSchema = z.object({
 type FormValues = z.infer<typeof registrationDashboardFormSchema>;
 
 const formTabs = [
-  { id: "bio-data", name: "Bio-data", fields: ["photographFile", "fullName", "email", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
+  { id: "bio-data", name: "Bio-data", fields: ["photographFile", "fullName", "surname", "firstname", "othername", "email", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
   { id: "o-level", name: "O-Level Qualifications", fields: ["oLevels"] as const },
   { id: "a-level", name: "A-Level/Other", fields: ["aLevels", "experiences"] as const },
   { id: "program", name: "Program Choice", fields: ["preferredProgram", "preferredCampus", "entryMode"] as const },
@@ -365,7 +368,7 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIn
 interface ApplicantSessionData {
     appId: string;
     email: string;
-    fullName?: string; // fullName is optional from login, fetched later
+    fullName?: string; // Will be constructed from parts fetched by get-applicant-data.php or be empty initially
     admissionStatus?: string;
 }
 
@@ -376,8 +379,11 @@ export default function RegistrationDashboardPage() {
     resolver: zodResolver(registrationDashboardFormSchema),
     defaultValues: {
       applicationId: "",
-      fullName: "", // Will be populated by get-applicant-data.php
-      email: "",     // Will be populated by session from login
+      fullName: "", 
+      surname: "",
+      firstname: "",
+      othername: "",
+      email: "",
       phoneNumber: "",
       dateOfBirth: undefined,
       gender: undefined,
@@ -416,19 +422,24 @@ export default function RegistrationDashboardPage() {
 
   const fetchAndSetInitialData = useCallback(async (session: ApplicantSessionData) => {
     setIsFetchingData(true);
+    form.setValue("applicationId", session.appId);
+    form.setValue("email", session.email); 
+    // fullName will be populated by the API response or constructed from parts
+    
     try {
         const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-data.php?appId=${session.appId}`);
         if (!response.ok) {
             const errorText = await response.text();
             let errorMsg = `Failed to fetch application data (${response.status}).`;
-            try { const errorJson = JSON.parse(errorText); errorMsg = errorJson.message || errorMsg; } catch (e) { /*  Ignore */ }
+            try { const errorJson = JSON.parse(errorText); errorMsg = errorJson.message || errorMsg; } catch (e) { /* Ignore */ }
             toast({ variant: "destructive", title: "Fetch Error", description: errorMsg });
-            // Pre-fill with session data if API fails
+            
+            // Fallback to session data for essential fields if API fails
             form.reset({
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
-                fullName: session.fullName || "", // Use session fullName if available, else empty
+                // fullName will be empty initially if only session data is used here
                 admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
             });
             setCompletedApplicationData(null); 
@@ -438,13 +449,21 @@ export default function RegistrationDashboardPage() {
 
         const result = await response.json();
         if (result.success && result.data) {
-            const fetchedData = result.data as NewIntakeApplicationData;
+            const fetchedData = result.data as NewIntakeApplicationData & { surname?: string; firstname?: string; othername?: string; full_name?: string}; // Expect parts or full_name
+            
+            let finalFullName = "";
+            if (fetchedData.full_name) {
+                finalFullName = fetchedData.full_name;
+            } else if (fetchedData.surname && fetchedData.firstname) {
+                finalFullName = `${fetchedData.surname} ${fetchedData.firstname}${fetchedData.othername ? ' ' + fetchedData.othername : ''}`.trim();
+            }
+
             form.reset({
-                ...form.formState.defaultValues, // Start with defaults
-                ...fetchedData, // Override with fetched data
-                applicationId: fetchedData.applicationId || session.appId, // Prioritize fetched, then session
-                email: fetchedData.email || session.email, // Prioritize fetched, then session
-                fullName: fetchedData.fullName || session.fullName || "", // Prioritize fetched, then session, then empty
+                ...form.formState.defaultValues,
+                ...fetchedData,
+                applicationId: fetchedData.applicationId || session.appId,
+                email: fetchedData.email || session.email,
+                fullName: finalFullName, // Use constructed or fetched full_name
                 dateOfBirth: fetchedData.dateOfBirth ? new Date(fetchedData.dateOfBirth) : undefined,
                 photographFile: null, 
                 oLevels: fetchedData.oLevels?.map(ol => ({ ...ol, fileInput: null, subjects: ol.subjects || [] })) || [],
@@ -457,21 +476,29 @@ export default function RegistrationDashboardPage() {
             if (fetchedData.photograph?.name) { 
                  setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); 
             }
+            // Update session in localStorage with potentially more complete data
+            localStorage.setItem("currentApplicantSession", JSON.stringify({
+                appId: fetchedData.applicationId || session.appId,
+                email: fetchedData.email || session.email,
+                fullName: finalFullName, // Store constructed fullName
+                admissionStatus: fetchedData.admissionStatus || session.admissionStatus || "Not Submitted"
+            }));
+
             if (fetchedData.admissionStatus === "Admitted" || fetchedData.admissionStatus === "Not Admitted" || fetchedData.admissionStatus === "Pending") {
                 setCurrentTab("preview"); 
             } else {
                 setCurrentTab(formTabs[0].id);
             }
-        } else {
+        } else { // API success but no data found (e.g., new applicant)
             form.reset({
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
-                fullName: session.fullName || "",
+                // fullName remains empty here, user will fill surname/firstname in bio-data tab
                 admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
             });
             setCompletedApplicationData(null);
-            toast({ title: "Application Data", description: result.message || "No previous application data found. Please start fresh." });
+            toast({ title: "Application Data", description: result.message || "No previous application data found. Please fill the form." });
             setCurrentTab(formTabs[0].id);
         }
     } catch (error: any) {
@@ -481,7 +508,6 @@ export default function RegistrationDashboardPage() {
             ...form.formState.defaultValues,
             applicationId: session.appId,
             email: session.email,
-            fullName: session.fullName || "",
             admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
         });
         setCompletedApplicationData(null);
@@ -498,10 +524,9 @@ export default function RegistrationDashboardPage() {
     if (sessionString) {
       try {
         const parsedSession = JSON.parse(sessionString) as ApplicantSessionData;
-        // Only appId and email are strictly required from login session now
         if (parsedSession.appId && parsedSession.email) {
-          setApplicantSession(parsedSession); // Store the session data (appId, email, optional fullName, admissionStatus)
-          fetchAndSetInitialData(parsedSession); // Fetch full data using the session
+          setApplicantSession(parsedSession);
+          fetchAndSetInitialData(parsedSession); 
         } else {
           throw new Error("Incomplete session data from localStorage (appId or email missing).");
         }
@@ -606,8 +631,16 @@ export default function RegistrationDashboardPage() {
         return;
     }
 
+    // Construct fullName from parts if not already present as a single field
+    let submissionFullName = data.fullName;
+    if (!submissionFullName && data.surname && data.firstname) {
+        submissionFullName = `${data.surname} ${data.firstname}${data.othername ? ' ' + data.othername : ''}`.trim();
+    }
+
+
     const applicationDataToSubmit: NewIntakeApplicationData = {
       ...data,
+      fullName: submissionFullName || "", // Ensure fullName is always a string
       photograph: processFileUpload(data.photographFile) || data.photograph, 
       oLevels: data.oLevels.map(ol => ({
         ...ol,
@@ -630,6 +663,11 @@ export default function RegistrationDashboardPage() {
     applicationDataToSubmit.aLevels?.forEach(al => delete (al as any).fileInput);
     applicationDataToSubmit.experiences?.forEach(exp => delete (exp as any).fileInput);
     delete (applicationDataToSubmit as any).terms;
+    // Remove individual name parts if fullName is constructed, to align with NewIntakeApplicationData type if it only expects `fullName`
+    delete (applicationDataToSubmit as any).surname;
+    delete (applicationDataToSubmit as any).firstname;
+    delete (applicationDataToSubmit as any).othername;
+
 
     try {
         const response = await fetch('https://sajfoods.net/api/siat/submit-application.php', {
@@ -650,6 +688,14 @@ export default function RegistrationDashboardPage() {
         if (result.success) {
             toast({ title: "Application Submitted Successfully!", description: `API: ${result.message}. Your application (ID: ${applicationDataToSubmit.applicationId}) is now under review.`, duration: 7000 });
             setCompletedApplicationData(applicationDataToSubmit); 
+            // Update session in localStorage with submitted status and potentially constructed fullName
+             if (applicantSession) {
+                localStorage.setItem("currentApplicantSession", JSON.stringify({
+                    ...applicantSession,
+                    fullName: submissionFullName || applicantSession.fullName, // Prefer newly constructed
+                    admissionStatus: "Pending"
+                }));
+             }
             setCurrentTab("preview"); 
         } else {
             toast({ variant: "destructive", title: "API Submission Failed", description: result.message || "The application could not be submitted to the server." });
@@ -748,8 +794,9 @@ export default function RegistrationDashboardPage() {
   };
 
   const currentStepperStepIndex = applicationCompletionSteps.findIndex(step => step.id === currentTab);
+  const appStatus = completedApplicationData?.admissionStatus || applicantSession?.admissionStatus || "Not Submitted";
 
-  if (isFetchingData || !applicantSession) { // applicantSession must be present to proceed
+  if (isFetchingData || !applicantSession) { 
       return (
           <div className="flex items-center justify-center min-h-[calc(100vh-var(--header-height,4rem)-var(--footer-height,4rem))]">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -758,8 +805,6 @@ export default function RegistrationDashboardPage() {
       );
   }
   
-  const appStatus = completedApplicationData?.admissionStatus || applicantSession?.admissionStatus || "Not Submitted";
-
 
   return (
     <div className="space-y-6">
@@ -780,7 +825,7 @@ export default function RegistrationDashboardPage() {
         </Carousel>
 
       <div className="grid md:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {(appStatus === "Not Submitted" || appStatus === "Pending" && currentTab !== "preview") && (
+        {appStatus === "Not Submitted" && (
           <div className="md:col-span-4 lg:col-span-3 p-4 md:p-6 bg-background rounded-lg shadow-lg">
             <h3 className="text-lg font-semibold text-primary mb-6">Application Progress</h3>
             <div className="relative space-y-8">
@@ -821,7 +866,7 @@ export default function RegistrationDashboardPage() {
         )}
 
         <div id="application-form-area" className={cn(
-          (appStatus === "Not Submitted" || appStatus === "Pending" && currentTab !== "preview") ? "md:col-span-8 lg:col-span-9" : "md:col-span-12" 
+          appStatus === "Not Submitted" ? "md:col-span-8 lg:col-span-9" : "md:col-span-12" 
         )}>
             <Card className="shadow-xl border-primary/10">
                 <CardHeader>
@@ -851,7 +896,7 @@ export default function RegistrationDashboardPage() {
                         <div className="flex flex-col sm:flex-row items-center p-4 bg-primary/10 rounded-md">
                             <UserCheck className="h-10 w-10 text-primary mr-4 mb-2 sm:mb-0" />
                             <div className="text-center sm:text-left">
-                                <p className="font-semibold text-xl text-primary">Congratulations, {completedApplicationData.fullName}! You have been Admitted!</p>
+                                <p className="font-semibold text-xl text-primary">Congratulations, {form.getValues("fullName") || applicantSession.fullName || "Applicant"}! You have been Admitted!</p>
                                 <p className="text-sm text-muted-foreground">You have been provisionally admitted to study <span className="font-semibold">{completedApplicationData.preferredProgram}</span>. Further instructions regarding your admission and registration will be communicated to you shortly.</p>
                                 <Button className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => setIsAdmissionLetterDialogOpen(true)}>
                                     <Printer className="mr-2 h-4 w-4" /> Print Provisional Admission Letter
@@ -884,7 +929,7 @@ export default function RegistrationDashboardPage() {
                 </CardFooter>
             </Card>
 
-            {(appStatus === "Not Submitted" || (appStatus === "Pending" && currentTab !== "preview")) && (
+            {appStatus === "Not Submitted" && (
                 <Card className="w-full shadow-xl border-2 border-primary/10 mt-8">
                     <CardHeader className="text-center">
                         <CardTitle className="text-xl md:text-2xl font-bold text-primary">Complete Your Application Form</CardTitle>
@@ -958,9 +1003,22 @@ export default function RegistrationDashboardPage() {
                                             </div>
                                         </div>
                                     )}
+                                    {/* Combined Full Name field (disabled, populated from parts or API) */}
                                     <FormField control={form.control} name="fullName" render={({ field }) => (
-                                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="Your full name" {...field} disabled={!!completedApplicationData?.fullName} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Full Name (Auto-populated)</FormLabel><FormControl><Input placeholder="Full name (e.g., Surname Firstname Othername)" {...field} disabled /></FormControl><FormMessage /></FormItem>
                                     )} />
+                                     {/* Individual Name Parts for user input if needed, or keep disabled if fetched */}
+                                    <div className="grid md:grid-cols-3 gap-4">
+                                        <FormField control={form.control} name="surname" render={({ field }) => (
+                                            <FormItem><FormLabel>Surname</FormLabel><FormControl><Input placeholder="Your surname" {...field} disabled={!!completedApplicationData?.surname} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="firstname" render={({ field }) => (
+                                            <FormItem><FormLabel>First Name</FormLabel><FormControl><Input placeholder="Your first name" {...field} disabled={!!completedApplicationData?.firstname} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="othername" render={({ field }) => (
+                                            <FormItem><FormLabel>Other Name (Optional)</FormLabel><FormControl><Input placeholder="Your other name" {...field} disabled={!!completedApplicationData?.othername && completedApplicationData.othername !== ""} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                    </div>
                                     <FormField control={form.control} name="email" render={({ field }) => (
                                         <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="your.email@example.com" {...field} disabled={!!completedApplicationData?.email}/></FormControl><FormMessage /></FormItem>
                                     )} />
@@ -1246,12 +1304,12 @@ export default function RegistrationDashboardPage() {
 
                       <div className="applicant-details mb-4">
                           <p><strong>Date:</strong> {format(new Date(), "PPP")}</p>
-                          <p><strong>Applicant Name:</strong> {completedApplicationData.fullName}</p>
+                          <p><strong>Applicant Name:</strong> {form.getValues("fullName") || applicantSession?.fullName || "Applicant"}</p>
                           <p><strong>Application ID:</strong> {completedApplicationData.applicationId}</p>
                       </div>
 
                       <div className="admission-details mb-4">
-                          <p>Dear {completedApplicationData.fullName},</p>
+                          <p>Dear {form.getValues("fullName") || applicantSession?.fullName || "Applicant"},</p>
                           <p className="mt-2">
                               We are pleased to inform you that you have been offered provisional admission into the <strong>Scholars Institute of Arts & Technology, Zaria</strong>
                               to study <strong>{completedApplicationData.preferredProgram}</strong> for the {new Date().getFullYear()}/{new Date().getFullYear()+1} academic session.
