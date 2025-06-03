@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Eye, Users, FileText, Briefcase, CalendarDays, UserCircle, CheckCircle, XCircle, Hourglass, MessageSquare, Loader2 } from "lucide-react";
-import type { NewIntakeApplicationData } from "@/types";
+import type { NewIntakeApplicationData, QualificationUpload, ExperienceUpload } from "@/types";
 import { format } from "date-fns";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
@@ -17,10 +17,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 // Helper component for displaying application details in the dialog
-const ApplicationDetailItem: React.FC<{ label: string; value?: string | number | null }> = ({ label, value }) => (
+const ApplicationDetailItem: React.FC<{ label: string; value?: string | number | null | React.ReactNode }> = ({ label, value }) => (
   <div className="grid grid-cols-3 gap-2 py-1.5 border-b border-muted/50">
     <dt className="text-sm font-medium text-muted-foreground col-span-1">{label}:</dt>
-    <dd className="text-sm text-foreground col-span-2">{String(value === undefined || value === null || String(value).trim() === '' ? "N/A" : value)}</dd>
+    <dd className="text-sm text-foreground col-span-2 break-words">{value === undefined || value === null || String(value).trim() === '' ? "N/A" : value}</dd>
   </div>
 );
 
@@ -32,7 +32,7 @@ export default function ViewApplicantsPage() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
   const [isRejectionReasonDialogOpen, setIsRejectionReasonDialogOpen] = React.useState(false);
   const [rejectionReasonInput, setRejectionReasonInput] = React.useState("");
-  const [isLoading, setIsLoading] = React.useState(true); // For initial load
+  const [isLoading, setIsLoading] = React.useState(true); 
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
 
 
@@ -46,36 +46,56 @@ export default function ViewApplicantsPage() {
         }
         const result = await response.json();
         if (result.success && Array.isArray(result.data)) {
-            const appsWithGuaranteedArrays = result.data.map((app: any) => ({
+            const appsWithGuaranteedArraysAndDates = result.data.map((app: any) => ({
                 ...app,
-                oLevels: app.oLevels || [],
-                aLevels: app.aLevels || [],
-                experiences: app.experiences || [],
-                // Ensure dateOfBirth is a Date object or undefined
+                applicationId: String(app.application_id || app.applicationId), // Ensure applicationId is a string
+                oLevels: (app.oLevels || []).map((ol: any) => ({
+                    ...ol,
+                    id: String(ol.id || crypto.randomUUID()), // Ensure ID for key
+                    subjects: ol.subjects || [],
+                })),
+                aLevels: (app.aLevels || []).map((al: any) => ({
+                    ...al,
+                    id: String(al.id || crypto.randomUUID()), // Ensure ID for key
+                })),
+                experiences: (app.experiences || []).map((exp: any) => ({
+                    ...exp,
+                    id: String(exp.id || crypto.randomUUID()), // Ensure ID for key
+                })),
                 dateOfBirth: app.dateOfBirth ? new Date(app.dateOfBirth) : undefined, 
+                submitted_at: app.submitted_at ? new Date(app.submitted_at) : undefined,
             }));
-            setApplicants(appsWithGuaranteedArrays);
+            setApplicants(appsWithGuaranteedArraysAndDates);
+            toast({ title: "Applicants Loaded", description: "Fetched applicants from the server." });
         } else {
             console.error("API did not return a successful list of applicants:", result.message);
-            setApplicants([]); // Default to empty if API success is false or data is not array
+            setApplicants([]);
             toast({ variant: "destructive", title: "Fetch Error", description: result.message || "Could not fetch applicants." });
         }
     } catch (error: any) {
         console.error("Failed to fetch applications from API:", error);
-        toast({ variant: "destructive", title: "Fetch Error", description: error.message || "Could not fetch applicants from API. Check console." });
+        toast({ variant: "destructive", title: "API Fetch Error", description: error.message || "Could not fetch applicants from API. Check console." });
         // Fallback to localStorage if API fails, for prototype demonstration
-        const storedApplications = localStorage.getItem("completedApplications");
+        const storedApplications = localStorage.getItem("completedApplications"); // This is from the new-intake form's localStorage
         if (storedApplications) {
-            const parsedApps = JSON.parse(storedApplications);
-            const appsWithGuaranteedArrays = parsedApps.map((app: NewIntakeApplicationData) => ({
-                ...app,
-                oLevels: app.oLevels || [],
-                aLevels: app.aLevels || [],
-                experiences: app.experiences || [],
-                dateOfBirth: app.dateOfBirth ? new Date(app.dateOfBirth) : undefined,
-            }));
-            setApplicants(appsWithGuaranteedArrays);
-            toast({ title: "Using Local Data", description: "Fetched applicants from local storage as API was unavailable." });
+            try {
+                const parsedApps = JSON.parse(storedApplications);
+                const appsWithGuaranteedArraysAndDates = parsedApps.map((app: NewIntakeApplicationData) => ({
+                    ...app,
+                    applicationId: String(app.applicationId),
+                    oLevels: (app.oLevels || []).map((ol: any) => ({ ...ol, id: String(ol.id || crypto.randomUUID()), subjects: ol.subjects || [] })),
+                    aLevels: (app.aLevels || []).map((al: any) => ({ ...al, id: String(al.id || crypto.randomUUID()) })),
+                    experiences: (app.experiences || []).map((exp: any) => ({ ...exp, id: String(exp.id || crypto.randomUUID()) })),
+                    dateOfBirth: app.dateOfBirth ? new Date(app.dateOfBirth) : undefined,
+                    submitted_at: (app as any).submitted_at ? new Date((app as any).submitted_at) : undefined,
+                }));
+                setApplicants(appsWithGuaranteedArraysAndDates);
+                toast({ variant: "default", title: "Using Local Data", description: "Fetched applicants from local storage as API was unavailable.", duration: 6000});
+            } catch (parseError) {
+                console.error("Failed to parse local applications:", parseError);
+                setApplicants([]);
+                toast({variant: "destructive", title: "Local Data Error", description: "Could not parse local applicant data."});
+            }
         } else {
             setApplicants([]);
         }
@@ -101,6 +121,7 @@ export default function ViewApplicantsPage() {
     try {
       return format(new Date(date), "PPP");
     } catch (error) {
+      console.error("Error formatting date:", date, error);
       return "Invalid Date";
     }
   };
@@ -116,10 +137,8 @@ export default function ViewApplicantsPage() {
         const result = await response.json();
 
         if (result.success) {
-            toast({ title: "Status Updated", description: `Applicant ${applicantId} status set to ${status} via API.` });
-            // Refresh the list of applicants to show the change
+            toast({ title: "Status Updated (API)", description: `Applicant ${applicantId} status set to ${status}.` });
             await fetchApplicants(); 
-             // Update selectedApplicant if it's the one being modified
             if (selectedApplicant && selectedApplicant.applicationId === applicantId) {
                 setSelectedApplicant(prev => prev ? {...prev, admissionStatus: status, rejectionReason: status === "Not Admitted" ? reason : undefined } : null);
             }
@@ -134,7 +153,8 @@ export default function ViewApplicantsPage() {
         if (typeof window !== 'undefined') {
             const storedApplications = localStorage.getItem("completedApplications");
             let existingApplications: NewIntakeApplicationData[] = storedApplications ? JSON.parse(storedApplications) : [];
-            const appIndex = existingApplications.findIndex(app => app.applicationId === applicantId);
+            const appIndex = existingApplications.findIndex(app => String(app.applicationId) === String(applicantId));
+
             if (appIndex > -1) {
                 existingApplications[appIndex].admissionStatus = status;
                 if (status === "Not Admitted") {
@@ -143,20 +163,30 @@ export default function ViewApplicantsPage() {
                     delete existingApplications[appIndex].rejectionReason;
                 }
                 localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
+                
+                // Update the main applicants list state from the modified localStorage
                 const updatedApplicants = existingApplications.map(app => ({
                     ...app,
-                    oLevels: app.oLevels || [], aLevels: app.aLevels || [], experiences: app.experiences || [],
+                    applicationId: String(app.applicationId),
+                    oLevels: (app.oLevels || []).map((ol: any) => ({ ...ol, id: String(ol.id || crypto.randomUUID()), subjects: ol.subjects || [] })),
+                    aLevels: (app.aLevels || []).map((al: any) => ({ ...al, id: String(al.id || crypto.randomUUID()) })),
+                    experiences: (app.experiences || []).map((exp: any) => ({ ...exp, id: String(exp.id || crypto.randomUUID()) })),
                     dateOfBirth: app.dateOfBirth ? new Date(app.dateOfBirth) : undefined,
+                    submitted_at: (app as any).submitted_at ? new Date((app as any).submitted_at) : undefined,
                 }));
                 setApplicants(updatedApplicants);
-                if (selectedApplicant && selectedApplicant.applicationId === applicantId) {
+
+                if (selectedApplicant && String(selectedApplicant.applicationId) === String(applicantId)) {
                     setSelectedApplicant(prev => prev ? {...prev, admissionStatus: status, rejectionReason: status === "Not Admitted" ? reason : undefined } : null);
                 }
                 toast({ title: "Local Status Updated", description: "Status updated in local storage due to API error." });
+            } else {
+                 toast({ variant: "destructive", title: "Local Update Failed", description: "Applicant not found in local storage for update." });
             }
         }
     } finally {
         setIsUpdatingStatus(false);
+        if (isRejectionReasonDialogOpen) setIsRejectionReasonDialogOpen(false);
     }
   };
 
@@ -170,7 +200,7 @@ export default function ViewApplicantsPage() {
     if (selectedApplicant) {
       handleSetAdmissionStatus(selectedApplicant.applicationId, "Not Admitted", rejectionReasonInput);
     }
-    setIsRejectionReasonDialogOpen(false);
+    // setIsRejectionReasonDialogOpen(false); // Closed by handleSetAdmissionStatus finally block
     setRejectionReasonInput("");
   };
 
@@ -258,6 +288,7 @@ export default function ViewApplicantsPage() {
                 <DialogDescription>Application ID: {selectedApplicant.applicationId}</DialogDescription>
                 {getStatusBadge(selectedApplicant.admissionStatus)}
               </div>
+                 <DialogDescription className="text-xs">Submitted: {formatDateSafe((selectedApplicant as any).submitted_at)}</DialogDescription>
             </DialogHeader>
             
             <ScrollArea className="flex-grow overflow-y-auto pr-4 -mr-2">
@@ -266,7 +297,6 @@ export default function ViewApplicantsPage() {
                 {selectedApplicant.photograph && selectedApplicant.photograph.name && (
                      <div className="my-2">
                         <p className="text-sm font-medium text-muted-foreground col-span-1 mb-1">Photograph:</p>
-                        {/* In a real app with file uploads, this src would point to the actual image URL */}
                         <Image 
                             src={`https://placehold.co/100x100.png?text=${selectedApplicant.photograph.name.substring(0,10)}`} 
                             alt="Applicant Photograph" 
@@ -274,7 +304,7 @@ export default function ViewApplicantsPage() {
                             className="rounded-md border object-cover shadow-sm"
                             data-ai-hint="applicant photo"
                         />
-                         <p className="text-xs text-muted-foreground mt-1">{selectedApplicant.photograph.name}</p>
+                         <p className="text-xs text-muted-foreground mt-1">{selectedApplicant.photograph.name} ({(selectedApplicant.photograph.size / 1024).toFixed(1)}KB)</p>
                     </div>
                 )}
                 <ApplicationDetailItem label="Full Name" value={selectedApplicant.fullName} />
@@ -294,13 +324,17 @@ export default function ViewApplicantsPage() {
 
                 <h3 className="font-semibold text-primary flex items-center gap-2 pt-3 border-t mt-4"><FileText className="h-5 w-5"/>O-Level Qualifications</h3>
                 {(selectedApplicant.oLevels || []).map((ol, index) => (
-                  <div key={ol.id || `ol-qual-${index}`} className="p-2 my-1 border rounded-md bg-muted/30">
-                    <p className="font-medium text-sm">O-Level Sitting {index + 1}: {ol.examType} ({ol.examYear})</p>
+                  <div key={ol.id || `ol-qual-${index}`} className="p-3 my-1 border rounded-md bg-muted/30 space-y-1">
+                    <p className="font-medium text-sm text-primary">O-Level Sitting {index + 1}</p>
+                     <ApplicationDetailItem label="Exam Type" value={ol.examType} />
+                     <ApplicationDetailItem label="Exam Year" value={ol.examYear} />
                      <ApplicationDetailItem label="Exam No" value={ol.examNumber || "N/A"}/>
-                     <ul className="list-disc list-inside pl-4 text-sm">
-                        {(ol.subjects || []).map(sub => <li key={sub.id || sub.subject}>{sub.subject}: {sub.grade}</li>)}
+                     <p className="text-sm font-medium text-muted-foreground pt-1">Subjects & Grades:</p>
+                     {(ol.subjects || []).length === 0 && <p className="text-xs text-muted-foreground pl-4">No subjects listed for this sitting.</p>}
+                     <ul className="list-disc list-inside pl-4 text-sm space-y-0.5">
+                        {(ol.subjects || []).map(sub => <li key={sub.id || sub.subject}>{sub.subject}: <span className="font-semibold">{sub.grade}</span></li>)}
                     </ul>
-                    <ApplicationDetailItem label="Certificate" value={ol.file?.name || "N/A"} />
+                    <ApplicationDetailItem label="Certificate" value={ol.file?.name ? `${ol.file.name} (${(ol.file.size / 1024).toFixed(1)}KB)` : "N/A"} />
                   </div>
                 ))}
 
@@ -308,13 +342,14 @@ export default function ViewApplicantsPage() {
                   <>
                     <h3 className="font-semibold text-primary flex items-center gap-2 pt-3 border-t mt-4"><FileText className="h-5 w-5"/>A-Level/Other Qualifications</h3>
                     {(selectedApplicant.aLevels || []).map((qual, index) => (
-                      <div key={qual.id || `al-qual-${index}`} className="p-2 my-1 border rounded-md bg-muted/30">
-                        <p className="font-medium text-sm">Qualification {index + 1}: {qual.type}</p>
+                      <div key={qual.id || `al-qual-${index}`} className="p-3 my-1 border rounded-md bg-muted/30 space-y-1">
+                        <p className="font-medium text-sm text-primary">Qualification {index + 1}</p>
+                        <ApplicationDetailItem label="Type" value={qual.type} />
                         <ApplicationDetailItem label="Institution" value={qual.institution} />
-                        <ApplicationDetailItem label="Course" value={(qual as any).courseOfStudy || "N/A"} />
-                        <ApplicationDetailItem label="Grade/Class" value={(qual as any).gradeOrClass || "N/A"} />
+                        <ApplicationDetailItem label="Course" value={qual.courseOfStudy || "N/A"} />
+                        <ApplicationDetailItem label="Grade/Class" value={qual.gradeOrClass || "N/A"} />
                         <ApplicationDetailItem label="Year Awarded" value={qual.yearAwarded} />
-                        <ApplicationDetailItem label="Certificate" value={qual.file?.name || "N/A"} />
+                        <ApplicationDetailItem label="Certificate" value={qual.file?.name ? `${qual.file.name} (${(qual.file.size / 1024).toFixed(1)}KB)` : "N/A"} />
                       </div>
                     ))}
                   </>
@@ -324,12 +359,13 @@ export default function ViewApplicantsPage() {
                   <>
                     <h3 className="font-semibold text-primary flex items-center gap-2 pt-3 border-t mt-4"><Briefcase className="h-5 w-5"/>Work Experience</h3>
                     {(selectedApplicant.experiences || []).map((exp, index) => (
-                      <div key={exp.id || `exp-${index}`} className="p-2 my-1 border rounded-md bg-muted/30">
-                        {/* Assuming experience structure from ALevelSittingItem for now */}
-                        <p className="font-medium text-sm">Experience {index + 1}: {(exp as any).type} at {(exp as any).institution}</p>
-                        <ApplicationDetailItem label="Role" value={(exp as any).courseOfStudy || "N/A"} />
-                        <ApplicationDetailItem label="Duration" value={`${(exp as any).gradeOrClass || "N/A"} to ${exp.yearAwarded}`} />
-                        <ApplicationDetailItem label="Document" value={exp.file?.name || "N/A"} />
+                      <div key={exp.id || `exp-${index}`} className="p-3 my-1 border rounded-md bg-muted/30 space-y-1">
+                         <p className="font-medium text-sm text-primary">Experience {index + 1}</p>
+                        <ApplicationDetailItem label="Organization" value={exp.organization} />
+                        <ApplicationDetailItem label="Role" value={exp.role} />
+                        <ApplicationDetailItem label="Start Date" value={exp.startDate} />
+                        <ApplicationDetailItem label="End Date" value={exp.endDate} />
+                        <ApplicationDetailItem label="Document" value={exp.file?.name ? `${exp.file.name} (${(exp.file.size / 1024).toFixed(1)}KB)` : "N/A"} />
                       </div>
                     ))}
                   </>
@@ -355,7 +391,7 @@ export default function ViewApplicantsPage() {
                     className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     disabled={selectedApplicant.admissionStatus === "Admitted" || isUpdatingStatus}
                   >
-                    {isUpdatingStatus && selectedApplicant.admissionStatus !== "Admitted" ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
+                    {isUpdatingStatus && selectedApplicant.admissionStatus !== "Admitted" && !(selectedApplicant.admissionStatus === "Not Admitted") ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
                      Admit Applicant
                   </Button>
                   <Button 
@@ -363,7 +399,7 @@ export default function ViewApplicantsPage() {
                     variant="destructive"
                     disabled={selectedApplicant.admissionStatus === "Not Admitted" || isUpdatingStatus}
                   >
-                     {isUpdatingStatus && selectedApplicant.admissionStatus !== "Not Admitted" ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>}
+                     {isUpdatingStatus && selectedApplicant.admissionStatus !== "Not Admitted" && !(selectedApplicant.admissionStatus === "Admitted") ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>}
                      Decline Admission
                   </Button>
               </div>
@@ -376,7 +412,10 @@ export default function ViewApplicantsPage() {
       )}
 
       {selectedApplicant && (
-        <Dialog open={isRejectionReasonDialogOpen} onOpenChange={setIsRejectionReasonDialogOpen}>
+        <Dialog open={isRejectionReasonDialogOpen} onOpenChange={(isOpen) => {
+            if (!isOpen) { setSelectedApplicant(null); setRejectionReasonInput("");} // Clear selection if dialog is closed without confirming
+            setIsRejectionReasonDialogOpen(isOpen);
+        }}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle className="text-destructive">Reason for Declining Admission</DialogTitle>
@@ -407,3 +446,6 @@ export default function ViewApplicantsPage() {
     </div>
   );
 }
+
+
+    
