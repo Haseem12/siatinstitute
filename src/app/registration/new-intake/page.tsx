@@ -137,7 +137,7 @@ const steps = [
 ];
 
 const availablePrograms = [
-    "Computer Science", "Software Engineering", "Mass Communication", "Business Administration",
+    "Advanced Certificate in Artificial Intelligence", "Computer Science", "Software Engineering", "Mass Communication", "Business Administration",
     "Accounting", "Electrical Engineering Technology", "Public Administration", "Science Laboratory Technology"
 ];
 const availableCampuses = ["Main Campus - Zaria", "Kaduna City Campus", "Kano Extension Center"];
