@@ -155,7 +155,7 @@ const registrationDashboardFormSchema = z.object({
 type FormValues = z.infer<typeof registrationDashboardFormSchema>;
 
 const formTabs = [
-  { id: "bio-data", name: "Bio-data", fields: ["photographFile", "fullName", "email", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
+  { id: "bio-data", name: "Bio-data", fields: ["photographFile", "phoneNumber", "dateOfBirth", "gender", "address", "city", "stateOfOrigin", "nationality", "nextOfKinName", "nextOfKinPhone", "nextOfKinRelationship"] as const },
   { id: "o-level", name: "O-Level Qualifications", fields: ["oLevels"] as const },
   { id: "a-level", name: "A-Level/Other", fields: ["aLevels", "experiences"] as const },
   { id: "program", name: "Program Choice", fields: ["preferredProgram", "preferredCampus", "entryMode"] as const },
@@ -377,10 +377,11 @@ const generateMockAdmissionNumber = (program: string | undefined, campus: string
   if (campus) {
     campusCode = campus.split(' ').map(word => word.substring(0,1)).join('').toUpperCase();
     if (campusCode.length > 3) campusCode = campusCode.substring(0,3);
+    if (campusCode.length < 1) campusCode = "DEF"; // Default if campus name is too short for initials
   }
   
-  const appIdSuffix = appId.substring(appId.length - 4);
-  const randomDigits = Math.floor(100 + Math.random() * 900); // 3 random digits
+  const appIdSuffix = appId.substring(appId.length - Math.min(4, appId.length)); // handles short appIds
+  const randomDigits = Math.floor(100 + Math.random() * 900); 
 
   return `SIAT/${progCode}/${campusCode}/${randomDigits}-${appIdSuffix}`;
 };
@@ -443,11 +444,16 @@ export default function RegistrationDashboardPage() {
             try { const errorJson = JSON.parse(errorText); errorMsg = errorJson.message || errorMsg; } catch (e) { /* Ignore */ }
             toast({ variant: "destructive", title: "Fetch Error", description: errorMsg });
             
+            let initialFullName = session.fullName || "";
+            if (!initialFullName && form.getValues("fullName")) { // if form has name but session doesn't
+                initialFullName = form.getValues("fullName")!;
+            }
+
             form.reset({
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
-                fullName: session.fullName || "", 
+                fullName: initialFullName, 
                 admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
             });
             setCompletedApplicationData(null); 
@@ -459,11 +465,13 @@ export default function RegistrationDashboardPage() {
         if (result.success && result.data) {
             const fetchedData = result.data as NewIntakeApplicationData & { surname?: string; firstname?: string; othername?: string; full_name?: string};
             
-            let finalFullName = fetchedData.full_name; // Prefer direct full_name if API provides it
-            if (!finalFullName && fetchedData.surname && fetchedData.firstname) { // Construct if parts are provided and full_name isn't
+            let finalFullName = fetchedData.full_name;
+            if (!finalFullName && fetchedData.surname && fetchedData.firstname) {
                 finalFullName = `${fetchedData.surname} ${fetchedData.firstname}${fetchedData.othername ? ' ' + fetchedData.othername : ''}`.trim();
-            } else if (!finalFullName && session.fullName) { // Fallback to session fullName
+            } else if (!finalFullName && session.fullName) {
                 finalFullName = session.fullName;
+            } else if (!finalFullName && form.getValues("fullName")) { // last resort from form state if available
+                finalFullName = form.getValues("fullName")!;
             }
 
 
@@ -498,11 +506,15 @@ export default function RegistrationDashboardPage() {
                 setCurrentTab(formTabs[0].id);
             }
         } else { 
+            let initialFullName = session.fullName || "";
+            if (!initialFullName && form.getValues("fullName")) {
+                 initialFullName = form.getValues("fullName")!;
+            }
             form.reset({
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
-                fullName: session.fullName || "",
+                fullName: initialFullName,
                 admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
             });
             setCompletedApplicationData(null);
@@ -512,11 +524,15 @@ export default function RegistrationDashboardPage() {
     } catch (error: any) {
         console.error("Error fetching applicant data:", error);
         toast({ variant: "destructive", title: "Network Error", description: "Could not fetch your application data." });
+         let initialFullName = session.fullName || "";
+            if (!initialFullName && form.getValues("fullName")) {
+                 initialFullName = form.getValues("fullName")!;
+            }
         form.reset({
             ...form.formState.defaultValues,
             applicationId: session.appId,
             email: session.email,
-            fullName: session.fullName || "",
+            fullName: initialFullName,
             admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
         });
         setCompletedApplicationData(null);
@@ -744,7 +760,7 @@ export default function RegistrationDashboardPage() {
 
   const handlePrintAdmissionLetter = () => {
     const content = admissionLetterContentRef.current;
-    if (content) {
+    if (content && completedApplicationData) { // Ensure completedApplicationData is available
       const printWindow = window.open('', '', 'height=800,width=600');
       if (printWindow) {
         printWindow.document.write('<html><head><title>Provisional Admission Letter</title>');
@@ -787,14 +803,16 @@ export default function RegistrationDashboardPage() {
         toast({ variant: "destructive", title: "Print Error", description: "Could not open print window." });
       }
     } else {
-      toast({ variant: "destructive", title: "Print Error", description: "Could not find content to print." });
+      toast({ variant: "destructive", title: "Print Error", description: "Admission data not available to print." });
     }
   };
 
   const currentStepperStepIndex = applicationCompletionSteps.findIndex(step => step.id === currentTab);
-  const appStatus = completedApplicationData?.admissionStatus || applicantSession?.admissionStatus || "Not Submitted";
-  const currentFormData = completedApplicationData || form.getValues();
-  const generatedAdmissionNo = appStatus === "Admitted" ? generateMockAdmissionNumber(currentFormData.preferredProgram, currentFormData.preferredCampus, currentFormData.applicationId) : "N/A";
+  const displayAppStatus = completedApplicationData?.admissionStatus || applicantSession?.admissionStatus || "Not Submitted";
+  
+  const generatedAdmissionNo = (completedApplicationData && completedApplicationData.admissionStatus === "Admitted")
+    ? generateMockAdmissionNumber(completedApplicationData.preferredProgram, completedApplicationData.preferredCampus, completedApplicationData.applicationId)
+    : "(Pending Admission)";
 
 
   if (isFetchingData || !applicantSession) { 
@@ -826,7 +844,7 @@ export default function RegistrationDashboardPage() {
         </Carousel>
 
       <div className="grid md:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {appStatus === "Not Submitted" && (
+        {displayAppStatus === "Not Submitted" && (
           <div className="md:col-span-4 lg:col-span-3 p-4 md:p-6 bg-background rounded-lg shadow-lg">
             <h3 className="text-lg font-semibold text-primary mb-6">Application Progress</h3>
             <div className="relative space-y-8">
@@ -867,7 +885,7 @@ export default function RegistrationDashboardPage() {
         )}
 
         <div id="application-form-area" className={cn(
-          appStatus === "Not Submitted" ? "md:col-span-8 lg:col-span-9" : "md:col-span-12" 
+          displayAppStatus === "Not Submitted" ? "md:col-span-8 lg:col-span-9" : "md:col-span-12" 
         )}>
             <Card className="shadow-xl border-primary/10">
                 <CardHeader>
@@ -875,7 +893,7 @@ export default function RegistrationDashboardPage() {
                     <CardDescription>Application ID: <span className="font-semibold text-accent">{applicantSession.appId}</span></CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {appStatus === "Not Submitted" && (
+                    {displayAppStatus === "Not Submitted" && (
                         <div className="flex items-center p-4 bg-muted/50 rounded-md">
                             <FileClock className="h-8 w-8 text-destructive mr-4" />
                             <div>
@@ -884,7 +902,7 @@ export default function RegistrationDashboardPage() {
                             </div>
                         </div>
                     )}
-                    {appStatus === "Pending" && (
+                    {displayAppStatus === "Pending" && (
                         <div className="flex items-center p-4 bg-secondary/20 rounded-md">
                             <Hourglass className="h-8 w-8 text-secondary-foreground mr-4" />
                             <div>
@@ -893,12 +911,12 @@ export default function RegistrationDashboardPage() {
                             </div>
                         </div>
                     )}
-                    {appStatus === "Admitted" && currentFormData && (
+                    {completedApplicationData && completedApplicationData.admissionStatus === "Admitted" && (
                         <div className="flex flex-col sm:flex-row items-center p-4 bg-primary/10 rounded-md">
                             <UserCheck className="h-10 w-10 text-primary mr-4 mb-2 sm:mb-0" />
                             <div className="text-center sm:text-left">
-                                <p className="font-semibold text-xl text-primary">Congratulations, {currentFormData.fullName || applicantSession.fullName || "Applicant"}! You have been Admitted!</p>
-                                <p className="text-sm text-muted-foreground">You have been provisionally admitted to study <span className="font-semibold">{currentFormData.preferredProgram}</span>. 
+                                <p className="font-semibold text-xl text-primary">Congratulations, {completedApplicationData.fullName || "Applicant"}! You have been Admitted!</p>
+                                <p className="text-sm text-muted-foreground">You have been provisionally admitted to study <span className="font-semibold">{completedApplicationData.preferredProgram || "(Program not specified)"}</span>. 
                                 Your Admission Number is <span className="font-semibold text-accent">{generatedAdmissionNo}</span>.
                                 Further instructions will be communicated shortly.</p>
                                 <Button className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => setIsAdmissionLetterDialogOpen(true)}>
@@ -907,15 +925,15 @@ export default function RegistrationDashboardPage() {
                             </div>
                         </div>
                     )}
-                    {appStatus === "Not Admitted" && currentFormData && (
+                    {completedApplicationData && completedApplicationData.admissionStatus === "Not Admitted" && (
                         <div className="flex items-center p-4 bg-destructive/10 rounded-md">
                             <XCircle className="h-8 w-8 text-destructive mr-4" />
                             <div>
                                 <p className="font-semibold text-lg text-destructive">Admission Status Update</p>
                                 <p className="text-sm text-muted-foreground">
-                                    We regret to inform you that your application for {currentFormData.preferredProgram} was not successful at this time.
-                                    {currentFormData.rejectionReason && currentFormData.rejectionReason !== "No specific reason provided." && (
-                                        <span className="block mt-1">Reason: {currentFormData.rejectionReason}</span>
+                                    We regret to inform you that your application for {completedApplicationData.preferredProgram || "(Program not specified)"} was not successful at this time.
+                                    {completedApplicationData.rejectionReason && completedApplicationData.rejectionReason !== "No specific reason provided." && (
+                                        <span className="block mt-1">Reason: {completedApplicationData.rejectionReason}</span>
                                     )}
                                 </p>
                                 <p className="text-sm text-muted-foreground mt-1">We wish you the best in your future endeavors.</p>
@@ -932,7 +950,7 @@ export default function RegistrationDashboardPage() {
                 </CardFooter>
             </Card>
 
-            {appStatus === "Not Submitted" && (
+            {displayAppStatus === "Not Submitted" && (
                 <Card className="w-full shadow-xl border-2 border-primary/10 mt-8">
                     <CardHeader className="text-center">
                         <CardTitle className="text-xl md:text-2xl font-bold text-primary">Complete Your Application Form</CardTitle>
@@ -1273,7 +1291,7 @@ export default function RegistrationDashboardPage() {
       </div>
 
 
-        {currentFormData && appStatus === "Admitted" && (
+        {completedApplicationData && completedApplicationData.admissionStatus === "Admitted" && (
           <PrintDialog open={isAdmissionLetterDialogOpen} onOpenChange={setIsAdmissionLetterDialogOpen}>
             <PrintDialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
               <PrintDialogHeader>
@@ -1295,27 +1313,27 @@ export default function RegistrationDashboardPage() {
                       <div className="applicant-details mb-4">
                           <p><strong>Date:</strong> {format(new Date(), "PPP")}</p>
                            <div className="details-grid">
-                                <p><strong>Applicant Name:</strong> {currentFormData.fullName || "N/A"}</p>
-                                <p><strong>Application ID:</strong> {currentFormData.applicationId}</p>
-                                <p><strong>Date of Birth:</strong> {currentFormData.dateOfBirth ? format(new Date(currentFormData.dateOfBirth), "PPP") : "N/A"}</p>
-                                <p><strong>Gender:</strong> {currentFormData.gender || "N/A"}</p>
-                                <p><strong>Phone Number:</strong> {currentFormData.phoneNumber || "N/A"}</p>
-                                <p><strong>Email:</strong> {currentFormData.email || "N/A"}</p>
-                                <p className="col-span-2"><strong>Address:</strong> {currentFormData.address || "N/A"}</p>
+                                <p><strong>Applicant Name:</strong> {completedApplicationData.fullName || "(Data not provided)"}</p>
+                                <p><strong>Application ID:</strong> {completedApplicationData.applicationId || "(Data not provided)"}</p>
+                                <p><strong>Date of Birth:</strong> {completedApplicationData.dateOfBirth ? format(new Date(completedApplicationData.dateOfBirth), "PPP") : "(Data not provided)"}</p>
+                                <p><strong>Gender:</strong> {completedApplicationData.gender || "(Data not provided)"}</p>
+                                <p><strong>Phone Number:</strong> {completedApplicationData.phoneNumber || "(Data not provided)"}</p>
+                                <p><strong>Email:</strong> {completedApplicationData.email || "(Data not provided)"}</p>
+                                <p className="col-span-2"><strong>Address:</strong> {completedApplicationData.address || "(Data not provided)"}</p>
                            </div>
                       </div>
 
                       <div className="admission-details mb-4">
-                          <p>Dear {currentFormData.fullName || "Applicant"},</p>
+                          <p>Dear {completedApplicationData.fullName || "Applicant"},</p>
                           <p className="mt-2">
                               We are pleased to inform you that you have been offered provisional admission into the <strong>Scholars Institute of Arts & Technology, Zaria</strong>
-                              to study <strong>{currentFormData.preferredProgram || "your chosen program"}</strong> for the {new Date().getFullYear()}/{new Date().getFullYear()+1} academic session.
+                              to study <strong>{completedApplicationData.preferredProgram || "(Program not specified)"}</strong> for the {new Date().getFullYear()}/{new Date().getFullYear()+1} academic session.
                           </p>
                           <p>
                             Your Admission Number for this program is: <strong className="text-accent">{generatedAdmissionNo}</strong>.
                           </p>
                           <p className="mt-2">
-                            This admission is for the <strong>{currentFormData.preferredCampus || "designated campus"}</strong> via <strong>{currentFormData.entryMode || "the specified"}</strong> entry mode.
+                            This admission is for the <strong>{completedApplicationData.preferredCampus || "(Campus not specified)"}</strong> via <strong>{completedApplicationData.entryMode || "(Entry mode not specified)"}</strong> entry mode.
                           </p>
                       </div>
 
@@ -1328,7 +1346,7 @@ export default function RegistrationDashboardPage() {
                               <li>Present original copies of your credentials for verification during departmental screening. This includes:
                                   <ul className="list-[circle] pl-5">
                                     <li>O-Level Certificate(s)</li>
-                                    {currentFormData.aLevels && currentFormData.aLevels.length > 0 && <li>A-Level/Diploma/NCE Certificate(s) (as applicable)</li>}
+                                    {completedApplicationData.aLevels && completedApplicationData.aLevels.length > 0 && <li>A-Level/Diploma/NCE Certificate(s) (as applicable)</li>}
                                     <li>Birth Certificate / Declaration of Age</li>
                                     <li>State of Origin Certificate</li>
                                     <li>Passport Photographs (4 copies)</li>
@@ -1359,7 +1377,7 @@ export default function RegistrationDashboardPage() {
                   <PrintDialogClose asChild>
                       <Button type="button" variant="outline">Close</Button>
                   </PrintDialogClose>
-                  <Button onClick={handlePrintAdmissionLetter} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                  <Button onClick={handlePrintAdmissionLetter} className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={!completedApplicationData}>
                       <Printer className="mr-2 h-4 w-4" /> Print This Letter
                   </Button>
               </PrintDialogFooter>
@@ -1370,3 +1388,4 @@ export default function RegistrationDashboardPage() {
   );
 }
     
+
