@@ -73,7 +73,7 @@ export default function ViewApplicantsPage() {
     entryMode: app.entry_mode || app.entryMode,
     admissionStatus: app.admission_status || app.admissionStatus || "Not Submitted",
     rejectionReason: app.rejection_reason || app.rejectionReason,
-    admission_number: app.admission_number || undefined, // Added for admission number
+    admission_number: app.admission_number || undefined, 
     submitted_at: app.submitted_at ? new Date(app.submitted_at) : undefined,
     
     oLevels: (app.oLevels || []).map((ol: any) => ({
@@ -87,7 +87,7 @@ export default function ViewApplicantsPage() {
     
     aLevels: (app.aLevels || []).map((al: any) => ({
         id: String(al.id || crypto.randomUUID()),
-        type: al.qualification_type || al.type, // Changed from qualification_type to type
+        type: al.qualification_type || al.type, 
         institution: al.institution,
         courseOfStudy: al.course_of_study || al.courseOfStudy, 
         gradeOrClass: al.grade_or_class || al.gradeOrClass,   
@@ -108,7 +108,7 @@ export default function ViewApplicantsPage() {
 
   const fetchApplicants = React.useCallback(async () => {
     setIsLoading(true);
-    const apiUrl = 'https://sajfoods.net/api/siat/get-applicant-data.php';
+    const apiUrl = 'https://sajfoods.net/api/siat/get-applicants.php'; // PLURAL - for all applicants
     try {
         const response = await fetch(apiUrl);
         
@@ -118,14 +118,14 @@ export default function ViewApplicantsPage() {
                 const errorData = await response.json();
                 errorDetailMessage = errorData.message || errorDetailMessage;
             } catch (jsonError) {
-                const responseText = await response.text().catch(() => `Could not read error response body.`);
+                const responseText = await response.text().catch(() => `Could not read error response body from ${apiUrl}.`);
                 errorDetailMessage = `Server Error: ${response.status}. Response from ${apiUrl}: ${responseText.substring(0, 150)}`;
                 console.error(`Non-JSON error response from ${apiUrl}:`, responseText);
             }
             console.error("API error when fetching applicants from " + apiUrl + ":", errorDetailMessage);
             toast({ variant: "destructive", title: "Failed to Fetch Applicants", description: errorDetailMessage, duration: 7000 });
             
-            const storedApplications = localStorage.getItem("completedApplications");
+            const storedApplications = localStorage.getItem("completedApplications"); // This is likely for individual applications, not all.
             if (storedApplications) {
                 try {
                     const parsedApps = JSON.parse(storedApplications);
@@ -134,7 +134,7 @@ export default function ViewApplicantsPage() {
                       index === self.findIndex((a) => a.applicationId === applicant.applicationId)
                     );
                     if (uniqueApps.length < mappedApps.length) {
-                        console.warn("Duplicate application IDs found in localStorage and filtered out.");
+                        console.warn("Duplicate application IDs found in localStorage and filtered out. (Admin View All)");
                     }
                     setApplicants(uniqueApps);
                     toast({ variant: "default", title: "Using Local Data", description: `API error (${apiUrl}), loaded applicants from local storage.`, duration: 6000});
@@ -154,10 +154,10 @@ export default function ViewApplicantsPage() {
                   index === self.findIndex((a) => a.applicationId === applicant.applicationId)
                 );
                 if (uniqueApps.length < mappedApps.length) {
-                    console.warn("Duplicate application IDs received from API and filtered out. Original:", mappedApps.length, "Unique:", uniqueApps.length);
+                    console.warn("Duplicate application IDs received from API and filtered out. Original:", mappedApps.length, "Unique:", uniqueApps.length, "(Admin View All)");
                 }
                 setApplicants(uniqueApps);
-                toast({ title: "Applicants Loaded", description: `Fetched ${uniqueApps.length} applicants from the server` });
+                toast({ title: "Applicants Loaded", description: `Fetched ${uniqueApps.length} applicants from the server: ${apiUrl}` });
             } else {
                 console.error("API did not return a successful list of applicants from " + apiUrl + ":", result.message);
                 setApplicants([]);
@@ -168,7 +168,7 @@ export default function ViewApplicantsPage() {
         console.error(`Failed to fetch applications from API ${apiUrl} (network/processing error):`, error);
         toast({ variant: "destructive", title: "API Fetch Error", description: `${error.message || `Could not fetch applicants from ${apiUrl}. Check console.`}` });
         
-        const storedApplications = localStorage.getItem("completedApplications");
+        const storedApplications = localStorage.getItem("completedApplications"); // Fallback to local storage
         if (storedApplications) {
             try {
                 const parsedApps = JSON.parse(storedApplications);
@@ -177,7 +177,7 @@ export default function ViewApplicantsPage() {
                     index === self.findIndex((a) => a.applicationId === applicant.applicationId)
                 );
                 if (uniqueUpdatedApps.length < mappedApps.length) {
-                    console.warn("Duplicate application IDs found in localStorage and filtered out during API error fallback.");
+                    console.warn("Duplicate application IDs found in localStorage and filtered out during API error fallback. (Admin View All)");
                 }
                 setApplicants(uniqueUpdatedApps);
                 toast({ variant: "default", title: "Using Local Data", description: `Fetched applicants from local storage as API (${apiUrl}) was unavailable.`, duration: 6000});
@@ -220,11 +220,11 @@ export default function ViewApplicantsPage() {
     setIsUpdatingStatus(true);
     let admissionNumberPayload: string | undefined = undefined;
 
-    if (status === "Admitted" && selectedApplicant) {
-        admissionNumberPayload = generateAdmissionNumberForCourse(selectedApplicant.preferredProgram, selectedApplicant.preferredCampus, selectedApplicant.applicationId);
-        console.log(`Generated Admission Number for ${applicantId}: ${admissionNumberPayload}. This would be sent to the backend.`);
-        // In a real app, you'd also update a central store or notify other systems.
-        // For this simulation, we'll primarily rely on the PHP script to save it.
+    const applicantToUpdate = applicants.find(app => app.applicationId === applicantId);
+
+    if (status === "Admitted" && applicantToUpdate) {
+        admissionNumberPayload = generateAdmissionNumberForCourse(applicantToUpdate.preferredProgram, applicantToUpdate.preferredCampus, applicantToUpdate.applicationId);
+        console.log(`Generated Admission Number for ${applicantId}: ${admissionNumberPayload}. This would be sent to the backend to be stored.`);
     }
 
     try {
@@ -235,19 +235,28 @@ export default function ViewApplicantsPage() {
                 applicationId: applicantId, 
                 status, 
                 rejectionReason: reason,
-                admissionNumber: admissionNumberPayload // Send generated admission number
+                admissionNumber: admissionNumberPayload 
             })
         });
         const result = await response.json();
 
         if (result.success) {
             toast({ title: "Status Updated (API)", description: `Applicant ${applicantId} status set to ${status}. ${admissionNumberPayload ? 'Admission number generated.' : ''}` });
-            await fetchApplicants(); // Refetch all applicants to get updated list including admission number
+            
+            // Refetch all applicants to get updated list including admission number.
+            // This is simpler than trying to update the specific applicant in the list with potentially new data from the server.
+            await fetchApplicants(); 
+            
+            // If the dialog was open for this applicant, we need to update its selectedApplicant state
+            // after refetching, or close it. For simplicity, let's update if it's the same.
             if (selectedApplicant && selectedApplicant.applicationId === applicantId) {
-                // Update the selectedApplicant in dialog if it's still open
-                const refreshedApplicant = (await fetch(`https://sajfoods.net/api/siat/get-applicant-data.php?appId=${applicantId}`).then(res => res.json())).data;
-                if (refreshedApplicant) {
-                  setSelectedApplicant(mapRawApplicantData(refreshedApplicant));
+                const refreshedApplicantInList = applicants.find(app => app.applicationId === applicantId);
+                if(refreshedApplicantInList) {
+                     setSelectedApplicant(refreshedApplicantInList);
+                } else {
+                    // If somehow not found after refetch (unlikely if API was successful), close dialog.
+                    setIsDetailDialogOpen(false);
+                    setSelectedApplicant(null);
                 }
             }
         } else {
@@ -257,41 +266,31 @@ export default function ViewApplicantsPage() {
         console.error("Error updating status via API:", error);
         toast({ variant: "destructive", title: "API Update Error", description: error.message || "Could not update status via API." });
         
-        // Fallback to local storage update for prototype
-        if (typeof window !== 'undefined') {
-            const storedApplications = localStorage.getItem("completedApplications");
-            let existingApplications: NewIntakeApplicationData[] = storedApplications ? JSON.parse(storedApplications) : [];
-            const appIndex = existingApplications.findIndex(app => String(app.applicationId) === String(applicantId));
+        // Fallback to local storage update for prototype if API fails (less ideal as admin list might get out of sync with DB)
+        // Consider removing this local fallback if API is the single source of truth.
+        const currentApplicants = [...applicants];
+        const appIndex = currentApplicants.findIndex(app => String(app.applicationId) === String(applicantId));
 
-            if (appIndex > -1) {
-                existingApplications[appIndex].admissionStatus = status;
-                if (status === "Not Admitted") {
-                    existingApplications[appIndex].rejectionReason = reason || "No specific reason provided.";
-                } else if (status === "Admitted" && admissionNumberPayload) {
-                    existingApplications[appIndex].admission_number = admissionNumberPayload;
-                    delete existingApplications[appIndex].rejectionReason;
-                }
-                localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
-                
-                const updatedApplicants = existingApplications.map(mapRawApplicantData);
-                 const uniqueUpdatedApps = updatedApplicants.filter((app, index, self) =>
-                    index === self.findIndex((a) => a.applicationId === applicant.applicationId)
-                );
-                setApplicants(uniqueUpdatedApps);
-
-
-                if (selectedApplicant && String(selectedApplicant.applicationId) === String(applicantId)) {
-                    setSelectedApplicant(prev => prev ? {...prev, admissionStatus: status, rejectionReason: status === "Not Admitted" ? reason : undefined, admission_number: status === "Admitted" ? admissionNumberPayload : prev.admission_number } : null);
-                }
-                toast({ title: "Local Status Updated", description: "Status updated in local storage due to API error." });
-            } else {
-                 toast({ variant: "destructive", title: "Local Update Failed", description: "Applicant not found in local storage for update." });
+        if (appIndex > -1) {
+            currentApplicants[appIndex].admissionStatus = status;
+            if (status === "Not Admitted") {
+                currentApplicants[appIndex].rejectionReason = reason || "No specific reason provided.";
+            } else if (status === "Admitted" && admissionNumberPayload) {
+                currentApplicants[appIndex].admission_number = admissionNumberPayload;
+                delete currentApplicants[appIndex].rejectionReason;
             }
+            setApplicants(currentApplicants); // Update main list state
+
+            if (selectedApplicant && String(selectedApplicant.applicationId) === String(applicantId)) {
+                setSelectedApplicant(currentApplicants[appIndex]); // Update dialog state
+            }
+            toast({ title: "Local Status Updated (Fallback)", description: "Status updated in local view due to API error." });
+        } else {
+             toast({ variant: "destructive", title: "Local Update Failed", description: "Applicant not found in local list for update." });
         }
     } finally {
         setIsUpdatingStatus(false);
         if (isRejectionReasonDialogOpen) setIsRejectionReasonDialogOpen(false);
-         // No need to directly close detail dialog, let user do it or if status changed, dialog will reflect it.
     }
   };
 
@@ -314,13 +313,15 @@ export default function ViewApplicantsPage() {
         return <Badge variant="default" className="bg-primary text-primary-foreground"><CheckCircle className="mr-1 h-3 w-3"/>Admitted</Badge>;
       case "Not Admitted":
         return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3"/>Not Admitted</Badge>;
+      case "Pending":
+        return <Badge variant="secondary" className="bg-yellow-500 text-yellow-900"><Hourglass className="mr-1 h-3 w-3"/>Pending Review</Badge>;
       default: 
-        return <Badge variant="secondary"><Hourglass className="mr-1 h-3 w-3"/>Pending Review</Badge>;
+        return <Badge variant="outline"><FileClock className="mr-1 h-3 w-3"/>Not Submitted</Badge>;
     }
   };
 
 
-  if (isLoading) {
+  if (isLoading && applicants.length === 0) { // Show loader only on initial load
     return (
         <div className="flex items-center justify-center min-h-[calc(100vh-10rem)]">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -343,9 +344,15 @@ export default function ViewApplicantsPage() {
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="text-xl text-primary">Submitted Applications ({applicants.length})</CardTitle>
+           {isLoading && applicants.length > 0 && ( // Show subtle loading indicator for refetches
+                <div className="flex items-center text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Refreshing applicant list...
+                </div>
+            )}
         </CardHeader>
         <CardContent>
-          {applicants.length === 0 ? (
+          {applicants.length === 0 && !isLoading ? (
             <p className="text-muted-foreground text-center py-8">No applications submitted yet or none found.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -406,7 +413,7 @@ export default function ViewApplicantsPage() {
             <ScrollArea className="flex-grow overflow-y-auto pr-4 -mr-2">
               <div className="space-y-4 py-2">
 
-                <h3 className="font-semibold text-primary flex items-center gap-2 mt-2 text-lg"><UserCog className="h-5 w-5"/>Personal Information</h3>
+                <h3 className="font-semibold text-primary flex items-center gap-2 mt-2 text-lg border-b pb-2"><UserCog className="h-5 w-5"/>Personal Information</h3>
                 {selectedApplicant.photograph && selectedApplicant.photograph.name && (
                      <div className="my-2">
                         <p className="text-sm font-medium text-muted-foreground col-span-1 mb-1">Photograph:</p>
@@ -430,7 +437,7 @@ export default function ViewApplicantsPage() {
                 <ApplicationDetailItem label="State of Origin" value={selectedApplicant.stateOfOrigin} />
                 <ApplicationDetailItem label="Nationality" value={selectedApplicant.nationality} />
                 
-                <h4 className="font-medium text-primary/90 flex items-center gap-2 pt-3 border-t mt-4 text-md"><HeartHandshake className="h-5 w-5"/>Next of Kin</h4>
+                <h4 className="font-medium text-primary/90 flex items-center gap-2 pt-3 mt-3 text-md"><HeartHandshake className="h-5 w-5"/>Next of Kin</h4>
                 <ApplicationDetailItem label="Name" value={selectedApplicant.nextOfKinName} />
                 <ApplicationDetailItem label="Phone" value={selectedApplicant.nextOfKinPhone} />
                 <ApplicationDetailItem label="Relationship" value={selectedApplicant.nextOfKinRelationship} />
@@ -452,6 +459,8 @@ export default function ViewApplicantsPage() {
                     <ApplicationDetailItem label="Certificate" value={ol.file?.name ? `${ol.file.name} (${ol.file.size ? (ol.file.size / 1024).toFixed(1) + 'KB' : 'Size N/A'})` : "N/A"} />
                   </div>
                 ))}
+                 {(!selectedApplicant.oLevels || selectedApplicant.oLevels.length === 0) && <p className="text-sm text-muted-foreground">No O-Level qualifications provided.</p>}
+
 
                 {selectedApplicant.aLevels && selectedApplicant.aLevels.length > 0 && (
                   <>
@@ -505,17 +514,17 @@ export default function ViewApplicantsPage() {
                  <Button 
                     onClick={() => handleSetAdmissionStatus(selectedApplicant.applicationId, "Admitted")} 
                     className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                    disabled={(selectedApplicant.admissionStatus === "Admitted" && !isUpdatingStatus) || (isUpdatingStatus && selectedApplicant.admissionStatus !== "Admitted")}
+                    disabled={selectedApplicant.admissionStatus === "Admitted" || isUpdatingStatus}
                   >
-                    {isUpdatingStatus && selectedApplicant.admissionStatus !== "Admitted" && !(selectedApplicant.admissionStatus === "Not Admitted" && selectedApplicant.admissionStatus !== "Pending") ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
+                    {isUpdatingStatus && selectedApplicant.admissionStatus !== "Admitted" && selectedApplicant.admissionStatus !== "Not Admitted" ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
                      Admit Applicant
                   </Button>
                   <Button 
                     onClick={() => openRejectionReasonDialog(selectedApplicant)} 
                     variant="destructive"
-                    disabled={(selectedApplicant.admissionStatus === "Not Admitted" && !isUpdatingStatus) || (isUpdatingStatus && selectedApplicant.admissionStatus !== "Not Admitted")}
+                    disabled={selectedApplicant.admissionStatus === "Not Admitted" || isUpdatingStatus}
                   >
-                     {isUpdatingStatus && selectedApplicant.admissionStatus !== "Not Admitted" && !(selectedApplicant.admissionStatus === "Admitted") ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>}
+                     {isUpdatingStatus && selectedApplicant.admissionStatus !== "Not Admitted" && selectedApplicant.admissionStatus !== "Admitted" ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <XCircle className="mr-2 h-4 w-4"/>}
                      Decline Admission
                   </Button>
               </div>
@@ -532,7 +541,6 @@ export default function ViewApplicantsPage() {
             setIsRejectionReasonDialogOpen(isOpen);
             if (!isOpen && !isUpdatingStatus) { 
                 setRejectionReasonInput(""); 
-                // setSelectedApplicant(null); // Clear applicant if rejection dialog is closed without action
             }
         }}>
             <DialogContent className="sm:max-w-md">
@@ -564,5 +572,5 @@ export default function ViewApplicantsPage() {
       )}
     </div>
   );
-}
 
+    
