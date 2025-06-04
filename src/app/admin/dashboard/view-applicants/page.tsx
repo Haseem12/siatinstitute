@@ -60,21 +60,21 @@ export default function ViewApplicantsPage() {
     
     oLevels: (app.oLevels || []).map((ol: any) => ({
         id: String(ol.id || crypto.randomUUID()),
-        examType: ol.exam_type || ol.examType, // Map from exam_type
-        examYear: ol.exam_year || ol.examYear, // Map from exam_year
-        examNumber: ol.exam_number || ol.examNumber, // Map from exam_number
+        examType: ol.exam_type || ol.examType, 
+        examYear: ol.exam_year || ol.examYear, 
+        examNumber: ol.exam_number || ol.examNumber,
         subjects: (ol.subjects || []).map((s: any) => ({ ...s, id: String(s.id || crypto.randomUUID()) })),
-        file: ol.file || (ol.certificate_file_name ? { name: ol.certificate_file_name, type: ol.certificate_file_type, size: parseInt(ol.certificate_file_size, 10) } : null),
+        file: ol.file || (ol.certificate_file_name ? { name: ol.certificate_file_name, type: ol.certificate_file_type, size: parseInt(app.photograph_size, 10) } : null),
     })),
     
     aLevels: (app.aLevels || []).map((al: any) => ({
         id: String(al.id || crypto.randomUUID()),
-        type: al.qualification_type || al.type, // Map from qualification_type
+        type: al.qualification_type || al.type,
         institution: al.institution,
-        courseOfStudy: al.course_of_study || al.courseOfStudy, // Map from course_of_study
-        gradeOrClass: al.grade_or_class || al.gradeOrClass,   // Map from grade_or_class
-        yearAwarded: al.year_awarded || al.yearAwarded,     // Map from year_awarded
-        file: al.file || (al.certificate_file_name ? { name: al.certificate_file_name, type: al.certificate_file_type, size: parseInt(al.certificate_file_size, 10) } : null),
+        courseOfStudy: al.course_of_study || al.courseOfStudy, 
+        gradeOrClass: al.grade_or_class || al.gradeOrClass,   
+        yearAwarded: al.year_awarded || al.yearAwarded,     
+        file: al.file || (al.certificate_file_name ? { name: al.certificate_file_name, type: al.certificate_file_type, size: parseInt(String(al.certificate_file_size || al.size || 0), 10) } : null),
     })),
     
     experiences: (app.experiences || []).map((exp: any) => ({
@@ -83,14 +83,14 @@ export default function ViewApplicantsPage() {
         role: exp.role,
         startDate: exp.start_date || exp.startDate,
         endDate: exp.end_date || exp.endDate,
-        file: exp.file || (exp.document_file_name ? { name: exp.document_file_name, type: exp.document_file_type, size: parseInt(exp.document_file_size, 10) } : null),
+        file: exp.file || (exp.document_file_name ? { name: exp.document_file_name, type: exp.document_file_type, size: parseInt(String(exp.document_file_size || exp.size || 0), 10) } : null),
     })),
   });
 
 
   const fetchApplicants = React.useCallback(async () => {
     setIsLoading(true);
-    const apiUrl = 'https://sajfoods.net/api/siat/get-applicant-data.php';
+    const apiUrl = 'https://sajfoods.net/api/siat/get-applicants.php';
     try {
         const response = await fetch(apiUrl);
         
@@ -101,18 +101,24 @@ export default function ViewApplicantsPage() {
                 errorDetailMessage = errorData.message || errorDetailMessage;
             } catch (jsonError) {
                 const responseText = await response.text().catch(() => `Could not read error response body.`);
-                errorDetailMessage = `Server Error: ${response.status}. Response: ${responseText.substring(0, 150)}`;
+                errorDetailMessage = `Server Error: ${response.status}. Response from ${apiUrl}: ${responseText.substring(0, 150)}`;
                 console.error(`Non-JSON error response from ${apiUrl}:`, responseText);
             }
-            console.error(`API error when fetching applicants from ${apiUrl}:`, errorDetailMessage);
+            console.error("API error when fetching applicants from " + apiUrl + ":", errorDetailMessage);
             toast({ variant: "destructive", title: "Failed to Fetch Applicants", description: errorDetailMessage, duration: 7000 });
             
             const storedApplications = localStorage.getItem("completedApplications");
             if (storedApplications) {
                 try {
                     const parsedApps = JSON.parse(storedApplications);
-                    const appsToSet = parsedApps.map(mapRawApplicantData);
-                    setApplicants(appsToSet);
+                    const mappedApps = parsedApps.map(mapRawApplicantData);
+                    const uniqueApps = mappedApps.filter((applicant, index, self) =>
+                      index === self.findIndex((a) => a.applicationId === applicant.applicationId)
+                    );
+                    if (uniqueApps.length < mappedApps.length) {
+                        console.warn("Duplicate application IDs found in localStorage and filtered out.");
+                    }
+                    setApplicants(uniqueApps);
                     toast({ variant: "default", title: "Using Local Data", description: `API error (${apiUrl}), loaded applicants from local storage.`, duration: 6000});
                 } catch (parseError) {
                     console.error("Failed to parse local applications after API error:", parseError);
@@ -125,11 +131,17 @@ export default function ViewApplicantsPage() {
         } else { 
             const result = await response.json();
             if (result.success && Array.isArray(result.data)) {
-                const appsToSet = result.data.map(mapRawApplicantData);
-                setApplicants(appsToSet);
-                toast({ title: "Applicants Loaded", description: `Fetched ${appsToSet.length} applicants from the server.` });
+                const mappedApps = result.data.map(mapRawApplicantData);
+                const uniqueApps = mappedApps.filter((applicant, index, self) =>
+                  index === self.findIndex((a) => a.applicationId === applicant.applicationId)
+                );
+                if (uniqueApps.length < mappedApps.length) {
+                    console.warn("Duplicate application IDs received from API and filtered out. Original:", mappedApps.length, "Unique:", uniqueApps.length);
+                }
+                setApplicants(uniqueApps);
+                toast({ title: "Applicants Loaded", description: `Fetched ${uniqueApps.length} applicants from the server.` });
             } else {
-                console.error("API did not return a successful list of applicants:", result.message);
+                console.error("API did not return a successful list of applicants from " + apiUrl + ":", result.message);
                 setApplicants([]);
                 toast({ variant: "destructive", title: "Fetch Error", description: result.message || `Could not fetch applicants from ${apiUrl}.` });
             }
@@ -142,8 +154,14 @@ export default function ViewApplicantsPage() {
         if (storedApplications) {
             try {
                 const parsedApps = JSON.parse(storedApplications);
-                const appsToSet = parsedApps.map(mapRawApplicantData);
-                setApplicants(appsToSet);
+                const mappedApps = parsedApps.map(mapRawApplicantData);
+                const uniqueApps = mappedApps.filter((applicant, index, self) =>
+                    index === self.findIndex((a) => a.applicationId === applicant.applicationId)
+                );
+                if (uniqueApps.length < mappedApps.length) {
+                    console.warn("Duplicate application IDs found in localStorage and filtered out during API error fallback.");
+                }
+                setApplicants(uniqueApps);
                 toast({ variant: "default", title: "Using Local Data", description: `Fetched applicants from local storage as API (${apiUrl}) was unavailable.`, duration: 6000});
             } catch (parseError) {
                 console.error("Failed to parse local applications:", parseError);
@@ -218,7 +236,11 @@ export default function ViewApplicantsPage() {
                 localStorage.setItem("completedApplications", JSON.stringify(existingApplications));
                 
                 const updatedApplicants = existingApplications.map(mapRawApplicantData);
-                setApplicants(updatedApplicants);
+                 const uniqueUpdatedApps = updatedApplicants.filter((applicant, index, self) =>
+                    index === self.findIndex((a) => a.applicationId === applicant.applicationId)
+                );
+                setApplicants(uniqueUpdatedApps);
+
 
                 if (selectedApplicant && String(selectedApplicant.applicationId) === String(applicantId)) {
                     setSelectedApplicant(prev => prev ? {...prev, admissionStatus: status, rejectionReason: status === "Not Admitted" ? reason : undefined } : null);
@@ -231,11 +253,19 @@ export default function ViewApplicantsPage() {
     } finally {
         setIsUpdatingStatus(false);
         if (isRejectionReasonDialogOpen) setIsRejectionReasonDialogOpen(false);
+        if (!isRejectionReasonDialogOpen && isDetailDialogOpen && selectedApplicant?.applicationId === applicantId) {
+          // If the main dialog is still open and it's the same applicant, refresh its data
+          // This is a simplified refresh; a more robust solution might refetch this single applicant's full details
+          const refreshedApplicant = applicants.find(app => app.applicationId === applicantId);
+          if (refreshedApplicant) {
+            setSelectedApplicant(refreshedApplicant);
+          }
+        }
     }
   };
 
   const openRejectionReasonDialog = (applicant: NewIntakeApplicationData) => {
-    setSelectedApplicant(applicant);
+    setSelectedApplicant(applicant); // Ensure selectedApplicant is set before opening this dialog
     setRejectionReasonInput(applicant.rejectionReason || "");
     setIsRejectionReasonDialogOpen(true);
   };
@@ -244,7 +274,7 @@ export default function ViewApplicantsPage() {
     if (selectedApplicant) {
       handleSetAdmissionStatus(selectedApplicant.applicationId, "Not Admitted", rejectionReasonInput);
     }
-    setRejectionReasonInput("");
+    // Don't clear rejectionReasonInput here, it's cleared when dialog closes if not submitted
   };
 
 
@@ -325,7 +355,10 @@ export default function ViewApplicantsPage() {
       {selectedApplicant && (
         <Dialog open={isDetailDialogOpen} onOpenChange={(isOpen) => {
             setIsDetailDialogOpen(isOpen);
-            if(!isOpen) setSelectedApplicant(null); 
+            if(!isOpen) {
+                setSelectedApplicant(null); 
+                setRejectionReasonInput(""); // Clear reason if main dialog closes
+            }
         }}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader>
@@ -441,7 +474,7 @@ export default function ViewApplicantsPage() {
                     className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     disabled={(selectedApplicant.admissionStatus === "Admitted" && !isUpdatingStatus) || (isUpdatingStatus && selectedApplicant.admissionStatus !== "Admitted")}
                   >
-                    {isUpdatingStatus && selectedApplicant.admissionStatus !== "Admitted" && !(selectedApplicant.admissionStatus === "Not Admitted") ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
+                    {isUpdatingStatus && selectedApplicant.admissionStatus !== "Admitted" && !(selectedApplicant.admissionStatus === "Not Admitted" && selectedApplicant.admissionStatus !== "Pending") ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <CheckCircle className="mr-2 h-4 w-4"/>}
                      Admit Applicant
                   </Button>
                   <Button 
@@ -463,11 +496,10 @@ export default function ViewApplicantsPage() {
 
       {selectedApplicant && (
         <Dialog open={isRejectionReasonDialogOpen} onOpenChange={(isOpen) => {
-            if (!isOpen && !isUpdatingStatus) { 
-                // No setSelectedApplicant(null) here, so main dialog can re-open with same applicant
-                setRejectionReasonInput("");
-            }
             setIsRejectionReasonDialogOpen(isOpen);
+            if (!isOpen && !isUpdatingStatus) { 
+                setRejectionReasonInput(""); // Clear if just closing without submit
+            }
         }}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
@@ -499,7 +531,3 @@ export default function ViewApplicantsPage() {
     </div>
   );
 }
-
-    
-
-    
