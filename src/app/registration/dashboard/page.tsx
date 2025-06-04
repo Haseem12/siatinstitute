@@ -160,7 +160,7 @@ const registrationDashboardFormSchema = z.object({
   terms: z.boolean().refine(val => val === true, "You must agree to the terms."),
   admissionStatus: z.enum(["Pending", "Admitted", "Not Admitted", "Not Submitted"]).optional(),
   rejectionReason: z.string().optional(),
-  admission_number: z.string().optional(), // Added for admission number
+  admission_number: z.string().optional(), 
 });
 
 type FormValues = z.infer<typeof registrationDashboardFormSchema>;
@@ -205,7 +205,7 @@ interface PreviewItemProps {
   label: string;
   value?: string | number | null | React.ReactNode;
 }
-const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
+const PreviewItemDisplay: React.FC<PreviewItemProps> = ({ label, value }) => (
   <div className="flex flex-col sm:flex-row sm:justify-between py-1 text-sm">
     <dt className="font-medium text-muted-foreground">{label}:</dt>
     <dd className="text-foreground sm:text-right break-words">{String(value === undefined || value === null || String(value).trim() === '' ? "(Data not provided)" : value)}</dd>
@@ -322,7 +322,7 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, itemInde
       </Button>
       <h4 className="font-medium text-primary">{title} {itemIndex + 1}</h4>
       
-      <FormField control={control} name={`${fieldNamePrefix}.${itemIndex}.type`} render={({ field }) => ( // Use type for aLevels
+      <FormField control={control} name={`${fieldNamePrefix}.${itemIndex}.type`} render={({ field }) => ( 
         <FormItem><FormLabel>{itemType === 'aLevel' ? 'Qualification Type' : 'Experience Type'}</FormLabel>
           <Select onValueChange={field.onChange} defaultValue={field.value}>
             <FormControl><SelectTrigger><SelectValue placeholder={`Select ${itemType === 'aLevel' ? 'type' : 'experience type'}`} /></SelectTrigger></FormControl>
@@ -386,7 +386,7 @@ interface ApplicantSessionData {
     email: string;
     fullName?: string; 
     admissionStatus?: string;
-    admission_number?: string; // Added for admission number
+    admission_number?: string;
 }
 
 
@@ -683,7 +683,7 @@ export default function RegistrationDashboardPage() {
         file: processFileUpload(exp.fileInput) || exp.file 
       })) || [],
       admissionStatus: "Pending", 
-      admission_number: data.admission_number // Keep existing if any
+      admission_number: data.admission_number 
     };
 
     delete (applicationDataToSubmit as any).photographFile;
@@ -800,18 +800,15 @@ export default function RegistrationDashboardPage() {
         );
         printWindow.document.write('</head><body>');
         const rootStyles = getComputedStyle(document.documentElement);
-        const cssVars = `--primary: ${rootStyles.getPropertyValue('--primary')}; --foreground: ${rootStyles.getPropertyValue('--foreground')};`;
+        const cssVars = `--primary: ${rootStyles.getPropertyValue('--primary')}; --foreground: ${rootStyles.getPropertyValue('--foreground')}; --accent: ${rootStyles.getPropertyValue('--accent')};`;
         printWindow.document.write(`<div style="${cssVars}">`); 
         
         let contentHtml = content.innerHTML;
-        // Ensure ArewaLogo is replaced by an img tag for printing compatibility
         const logoPlaceholder = content.querySelector('[data-arewa-logo]');
         if (logoPlaceholder) {
             const logoImgHtml = `<img src="/assets/arewa-logo.svg" alt="Institute Logo" style="max-height: 70px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" data-ai-hint="school logo print" />`;
             contentHtml = contentHtml.replace(logoPlaceholder.outerHTML, logoImgHtml);
         }
-
-
         printWindow.document.write(contentHtml);
         printWindow.document.write('</div></body></html>');
         printWindow.document.close();
@@ -933,7 +930,7 @@ export default function RegistrationDashboardPage() {
                             <div className="text-center sm:text-left">
                                 <p className="font-semibold text-xl text-primary">Congratulations, {completedApplicationData.fullName || "Applicant"}! You have been Admitted!</p>
                                 <p className="text-sm text-muted-foreground">You have been provisionally admitted to study <span className="font-semibold">{completedApplicationData.preferredProgram || "(Program not specified)"}</span>. 
-                                Your Admission Number is <span className="font-semibold text-accent">{completedApplicationData.admission_number || "(Not yet assigned)"}</span>.
+                                Your Admission Number is <span className="font-semibold text-accent">{completedApplicationData.admission_number || "(Not yet assigned by admin)"}</span>.
                                 Further instructions will be communicated shortly.</p>
                                 <Button className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => setIsAdmissionLetterDialogOpen(true)}>
                                     <Printer className="mr-2 h-4 w-4" /> Print Provisional Admission Letter
@@ -1195,7 +1192,7 @@ export default function RegistrationDashboardPage() {
 
                                     <div className="space-y-4">
                                         <h3 className="font-semibold text-lg text-primary border-b pb-1">Bio-data</h3>
-                                        <PreviewItem label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || form.getValues("photograph")?.name || "(Not uploaded)"} />
+                                        <PreviewItemDisplay label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || form.getValues("photograph")?.name || "(Not uploaded)"} />
                                         {photographPreview ? (
                                             <div className="text-center">
                                                 <Image src={photographPreview} alt="Photograph Preview" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="application passport photo"/>
@@ -1205,31 +1202,31 @@ export default function RegistrationDashboardPage() {
                                                 <Image src={`https://placehold.co/100x100.png?text=PHOTO`} alt="Photograph" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="applicant passport photo"/>
                                             </div>
                                         ) : null}
-                                        <PreviewItem label="Full Name" value={form.getValues("fullName")} />
-                                        <PreviewItem label="Email" value={form.getValues("email")} />
-                                        <PreviewItem label="Phone Number" value={form.getValues("phoneNumber")} />
-                                        <PreviewItem label="Date of Birth" value={form.getValues("dateOfBirth") ? format(form.getValues("dateOfBirth")!, "PPP") : "(Data not provided)"} />
-                                        <PreviewItem label="Gender" value={form.getValues("gender")} />
-                                        <PreviewItem label="Address" value={form.getValues("address")} />
-                                        <PreviewItem label="City" value={form.getValues("city")} />
-                                        <PreviewItem label="State of Origin" value={form.getValues("stateOfOrigin")} />
-                                        <PreviewItem label="Nationality" value={form.getValues("nationality")} />
+                                        <PreviewItemDisplay label="Full Name" value={form.getValues("fullName")} />
+                                        <PreviewItemDisplay label="Email" value={form.getValues("email")} />
+                                        <PreviewItemDisplay label="Phone Number" value={form.getValues("phoneNumber")} />
+                                        <PreviewItemDisplay label="Date of Birth" value={form.getValues("dateOfBirth") ? format(form.getValues("dateOfBirth")!, "PPP") : "(Data not provided)"} />
+                                        <PreviewItemDisplay label="Gender" value={form.getValues("gender")} />
+                                        <PreviewItemDisplay label="Address" value={form.getValues("address")} />
+                                        <PreviewItemDisplay label="City" value={form.getValues("city")} />
+                                        <PreviewItemDisplay label="State of Origin" value={form.getValues("stateOfOrigin")} />
+                                        <PreviewItemDisplay label="Nationality" value={form.getValues("nationality")} />
 
 
                                         <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Next of Kin</h3>
-                                        <PreviewItem label="Full Name" value={form.getValues("nextOfKinName")} />
-                                        <PreviewItem label="Phone" value={form.getValues("nextOfKinPhone")} />
-                                        <PreviewItem label="Relationship" value={form.getValues("nextOfKinRelationship")} />
+                                        <PreviewItemDisplay label="Full Name" value={form.getValues("nextOfKinName")} />
+                                        <PreviewItemDisplay label="Phone" value={form.getValues("nextOfKinPhone")} />
+                                        <PreviewItemDisplay label="Relationship" value={form.getValues("nextOfKinRelationship")} />
 
                                         <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">O-Level Qualifications</h3>
                                         {form.getValues("oLevels").map((ol, i) => (
                                             <div key={ol.id} className="p-3 border rounded-md bg-muted/30">
                                                 <p className="font-medium">O-Level Sitting {i + 1}: {ol.examType} ({ol.examYear})</p>
-                                                <PreviewItem label="Exam No" value={ol.examNumber || "(Not provided)"}/>
+                                                <PreviewItemDisplay label="Exam No" value={ol.examNumber || "(Not provided)"}/>
                                                 <ul className="list-disc list-inside pl-4 text-sm">
                                                     {(ol.subjects || []).map(sub => <li key={sub.id}>{sub.subject}: {sub.grade}</li>)}
                                                 </ul>
-                                                <PreviewItem label="Certificate" value={processFileUpload(ol.fileInput)?.name || ol.file?.name || "(Not uploaded)"} />
+                                                <PreviewItemDisplay label="Certificate" value={processFileUpload(ol.fileInput)?.name || ol.file?.name || "(Not uploaded)"} />
                                             </div>
                                         ))}
 
@@ -1239,11 +1236,11 @@ export default function RegistrationDashboardPage() {
                                                 {form.getValues("aLevels")!.map((al, i) => (
                                                 <div key={al.id} className="p-3 border rounded-md bg-muted/30">
                                                     <p className="font-medium">Qualification {i + 1}: {al.type}</p>
-                                                    <PreviewItem label="Institution" value={al.institution} />
-                                                    <PreviewItem label="Course" value={al.courseOfStudy || "(Not provided)"} />
-                                                    <PreviewItem label="Grade/Class" value={al.gradeOrClass || "(Not provided)"} />
-                                                    <PreviewItem label="Year Awarded" value={al.yearAwarded} />
-                                                    <PreviewItem label="Certificate" value={processFileUpload(al.fileInput)?.name || al.file?.name || "(Not uploaded)"} />
+                                                    <PreviewItemDisplay label="Institution" value={al.institution} />
+                                                    <PreviewItemDisplay label="Course" value={al.courseOfStudy || "(Not provided)"} />
+                                                    <PreviewItemDisplay label="Grade/Class" value={al.gradeOrClass || "(Not provided)"} />
+                                                    <PreviewItemDisplay label="Year Awarded" value={al.yearAwarded} />
+                                                    <PreviewItemDisplay label="Certificate" value={processFileUpload(al.fileInput)?.name || al.file?.name || "(Not uploaded)"} />
                                                 </div>
                                                 ))}
                                             </>
@@ -1255,17 +1252,17 @@ export default function RegistrationDashboardPage() {
                                                 {form.getValues("experiences")!.map((exp, i) => (
                                                 <div key={exp.id} className="p-3 border rounded-md bg-muted/30">
                                                     <p className="font-medium">Experience {i + 1}: {exp.role} at {exp.organization}</p>
-                                                    <PreviewItem label="Duration" value={`${exp.startDate || "(Not provided)"} to ${exp.endDate || "(Not provided)"}`} />
-                                                    <PreviewItem label="Document" value={processFileUpload(exp.fileInput)?.name || exp.file?.name || "(Not uploaded)"} />
+                                                    <PreviewItemDisplay label="Duration" value={`${exp.startDate || "(Not provided)"} to ${exp.endDate || "(Not provided)"}`} />
+                                                    <PreviewItemDisplay label="Document" value={processFileUpload(exp.fileInput)?.name || exp.file?.name || "(Not uploaded)"} />
                                                 </div>
                                                 ))}
                                             </>
                                         )}
 
                                         <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Program Choice</h3>
-                                        <PreviewItem label="Preferred Program" value={form.getValues("preferredProgram")} />
-                                        <PreviewItem label="Preferred Campus" value={form.getValues("preferredCampus")} />
-                                        <PreviewItem label="Entry Mode" value={form.getValues("entryMode")} />
+                                        <PreviewItemDisplay label="Preferred Program" value={form.getValues("preferredProgram")} />
+                                        <PreviewItemDisplay label="Preferred Campus" value={form.getValues("preferredCampus")} />
+                                        <PreviewItemDisplay label="Entry Mode" value={form.getValues("entryMode")} />
                                     </div>
                                     <FormField control={form.control} name="terms" render={({ field }) => (
                                             <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow mt-6">
@@ -1310,7 +1307,7 @@ export default function RegistrationDashboardPage() {
           <PrintDialog open={isAdmissionLetterDialogOpen} onOpenChange={setIsAdmissionLetterDialogOpen}>
             <PrintDialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
               <PrintDialogHeader>
-                  <PrintDialogTitle className="text-primary text-xl">Provisional Admission Letter</PrintDialogTitle>
+                  <PrintDialogTitle className="text-primary text-xl">Provisional Admission Letter for {completedApplicationData.fullName || "Applicant"}</PrintDialogTitle>
                   <PrintDialogDescription>
                       Please print this letter for your records. Official letter will be provided upon physical verification.
                   </PrintDialogDescription>
@@ -1403,3 +1400,4 @@ export default function RegistrationDashboardPage() {
   );
 }
     
+

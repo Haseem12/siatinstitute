@@ -108,7 +108,7 @@ export default function ViewApplicantsPage() {
 
   const fetchApplicants = React.useCallback(async () => {
     setIsLoading(true);
-    const apiUrl = 'https://sajfoods.net/api/siat/get-applicants.php';
+    const apiUrl = 'https://sajfoods.net/api/siat/get-applicant-data.php';
     try {
         const response = await fetch(apiUrl);
         
@@ -157,7 +157,7 @@ export default function ViewApplicantsPage() {
                     console.warn("Duplicate application IDs received from API and filtered out. Original:", mappedApps.length, "Unique:", uniqueApps.length);
                 }
                 setApplicants(uniqueApps);
-                toast({ title: "Applicants Loaded", description: `Fetched ${uniqueApps.length} applicants from the server: ${apiUrl}.` });
+                toast({ title: "Applicants Loaded", description: `Fetched ${uniqueApps.length} applicants from the server` });
             } else {
                 console.error("API did not return a successful list of applicants from " + apiUrl + ":", result.message);
                 setApplicants([]);
