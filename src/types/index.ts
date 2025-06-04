@@ -135,9 +135,9 @@ export type NewIntakeApplicationData = {
   nextOfKinRelationship: string;
 
   // Step 2: Qualifications
-  qualifications: QualificationUpload[]; // Will now hold both O-Levels and A-Levels structured similarly
-  oLevels?: QualificationUpload[]; // Kept for form structure, will be mapped to qualifications
-  aLevels?: QualificationUpload[]; // Kept for form structure, will be mapped to qualifications
+  qualifications?: QualificationUpload[]; // Will now hold both O-Levels and A-Levels structured similarly
+  oLevels?: QualificationUpload[]; 
+  aLevels?: QualificationUpload[]; 
 
 
   // Step 3: Experience (optional)
@@ -149,8 +149,10 @@ export type NewIntakeApplicationData = {
   entryMode: "UTME" | "Direct Entry" | "Transfer" | "";
 
   // Admission Status
-  admissionStatus?: "Pending" | "Admitted" | "Not Admitted";
+  admissionStatus?: "Pending" | "Admitted" | "Not Admitted" | "Not Submitted";
   rejectionReason?: string; // Reason if admission is not granted
+  admission_number?: string; // Added for admission number
+  submitted_at?: Date; // Added from admin view
 };
 
 // Added for instructor/admin
@@ -185,4 +187,3 @@ export type PreRegisteredUser = {
   email: string;
   password?: string; // Should be hashed in a real app
 };
-

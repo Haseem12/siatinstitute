@@ -132,8 +132,8 @@ const experienceSchema = z.object({
 
 const registrationDashboardFormSchema = z.object({
   applicationId: z.string(),
-  fullName: z.string().optional(), // Will be populated from pre-reg, disabled on form
-  email: z.string().email("Invalid email address."), // Will be populated from pre-reg, disabled on form
+  fullName: z.string().optional(), 
+  email: z.string().email("Invalid email address."), 
   phoneNumber: z.string().min(10, "Valid phone number is required."),
   dateOfBirth: z.date({ required_error: "Date of birth is required." }),
   gender: z.enum(["Male", "Female", "Other"], { required_error: "Gender is required." }),
@@ -160,6 +160,7 @@ const registrationDashboardFormSchema = z.object({
   terms: z.boolean().refine(val => val === true, "You must agree to the terms."),
   admissionStatus: z.enum(["Pending", "Admitted", "Not Admitted", "Not Submitted"]).optional(),
   rejectionReason: z.string().optional(),
+  admission_number: z.string().optional(), // Added for admission number
 });
 
 type FormValues = z.infer<typeof registrationDashboardFormSchema>;
@@ -303,25 +304,25 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
 
 interface ALevelSittingItemProps {
   control: any;
-  aLevelIndex: number;
-  removeALevelSitting: (index: number) => void;
+  itemIndex: number; // Generic index
+  removeItem: (index: number) => void;
   form: ReturnType<typeof useForm<FormValues>>;
   itemType: 'aLevel' | 'experience';
 }
 
-const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIndex, removeALevelSitting, form, itemType }) => {
+const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, itemIndex, removeItem, form, itemType }) => {
   const fieldNamePrefix = itemType === 'aLevel' ? 'aLevels' : 'experiences';
   const title = itemType === 'aLevel' ? 'A-Level/Other Qualification' : 'Work Experience';
   const typeOptions = itemType === 'aLevel' ? aLevelQualificationTypes : experienceTypes;
 
   return (
     <Card className="p-4 space-y-4 relative bg-muted/50">
-      <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeALevelSitting(aLevelIndex)}>
+      <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeItem(itemIndex)}>
         <Trash2 className="h-4 w-4" /><span className="sr-only">Remove {title}</span>
       </Button>
-      <h4 className="font-medium text-primary">{title} {aLevelIndex + 1}</h4>
+      <h4 className="font-medium text-primary">{title} {itemIndex + 1}</h4>
       
-      <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.type`} render={({ field }) => (
+      <FormField control={control} name={`${fieldNamePrefix}.${itemIndex}.type`} render={({ field }) => ( // Use type for aLevels
         <FormItem><FormLabel>{itemType === 'aLevel' ? 'Qualification Type' : 'Experience Type'}</FormLabel>
           <Select onValueChange={field.onChange} defaultValue={field.value}>
             <FormControl><SelectTrigger><SelectValue placeholder={`Select ${itemType === 'aLevel' ? 'type' : 'experience type'}`} /></SelectTrigger></FormControl>
@@ -329,48 +330,50 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, aLevelIn
           </Select><FormMessage /></FormItem>
       )} />
       
-      <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.institution`} render={({ field }) => (
+      <FormField control={control} name={`${fieldNamePrefix}.${itemIndex}.${itemType === 'aLevel' ? 'institution' : 'organization'}`} render={({ field }) => (
         <FormItem><FormLabel>{itemType === 'aLevel' ? 'Institution Name' : 'Organization Name'}</FormLabel><FormControl><Input placeholder={itemType === 'aLevel' ? 'Name of school/body' : 'Company Name'} {...field} /></FormControl><FormMessage /></FormItem>
       )} />
 
       {itemType === 'aLevel' && (
-        <FormField control={control} name={`aLevels.${aLevelIndex}.courseOfStudy`} render={({ field }) => (
+        <FormField control={control} name={`aLevels.${itemIndex}.courseOfStudy`} render={({ field }) => (
             <FormItem><FormLabel>Course of Study (if applicable)</FormLabel><FormControl><Input placeholder="e.g. Computer Engineering" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
       )}
        {itemType === 'experience' && (
-        <FormField control={control} name={`experiences.${aLevelIndex}.role`} render={({ field }) => ( 
+        <FormField control={control} name={`experiences.${itemIndex}.role`} render={({ field }) => ( 
             <FormItem><FormLabel>Role/Position</FormLabel><FormControl><Input placeholder="e.g. Software Developer Intern" {...field} /></FormControl><FormMessage /></FormItem>
         )} />
       )}
 
       <div className="grid md:grid-cols-2 gap-4">
         {itemType === 'aLevel' && (
-            <FormField control={control} name={`aLevels.${aLevelIndex}.gradeOrClass`} render={({ field }) => (
+            <>
+            <FormField control={control} name={`aLevels.${itemIndex}.gradeOrClass`} render={({ field }) => (
             <FormItem><FormLabel>Grade/Class of Pass</FormLabel><FormControl><Input placeholder="e.g. Distinction, 10 points" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
+            <FormField control={control} name={`aLevels.${itemIndex}.yearAwarded`} render={({ field }) => ( 
+            <FormItem><FormLabel>Year Awarded</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            </>
         )}
          {itemType === 'experience' && (
             <>
-            <FormField control={control} name={`experiences.${aLevelIndex}.startDate`} render={({ field }) => ( 
+            <FormField control={control} name={`experiences.${itemIndex}.startDate`} render={({ field }) => ( 
                 <FormItem><FormLabel>Start Date</FormLabel><FormControl><Input type="month" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={control} name={`experiences.${aLevelIndex}.endDate`} render={({ field }) => ( 
+            <FormField control={control} name={`experiences.${itemIndex}.endDate`} render={({ field }) => ( 
                 <FormItem><FormLabel>End Date (or 'Present')</FormLabel><FormControl><Input type="text" placeholder="YYYY-MM or Present" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             </>
         )}
-        <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.yearAwarded`} render={({ field }) => ( 
-          <FormItem><FormLabel>{itemType === 'aLevel' ? 'Year Awarded' : 'Year Completed (approx)'}</FormLabel><FormControl><Input type="number" placeholder="YYYY" {...field} /></FormControl><FormMessage /></FormItem>
-        )} />
       </div>
-      <FormField control={control} name={`${fieldNamePrefix}.${aLevelIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
+      <FormField control={control} name={`${fieldNamePrefix}.${itemIndex}.fileInput`} render={({ field: { onChange, value, ...rest } }) => (
         <FormItem><FormLabel>Upload Certificate/Document (PDF, JPG, PNG - Max 2MB)</FormLabel>
           <FormControl><Input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold" /></FormControl>
           <FormMessage />
           {value && value.length > 0 && <p className="text-xs text-muted-foreground">Selected: {value[0].name}</p>}
-           {form.getValues(`${fieldNamePrefix}.${aLevelIndex}.file`) && (!value || value.length === 0) && (
-            <p className="text-xs text-muted-foreground">Previously uploaded: {form.getValues(`${fieldNamePrefix}.${aLevelIndex}.file`)?.name}</p>
+           {form.getValues(`${fieldNamePrefix}.${itemIndex}.file`) && (!value || value.length === 0) && (
+            <p className="text-xs text-muted-foreground">Previously uploaded: {form.getValues(`${fieldNamePrefix}.${itemIndex}.file`)?.name}</p>
           )}
         </FormItem>
       )} />
@@ -383,24 +386,9 @@ interface ApplicantSessionData {
     email: string;
     fullName?: string; 
     admissionStatus?: string;
+    admission_number?: string; // Added for admission number
 }
 
-const generateMockAdmissionNumber = (program: string | undefined, campus: string | undefined, appId: string | undefined): string => {
-  if (!program || !appId) return "(Not Generated)";
-  const progCode = program.substring(0, 3).toUpperCase();
-  
-  let campusCode = "CAMP";
-  if (campus) {
-    campusCode = campus.split(' ').map(word => word.substring(0,1)).join('').toUpperCase();
-    if (campusCode.length > 3) campusCode = campusCode.substring(0,3);
-    if (campusCode.length < 1) campusCode = "DEF";
-  }
-  
-  const appIdSuffix = appId.substring(appId.length - Math.min(4, appId.length));
-  const randomDigits = Math.floor(100 + Math.random() * 900); 
-
-  return `SIAT/${progCode}/${campusCode}/${randomDigits}-${appIdSuffix}`;
-};
 
 export default function RegistrationDashboardPage() {
   const router = useRouter();
@@ -432,6 +420,7 @@ export default function RegistrationDashboardPage() {
       terms: false,
       admissionStatus: "Not Submitted",
       rejectionReason: undefined,
+      admission_number: undefined,
     },
   });
 
@@ -460,13 +449,13 @@ export default function RegistrationDashboardPage() {
             try { const errorJson = JSON.parse(errorText); errorMsg = errorJson.message || errorMsg; } catch (e) { /* Ignore */ }
             toast({ variant: "destructive", title: "Fetch Error", description: errorMsg });
             
-            // Minimal reset with session data if API fails
             form.reset({
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
-                fullName: session.fullName || "", // Use session fullName if available
+                fullName: session.fullName || "",
                 admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
+                admission_number: session.admission_number || undefined,
             });
             setCompletedApplicationData(null); 
             setCurrentTab(formTabs[0].id);
@@ -477,17 +466,17 @@ export default function RegistrationDashboardPage() {
         if (result.success && result.data) {
             const fetchedData = result.data as NewIntakeApplicationData & { surname?: string; firstname?: string; othername?: string; full_name?: string};
             
-            let finalFullName = fetchedData.full_name; // Prefer full_name from 'applications' table
-            if (!finalFullName && fetchedData.surname && fetchedData.firstname) { // Fallback to parts if full_name is not there (e.g. from pre_registered_users)
+            let finalFullName = fetchedData.full_name; 
+            if (!finalFullName && fetchedData.surname && fetchedData.firstname) { 
                 finalFullName = `${fetchedData.surname} ${fetchedData.firstname}${fetchedData.othername ? ' ' + fetchedData.othername : ''}`.trim();
-            } else if (!finalFullName && session.fullName) { // Fallback to session's fullName (might be stale if user changed name elsewhere)
+            } else if (!finalFullName && session.fullName) { 
                 finalFullName = session.fullName;
             }
 
 
             form.reset({
-                ...form.formState.defaultValues, // Start with defaults
-                ...fetchedData,                   // Override with fetched data
+                ...form.formState.defaultValues, 
+                ...fetchedData,                   
                 applicationId: fetchedData.applicationId || session.appId,
                 email: fetchedData.email || session.email,
                 fullName: finalFullName || "", 
@@ -496,11 +485,11 @@ export default function RegistrationDashboardPage() {
                 oLevels: fetchedData.oLevels?.map(ol => ({ ...ol, fileInput: null, subjects: ol.subjects || [] })) || [],
                 aLevels: fetchedData.aLevels?.map(al => ({ ...al, fileInput: null })) || [],
                 experiences: fetchedData.experiences?.map(exp => ({ ...exp, fileInput: null })) || [],
-                terms: !!fetchedData.applicationId, // Assume terms agreed if application ID exists from fetched data (meaning it was submitted)
-                admissionStatus: fetchedData.admissionStatus || session.admissionStatus || "Not Submitted"
+                terms: !!fetchedData.applicationId,
+                admissionStatus: fetchedData.admissionStatus || session.admissionStatus || "Not Submitted",
+                admission_number: fetchedData.admission_number || session.admission_number || undefined,
             });
             
-            // Explicitly set completedApplicationData with potentially constructed fullName
             const fullDataForState: NewIntakeApplicationData = {
                 ...fetchedData,
                 applicationId: fetchedData.applicationId || session.appId,
@@ -510,19 +499,20 @@ export default function RegistrationDashboardPage() {
                  oLevels: fetchedData.oLevels?.map(ol => ({ ...ol, subjects: ol.subjects || [] })) || [],
                  aLevels: fetchedData.aLevels || [],
                  experiences: fetchedData.experiences || [],
-                 admissionStatus: fetchedData.admissionStatus || session.admissionStatus || "Not Submitted"
+                 admissionStatus: fetchedData.admissionStatus || session.admissionStatus || "Not Submitted",
+                 admission_number: fetchedData.admission_number || session.admission_number || undefined,
             };
             setCompletedApplicationData(fullDataForState);
 
             if (fetchedData.photograph?.name) { 
-                 setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); // Placeholder for actual image URL
+                 setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); 
             }
-            // Update localStorage session with potentially new/updated fullName and admissionStatus
             localStorage.setItem("currentApplicantSession", JSON.stringify({
                 appId: fullDataForState.applicationId,
                 email: fullDataForState.email,
                 fullName: fullDataForState.fullName,
-                admissionStatus: fullDataForState.admissionStatus
+                admissionStatus: fullDataForState.admissionStatus,
+                admission_number: fullDataForState.admission_number
             }));
 
             if (fullDataForState.admissionStatus === "Admitted" || fullDataForState.admissionStatus === "Not Admitted" || fullDataForState.admissionStatus === "Pending") {
@@ -537,6 +527,7 @@ export default function RegistrationDashboardPage() {
                 email: session.email,
                 fullName: session.fullName || "",
                 admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
+                admission_number: session.admission_number || undefined,
             });
             setCompletedApplicationData(null);
             toast({ title: "Application Data", description: result.message || "No previous application data found. Please fill the form." });
@@ -551,6 +542,7 @@ export default function RegistrationDashboardPage() {
             email: session.email,
             fullName: session.fullName || "",
             admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
+            admission_number: session.admission_number || undefined,
         });
         setCompletedApplicationData(null);
         setCurrentTab(formTabs[0].id);
@@ -648,7 +640,7 @@ export default function RegistrationDashboardPage() {
   };
   const handleAddExperience = () => {
      if ((experienceFields?.length || 0) < MAX_EXPERIENCES) {
-      appendExperience({ id: crypto.randomUUID(), organization: "", role: "", startDate:"", endDate:"", yearAwarded: "", fileInput: null, file: undefined }); // Added yearAwarded for consistency with type, thought it's not used for experience
+      appendExperience({ id: crypto.randomUUID(), organization: "", role: "", startDate:"", endDate:"", fileInput: null, file: undefined }); 
     } else {
       toast({ title: "Limit Reached", description: `Maximum ${MAX_EXPERIENCES} work experiences.`, variant: "destructive" });
     }
@@ -691,6 +683,7 @@ export default function RegistrationDashboardPage() {
         file: processFileUpload(exp.fileInput) || exp.file 
       })) || [],
       admissionStatus: "Pending", 
+      admission_number: data.admission_number // Keep existing if any
     };
 
     delete (applicationDataToSubmit as any).photographFile;
@@ -719,11 +712,12 @@ export default function RegistrationDashboardPage() {
         if (result.success) {
             toast({ title: "Application Submitted Successfully!", description: `API: ${result.message}. Your application (ID: ${applicationDataToSubmit.applicationId}) is now under review.`, duration: 7000 });
             setCompletedApplicationData(applicationDataToSubmit); 
-             if (applicantSession) { // Update session in localStorage
+             if (applicantSession) { 
                 localStorage.setItem("currentApplicantSession", JSON.stringify({
                     ...applicantSession,
                     fullName: applicationDataToSubmit.fullName || applicantSession.fullName,
-                    admissionStatus: "Pending"
+                    admissionStatus: "Pending",
+                    admission_number: applicationDataToSubmit.admission_number || applicantSession.admission_number
                 }));
              }
             setCurrentTab("preview"); 
@@ -785,13 +779,13 @@ export default function RegistrationDashboardPage() {
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
             .letter-container { max-width: 700px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid hsl(var(--primary)); padding-bottom: 15px; }
-            .header img { max-height: 70px; margin-bottom: 10px; }
+            .header img { max-height: 70px; margin-bottom: 10px; } /* Use img for print */
             .header h1 { margin: 0; font-size: 22px; color: hsl(var(--primary)); }
             .header h2 { margin: 5px 0; font-size: 18px; font-weight: normal; color: hsl(var(--foreground));}
             .applicant-details { margin-bottom: 20px; }
-            .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; margin-bottom: 15px; font-size: 13px; }
+            .details-grid { display: grid; grid-template-columns: auto 1fr; gap: 0 15px; margin-bottom: 15px; font-size: 13px; }
             .details-grid p { margin: 4px 0; }
-            .details-grid strong { color: hsl(var(--primary)); min-width: 120px; display: inline-block;}
+            .details-grid strong { color: hsl(var(--primary)); font-weight: 600; }
             .admission-details p { margin: 6px 0; font-size: 14px; }
             .content-section { margin-top: 20px; }
             .content-section h3 { font-size: 16px; color: hsl(var(--primary)); border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
@@ -809,10 +803,14 @@ export default function RegistrationDashboardPage() {
         const cssVars = `--primary: ${rootStyles.getPropertyValue('--primary')}; --foreground: ${rootStyles.getPropertyValue('--foreground')};`;
         printWindow.document.write(`<div style="${cssVars}">`); 
         
-        const logoHtml = `<img src="/assets/arewa-logo.svg" alt="Institute Logo" style="max-height: 70px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" data-ai-hint="school logo print" />`;
         let contentHtml = content.innerHTML;
-        // Replace the SVG logo with an img tag for printing if it's directly in the HTML, or ensure ArewaLogo renders as img
-        contentHtml = contentHtml.replace(/<svg.*?data-arewa-logo.*?svg>/s, logoHtml); // Assuming data-arewa-logo attribute on ArewaLogo component
+        // Ensure ArewaLogo is replaced by an img tag for printing compatibility
+        const logoPlaceholder = content.querySelector('[data-arewa-logo]');
+        if (logoPlaceholder) {
+            const logoImgHtml = `<img src="/assets/arewa-logo.svg" alt="Institute Logo" style="max-height: 70px; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;" data-ai-hint="school logo print" />`;
+            contentHtml = contentHtml.replace(logoPlaceholder.outerHTML, logoImgHtml);
+        }
+
 
         printWindow.document.write(contentHtml);
         printWindow.document.write('</div></body></html>');
@@ -827,12 +825,10 @@ export default function RegistrationDashboardPage() {
     }
   };
 
-  const currentStepperStepIndex = formTabs.findIndex(step => step.id === currentTab);
+  const currentStep = formTabs.findIndex(step => step.id === currentTab);
   const appStatus = completedApplicationData?.admissionStatus || applicantSession?.admissionStatus || "Not Submitted";
   
-  const generatedAdmissionNo = (completedApplicationData && completedApplicationData.admissionStatus === "Admitted")
-    ? generateMockAdmissionNumber(completedApplicationData.preferredProgram, completedApplicationData.preferredCampus, completedApplicationData.applicationId)
-    : "(Pending Admission)";
+  const currentFormData = completedApplicationData || form.getValues();
 
 
   if (isFetchingData || !applicantSession) { 
@@ -874,26 +870,26 @@ export default function RegistrationDashboardPage() {
                     <div
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center border-2",
-                        index < currentStepperStepIndex && 'bg-primary border-primary text-primary-foreground',
-                        index === currentStepperStepIndex && 'bg-accent border-accent text-accent-foreground animate-pulse',
-                        index > currentStepperStepIndex && 'bg-background border-border text-muted-foreground'
+                        index < currentStep && 'bg-primary border-primary text-primary-foreground',
+                        index === currentStep && 'bg-accent border-accent text-accent-foreground animate-pulse',
+                        index > currentStep && 'bg-background border-border text-muted-foreground'
                       )}
                     >
-                      {index < currentStepperStepIndex ? <Check className="w-5 h-5" /> : index + 1}
+                      {index < currentStep ? <Check className="w-5 h-5" /> : index + 1}
                     </div>
                     {index < applicationCompletionSteps.length - 1 && (
                       <div className={cn(
                         "w-0.5 grow mt-2",
-                        index < currentStepperStepIndex ? 'bg-primary' : 'bg-border',
-                        (applicationCompletionSteps.length - 1 - index) === 1 && index < currentStepperStepIndex ? 'h-8' : '', 
-                        (applicationCompletionSteps.length - 1 - index) > 1 || index >= currentStepperStepIndex ? 'h-10' : '' 
+                        index < currentStep ? 'bg-primary' : 'bg-border',
+                        (applicationCompletionSteps.length - 1 - index) === 1 && index < currentStep ? 'h-8' : '', 
+                        (applicationCompletionSteps.length - 1 - index) > 1 || index >= currentStep ? 'h-10' : '' 
                       )}></div>
                     )}
                   </div>
                   <div>
                     <p className={cn(
                       "font-medium",
-                      index === currentStepperStepIndex ? 'text-accent' : (index < currentStepperStepIndex ? 'text-primary' : 'text-muted-foreground')
+                      index === currentStep ? 'text-accent' : (index < currentStep ? 'text-primary' : 'text-muted-foreground')
                     )}>
                       {step.title}
                     </p>
@@ -937,7 +933,7 @@ export default function RegistrationDashboardPage() {
                             <div className="text-center sm:text-left">
                                 <p className="font-semibold text-xl text-primary">Congratulations, {completedApplicationData.fullName || "Applicant"}! You have been Admitted!</p>
                                 <p className="text-sm text-muted-foreground">You have been provisionally admitted to study <span className="font-semibold">{completedApplicationData.preferredProgram || "(Program not specified)"}</span>. 
-                                Your Admission Number is <span className="font-semibold text-accent">{generatedAdmissionNo}</span>.
+                                Your Admission Number is <span className="font-semibold text-accent">{completedApplicationData.admission_number || "(Not yet assigned)"}</span>.
                                 Further instructions will be communicated shortly.</p>
                                 <Button className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => setIsAdmissionLetterDialogOpen(true)}>
                                     <Printer className="mr-2 h-4 w-4" /> Print Provisional Admission Letter
@@ -1032,12 +1028,12 @@ export default function RegistrationDashboardPage() {
                                             <Image src={photographPreview} alt="Photograph Preview" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="applicant passport"/>
                                         </div>
                                     )}
-                                    {!photographPreview && form.getValues("photograph")?.name && ( // Display placeholder if photograph metadata exists but no preview (e.g. data fetched)
+                                    {!photographPreview && form.getValues("photograph")?.name && ( 
                                          <div className="mt-2 text-center">
                                             <Image src={`https://placehold.co/150x150.png?text=PHOTO`} alt="Photograph Placeholder" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="applicant passport photo"/>
                                         </div>
                                     )}
-                                     {!photographPreview && !form.getValues("photograph")?.name && ( // Default placeholder
+                                    {!photographPreview && !form.getValues("photograph")?.name && ( 
                                         <div className="mt-2 text-center">
                                             <div className="w-[150px] h-[150px] bg-muted rounded-md border flex items-center justify-center mx-auto">
                                                 <UserIcon className="w-16 h-16 text-muted-foreground" data-ai-hint="photo placeholder" />
@@ -1045,10 +1041,10 @@ export default function RegistrationDashboardPage() {
                                         </div>
                                     )}
                                     <FormField control={form.control} name="fullName" render={({ field }) => (
-                                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="Your full name (Surname Firstname Othername)" {...field} disabled={!!completedApplicationData?.fullName || !!applicantSession.fullName} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="Your full name (Surname Firstname Othername)" {...field} disabled={!!applicantSession.fullName} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                     <FormField control={form.control} name="email" render={({ field }) => (
-                                        <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="your.email@example.com" {...field} disabled={!!completedApplicationData?.email || !!applicantSession.email} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="your.email@example.com" {...field} disabled={!!applicantSession.email} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                     <FormField control={form.control} name="phoneNumber" render={({ field }) => (
                                         <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" placeholder="08012345678" {...field} /></FormControl><FormMessage /></FormItem>
@@ -1138,8 +1134,8 @@ export default function RegistrationDashboardPage() {
                                     <ALevelSittingItem
                                         key={item.id}
                                         control={form.control}
-                                        aLevelIndex={index}
-                                        removeALevelSitting={removeALevel}
+                                        itemIndex={index}
+                                        removeItem={removeALevel}
                                         form={form}
                                         itemType="aLevel"
                                     />
@@ -1155,8 +1151,8 @@ export default function RegistrationDashboardPage() {
                                     <ALevelSittingItem 
                                         key={item.id}
                                         control={form.control}
-                                        aLevelIndex={index} 
-                                        removeALevelSitting={removeExperience} 
+                                        itemIndex={index} 
+                                        removeItem={removeExperience} 
                                         form={form}
                                         itemType="experience"
                                     />
@@ -1323,7 +1319,7 @@ export default function RegistrationDashboardPage() {
               <ScrollArea className="flex-grow overflow-y-auto p-1">
                   <div ref={admissionLetterContentRef} className="printable-admission-letter p-4 bg-white text-black">
                       <div className="header text-center mb-6">
-                          <ArewaLogo className="h-16 w-16 mx-auto mb-2 text-[hsl(var(--primary))]" data-arewa-logo />
+                          <ArewaLogo data-arewa-logo className="h-16 w-16 mx-auto mb-2 text-[hsl(var(--primary))]" />
                           <h1 className="text-xl font-bold">SCHOLARS INSTITUTE OF ARTS & TECHNOLOGY, ZARIA</h1>
                           <h2 className="text-sm">Km 5, Zaria-Kano Road, Zaria, Kaduna State, Nigeria.</h2>
                           <p className="text-lg font-semibold mt-4">PROVISIONAL ADMISSION LETTER</p>
@@ -1338,7 +1334,7 @@ export default function RegistrationDashboardPage() {
                                 <p><strong>Gender:</strong> {completedApplicationData.gender || "(Data not provided)"}</p>
                                 <p><strong>Phone Number:</strong> {completedApplicationData.phoneNumber || "(Data not provided)"}</p>
                                 <p><strong>Email:</strong> {completedApplicationData.email || "(Data not provided)"}</p>
-                                <p className="col-span-2"><strong>Address:</strong> {completedApplicationData.address || "(Data not provided)"}</p>
+                                <p style={{ gridColumn: '1 / -1' }}><strong>Address:</strong> {completedApplicationData.address || "(Data not provided)"}</p>
                            </div>
                       </div>
 
@@ -1349,7 +1345,7 @@ export default function RegistrationDashboardPage() {
                               to study <strong>{completedApplicationData.preferredProgram || "(Program not specified)"}</strong> for the {new Date().getFullYear()}/{new Date().getFullYear()+1} academic session.
                           </p>
                           <p>
-                            Your Admission Number for this program is: <strong className="text-accent">{generatedAdmissionNo}</strong>.
+                            Your Admission Number for this program is: <strong style={{ color: 'hsl(var(--accent))' }}>{completedApplicationData.admission_number || "(Not yet assigned by admin)"}</strong>.
                           </p>
                           <p className="mt-2">
                             This admission is for the <strong>{completedApplicationData.preferredCampus || "(Campus not specified)"}</strong> via <strong>{completedApplicationData.entryMode || "(Entry mode not specified)"}</strong> entry mode.
@@ -1363,7 +1359,7 @@ export default function RegistrationDashboardPage() {
                               <li>Proceed with online course registration upon payment of school fees (details to be announced).</li>
                               <li>Undergo medical screening at the institute's designated clinic.</li>
                               <li>Present original copies of your credentials for verification during departmental screening. This includes:
-                                  <ul className="list-[circle] pl-5">
+                                  <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '5px' }}>
                                     <li>O-Level Certificate(s)/Statement(s) of Result</li>
                                     {completedApplicationData.aLevels && completedApplicationData.aLevels.length > 0 && <li>A-Level/Diploma/NCE Certificate(s) (as applicable)</li>}
                                     <li>Birth Certificate / Sworn Declaration of Age</li>
@@ -1407,4 +1403,3 @@ export default function RegistrationDashboardPage() {
   );
 }
     
-
