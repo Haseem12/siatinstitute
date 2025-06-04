@@ -43,7 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, PlusCircle, Trash2, UploadCloud, User as UserIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw, Check, MailWarning } from "lucide-react";
+import { CalendarIcon, PlusCircle, Trash2, UploadCloud, User as UserIcon, Loader2, ArrowRight, ArrowLeft, CheckCircle, XCircle, Hourglass, FileClock, UserCheck, Printer, RefreshCw, Check, MailWarning, UserCog, BookCopy, GraduationCap, HeartHandshake, Briefcase } from "lucide-react";
 import type { NewIntakeApplicationData, QualificationUpload, FileUploadInfo, PreRegisteredUser, OLevelSubject as OLevelSubjectType } from "@/types";
 import Image from "next/image";
 import {
@@ -57,6 +57,7 @@ import Autoplay from "embla-carousel-autoplay"
 import { Dialog as PrintDialog, DialogContent as PrintDialogContent, DialogHeader as PrintDialogHeader, DialogTitle as PrintDialogTitle, DialogDescription as PrintDialogDescription, DialogFooter as PrintDialogFooter, DialogClose as PrintDialogClose } from "@/components/ui/dialog";
 import ArewaLogo from "@/components/arewa-logo";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 
 const MAX_QUALIFICATIONS = 5; 
@@ -204,11 +205,12 @@ const heroSliderImages = [
 interface PreviewItemProps {
   label: string;
   value?: string | number | null | React.ReactNode;
+  className?: string;
 }
-const PreviewItemDisplay: React.FC<PreviewItemProps> = ({ label, value }) => (
-  <div className="flex flex-col sm:flex-row sm:justify-between py-1 text-sm">
-    <dt className="font-medium text-muted-foreground">{label}:</dt>
-    <dd className="text-foreground sm:text-right break-words">{String(value === undefined || value === null || String(value).trim() === '' ? "(Data not provided)" : value)}</dd>
+const PreviewItemDisplay: React.FC<PreviewItemProps> = ({ label, value, className }) => (
+  <div className={cn("flex flex-col sm:flex-row sm:justify-between py-1.5 text-sm border-b border-muted/50", className)}>
+    <dt className="font-medium text-muted-foreground min-w-[150px] sm:w-1/3">{label}:</dt>
+    <dd className="text-foreground sm:text-right break-words mt-1 sm:mt-0">{String(value === undefined || value === null || String(value).trim() === '' ? "(Data not provided)" : value)}</dd>
   </div>
 );
 
@@ -304,7 +306,7 @@ const OLevelSittingItem: React.FC<OLevelSittingItemProps> = ({ control, oLevelIn
 
 interface ALevelSittingItemProps {
   control: any;
-  itemIndex: number; // Generic index
+  itemIndex: number; 
   removeItem: (index: number) => void;
   form: ReturnType<typeof useForm<FormValues>>;
   itemType: 'aLevel' | 'experience';
@@ -322,13 +324,13 @@ const ALevelSittingItem: React.FC<ALevelSittingItemProps> = ({ control, itemInde
       </Button>
       <h4 className="font-medium text-primary">{title} {itemIndex + 1}</h4>
       
-      <FormField control={control} name={`${fieldNamePrefix}.${itemIndex}.type`} render={({ field }) => ( 
-        <FormItem><FormLabel>{itemType === 'aLevel' ? 'Qualification Type' : 'Experience Type'}</FormLabel>
+      { itemType === 'aLevel' && <FormField control={control} name={`${fieldNamePrefix}.${itemIndex}.type`} render={({ field }) => ( 
+        <FormItem><FormLabel>Qualification Type</FormLabel>
           <Select onValueChange={field.onChange} defaultValue={field.value}>
-            <FormControl><SelectTrigger><SelectValue placeholder={`Select ${itemType === 'aLevel' ? 'type' : 'experience type'}`} /></SelectTrigger></FormControl>
+            <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
             <SelectContent>{typeOptions.map(q => <SelectItem key={q} value={q}>{q}</SelectItem>)}</SelectContent>
           </Select><FormMessage /></FormItem>
-      )} />
+      )} />}
       
       <FormField control={control} name={`${fieldNamePrefix}.${itemIndex}.${itemType === 'aLevel' ? 'institution' : 'organization'}`} render={({ field }) => (
         <FormItem><FormLabel>{itemType === 'aLevel' ? 'Institution Name' : 'Organization Name'}</FormLabel><FormControl><Input placeholder={itemType === 'aLevel' ? 'Name of school/body' : 'Company Name'} {...field} /></FormControl><FormMessage /></FormItem>
@@ -435,6 +437,15 @@ export default function RegistrationDashboardPage() {
   const [isAdmissionLetterDialogOpen, setIsAdmissionLetterDialogOpen] = useState(false);
   const admissionLetterContentRef = useRef<HTMLDivElement>(null);
 
+  const formatDateSafe = (date?: Date | string) => {
+    if (!date) return "(Data not provided)";
+    try {
+      return format(new Date(date), "PPP");
+    } catch (error) {
+      console.error("Error formatting date:", date, error);
+      return "Invalid Date";
+    }
+  };
 
   const fetchAndSetInitialData = useCallback(async (session: ApplicantSessionData) => {
     setIsFetchingData(true);
@@ -721,6 +732,7 @@ export default function RegistrationDashboardPage() {
                 }));
              }
             setCurrentTab("preview"); 
+            fetchAndSetInitialData(applicantSession); // Refetch to get the latest, including any server-side changes
         } else {
             toast({ variant: "destructive", title: "API Submission Failed", description: result.message || "The application could not be submitted to the server." });
         }
@@ -825,9 +837,6 @@ export default function RegistrationDashboardPage() {
   const currentStep = formTabs.findIndex(step => step.id === currentTab);
   const appStatus = completedApplicationData?.admissionStatus || applicantSession?.admissionStatus || "Not Submitted";
   
-  const currentFormData = completedApplicationData || form.getValues();
-
-
   if (isFetchingData || !applicantSession) { 
       return (
           <div className="flex items-center justify-center min-h-[calc(100vh-var(--header-height,4rem)-var(--footer-height,4rem))]">
@@ -837,7 +846,6 @@ export default function RegistrationDashboardPage() {
       );
   }
   
-
   return (
     <div className="space-y-6">
         <Carousel opts={{ loop: true }} plugins={[Autoplay({ delay: 5000, stopOnInteraction: false })]} className="w-full shadow-lg rounded-lg overflow-hidden border-primary/10">
@@ -856,452 +864,596 @@ export default function RegistrationDashboardPage() {
             <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white bg-black/30 hover:bg-black/50" />
         </Carousel>
 
-      <div className="grid md:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {appStatus === "Not Submitted" && (
-          <div className="md:col-span-4 lg:col-span-3 p-4 md:p-6 bg-background rounded-lg shadow-lg">
-            <h3 className="text-lg font-semibold text-primary mb-6">Application Progress</h3>
-            <div className="relative space-y-8">
-              {applicationCompletionSteps.map((step, index) => (
-                <div key={step.id} className="flex items-start">
-                  <div className="flex flex-col items-center mr-4">
-                    <div
-                      className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center border-2",
-                        index < currentStep && 'bg-primary border-primary text-primary-foreground',
-                        index === currentStep && 'bg-accent border-accent text-accent-foreground animate-pulse',
-                        index > currentStep && 'bg-background border-border text-muted-foreground'
-                      )}
-                    >
-                      {index < currentStep ? <Check className="w-5 h-5" /> : index + 1}
+        <Card className="shadow-xl border-primary/10">
+            <CardHeader>
+                <CardTitle className="text-xl md:text-2xl font-bold text-primary">Application Status</CardTitle>
+                <CardDescription>Application ID: <span className="font-semibold text-accent">{applicantSession.appId}</span></CardDescription>
+            </CardHeader>
+            <CardContent>
+                {appStatus === "Not Submitted" && (
+                    <div className="flex items-center p-4 bg-muted/50 rounded-md">
+                        <FileClock className="h-8 w-8 text-destructive mr-4" />
+                        <div>
+                            <p className="font-semibold text-lg text-destructive">Status: Application Incomplete</p>
+                            <p className="text-sm text-muted-foreground">Please complete all sections of the form below and submit your application.</p>
+                        </div>
                     </div>
-                    {index < applicationCompletionSteps.length - 1 && (
-                      <div className={cn(
-                        "w-0.5 grow mt-2",
-                        index < currentStep ? 'bg-primary' : 'bg-border',
-                        (applicationCompletionSteps.length - 1 - index) === 1 && index < currentStep ? 'h-8' : '', 
-                        (applicationCompletionSteps.length - 1 - index) > 1 || index >= currentStep ? 'h-10' : '' 
-                      )}></div>
-                    )}
-                  </div>
-                  <div>
-                    <p className={cn(
-                      "font-medium",
-                      index === currentStep ? 'text-accent' : (index < currentStep ? 'text-primary' : 'text-muted-foreground')
-                    )}>
-                      {step.title}
-                    </p>
-                  </div>
+                )}
+                {appStatus === "Pending" && (
+                    <div className="flex items-center p-4 bg-secondary/20 rounded-md">
+                        <Hourglass className="h-8 w-8 text-secondary-foreground mr-4" />
+                        <div>
+                            <p className="font-semibold text-lg text-secondary-foreground">Status: Submitted - Under Review</p>
+                            <p className="text-sm text-muted-foreground">Your application has been successfully submitted and is currently under review. You will be notified of any updates.</p>
+                        </div>
+                    </div>
+                )}
+                {completedApplicationData && completedApplicationData.admissionStatus === "Admitted" && (
+                    <div className="flex flex-col sm:flex-row items-center p-4 bg-primary/10 rounded-md">
+                        <UserCheck className="h-10 w-10 text-primary mr-4 mb-2 sm:mb-0" />
+                        <div className="text-center sm:text-left">
+                            <p className="font-semibold text-xl text-primary">Congratulations, {completedApplicationData.fullName || "Applicant"}! You have been Admitted!</p>
+                            <p className="text-sm text-muted-foreground">You have been provisionally admitted to study <span className="font-semibold">{completedApplicationData.preferredProgram || "(Program not specified)"}</span>. 
+                            Your Admission Number is <span className="font-semibold text-accent">{completedApplicationData.admission_number || "(Not yet assigned by admin)"}</span>.
+                            Further instructions will be communicated shortly.</p>
+                            <Button className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => setIsAdmissionLetterDialogOpen(true)}>
+                                <Printer className="mr-2 h-4 w-4" /> Print Provisional Admission Letter
+                            </Button>
+                        </div>
+                    </div>
+                )}
+                {completedApplicationData && completedApplicationData.admissionStatus === "Not Admitted" && (
+                    <div className="flex items-center p-4 bg-destructive/10 rounded-md">
+                        <XCircle className="h-8 w-8 text-destructive mr-4" />
+                        <div>
+                            <p className="font-semibold text-lg text-destructive">Admission Status Update</p>
+                            <p className="text-sm text-muted-foreground">
+                                We regret to inform you that your application for {completedApplicationData.preferredProgram || "(Program not specified)"} was not successful at this time.
+                                {completedApplicationData.rejectionReason && completedApplicationData.rejectionReason !== "No specific reason provided." && (
+                                    <span className="block mt-1">Reason: {completedApplicationData.rejectionReason}</span>
+                                )}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">We wish you the best in your future endeavors.</p>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+            <CardFooter>
+                <Button variant="outline" onClick={() => { 
+                    if(applicantSession) fetchAndSetInitialData(applicantSession);
+                }}>
+                    <RefreshCw className="mr-2 h-4 w-4"/> Refresh Status & Data
+                </Button>
+            </CardFooter>
+        </Card>
+
+
+        {/* Conditional rendering of application form OR detailed view */}
+        {appStatus === "Not Submitted" ? (
+            <div className="grid md:grid-cols-12 gap-8 lg:gap-12 items-start mt-8" id="application-form-area">
+                 <div className="md:col-span-4 lg:col-span-3 p-4 md:p-6 bg-background rounded-lg shadow-lg">
+                    <h3 className="text-lg font-semibold text-primary mb-6">Application Progress</h3>
+                    <div className="relative space-y-8">
+                    {applicationCompletionSteps.map((step, index) => (
+                        <div key={step.id} className="flex items-start">
+                        <div className="flex flex-col items-center mr-4">
+                            <div
+                            className={cn(
+                                "w-8 h-8 rounded-full flex items-center justify-center border-2",
+                                index < currentStep && 'bg-primary border-primary text-primary-foreground',
+                                index === currentStep && 'bg-accent border-accent text-accent-foreground animate-pulse',
+                                index > currentStep && 'bg-background border-border text-muted-foreground'
+                            )}
+                            >
+                            {index < currentStep ? <Check className="w-5 h-5" /> : index + 1}
+                            </div>
+                            {index < applicationCompletionSteps.length - 1 && (
+                            <div className={cn(
+                                "w-0.5 grow mt-2",
+                                index < currentStep ? 'bg-primary' : 'bg-border',
+                                (applicationCompletionSteps.length - 1 - index) === 1 && index < currentStep ? 'h-8' : '', 
+                                (applicationCompletionSteps.length - 1 - index) > 1 || index >= currentStep ? 'h-10' : '' 
+                            )}></div>
+                            )}
+                        </div>
+                        <div>
+                            <p className={cn(
+                            "font-medium",
+                            index === currentStep ? 'text-accent' : (index < currentStep ? 'text-primary' : 'text-muted-foreground')
+                            )}>
+                            {step.title}
+                            </p>
+                        </div>
+                        </div>
+                    ))}
+                    </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div id="application-form-area" className={cn(
-          appStatus === "Not Submitted" ? "md:col-span-8 lg:col-span-9" : "md:col-span-12" 
-        )}>
-            <Card className="shadow-xl border-primary/10">
-                <CardHeader>
-                    <CardTitle className="text-xl md:text-2xl font-bold text-primary">Application Status</CardTitle>
-                    <CardDescription>Application ID: <span className="font-semibold text-accent">{applicantSession.appId}</span></CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {appStatus === "Not Submitted" && (
-                        <div className="flex items-center p-4 bg-muted/50 rounded-md">
-                            <FileClock className="h-8 w-8 text-destructive mr-4" />
-                            <div>
-                                <p className="font-semibold text-lg text-destructive">Status: Application Incomplete</p>
-                                <p className="text-sm text-muted-foreground">Please complete all sections of the form below and submit your application.</p>
-                            </div>
-                        </div>
-                    )}
-                    {appStatus === "Pending" && (
-                        <div className="flex items-center p-4 bg-secondary/20 rounded-md">
-                            <Hourglass className="h-8 w-8 text-secondary-foreground mr-4" />
-                            <div>
-                                <p className="font-semibold text-lg text-secondary-foreground">Status: Submitted - Under Review</p>
-                                <p className="text-sm text-muted-foreground">Your application has been successfully submitted and is currently under review. You will be notified of any updates.</p>
-                            </div>
-                        </div>
-                    )}
-                    {completedApplicationData && completedApplicationData.admissionStatus === "Admitted" && (
-                        <div className="flex flex-col sm:flex-row items-center p-4 bg-primary/10 rounded-md">
-                            <UserCheck className="h-10 w-10 text-primary mr-4 mb-2 sm:mb-0" />
-                            <div className="text-center sm:text-left">
-                                <p className="font-semibold text-xl text-primary">Congratulations, {completedApplicationData.fullName || "Applicant"}! You have been Admitted!</p>
-                                <p className="text-sm text-muted-foreground">You have been provisionally admitted to study <span className="font-semibold">{completedApplicationData.preferredProgram || "(Program not specified)"}</span>. 
-                                Your Admission Number is <span className="font-semibold text-accent">{completedApplicationData.admission_number || "(Not yet assigned by admin)"}</span>.
-                                Further instructions will be communicated shortly.</p>
-                                <Button className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => setIsAdmissionLetterDialogOpen(true)}>
-                                    <Printer className="mr-2 h-4 w-4" /> Print Provisional Admission Letter
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                    {completedApplicationData && completedApplicationData.admissionStatus === "Not Admitted" && (
-                        <div className="flex items-center p-4 bg-destructive/10 rounded-md">
-                            <XCircle className="h-8 w-8 text-destructive mr-4" />
-                            <div>
-                                <p className="font-semibold text-lg text-destructive">Admission Status Update</p>
-                                <p className="text-sm text-muted-foreground">
-                                    We regret to inform you that your application for {completedApplicationData.preferredProgram || "(Program not specified)"} was not successful at this time.
-                                    {completedApplicationData.rejectionReason && completedApplicationData.rejectionReason !== "No specific reason provided." && (
-                                        <span className="block mt-1">Reason: {completedApplicationData.rejectionReason}</span>
-                                    )}
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1">We wish you the best in your future endeavors.</p>
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-                <CardFooter>
-                    <Button variant="outline" onClick={() => { 
-                        if(applicantSession) fetchAndSetInitialData(applicantSession);
-                    }}>
-                        <RefreshCw className="mr-2 h-4 w-4"/> Refresh Status & Data
-                    </Button>
-                </CardFooter>
-            </Card>
-
-            {appStatus === "Not Submitted" && (
-                <Card className="w-full shadow-xl border-2 border-primary/10 mt-8">
-                    <CardHeader className="text-center">
-                        <CardTitle className="text-xl md:text-2xl font-bold text-primary">Complete Your Application Form</CardTitle>
-                        <CardDescription className="text-md">
-                        Fill all required fields in each tab. Your Application ID is <span className="font-semibold text-accent">{applicantSession.appId}</span>.
-                        </CardDescription>
-                    </CardHeader>
-
-                    <CardContent>
-                        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-                            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mb-6">
-                                {formTabs.map(tab => (
-                                <TabsTrigger key={tab.id} value={tab.id} onClick={async (e) => {
-                                    const currentTabIndex = formTabs.findIndex(t => t.id === currentTab);
-                                    const targetTabIndex = formTabs.findIndex(t => t.id === tab.id);
-                                    
-                                    if (targetTabIndex <= currentTabIndex) {
-                                        setCurrentTab(tab.id);
-                                        return;
-                                    }
-
-                                    const fieldsToValidate = formTabs[currentTabIndex].fields as FieldName[] | undefined;
-                                    if (fieldsToValidate) {
-                                        const isValid = await form.trigger(fieldsToValidate, { shouldFocus: true });
-                                        if (isValid) {
+                <div className="md:col-span-8 lg:col-span-9">
+                    <Card className="w-full shadow-xl border-primary/10">
+                        <CardHeader className="text-center">
+                            <CardTitle className="text-xl md:text-2xl font-bold text-primary">Complete Your Application Form</CardTitle>
+                            <CardDescription className="text-md">
+                            Fill all required fields in each tab.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mb-6">
+                                    {formTabs.map(tab => (
+                                    <TabsTrigger key={tab.id} value={tab.id} onClick={async (e) => {
+                                        const currentTabIndex = formTabs.findIndex(t => t.id === currentTab);
+                                        const targetTabIndex = formTabs.findIndex(t => t.id === tab.id);
+                                        
+                                        if (targetTabIndex <= currentTabIndex) {
                                             setCurrentTab(tab.id);
-                                        } else {
-                                            e.preventDefault(); 
-                                            toast({variant: "destructive", title:"Incomplete Section", description: `Please complete all required fields in the "${formTabs[currentTabIndex].name}" section before proceeding.`})
+                                            return;
                                         }
-                                    } else {
-                                        setCurrentTab(tab.id);
-                                    }
-                                }}>
-                                    {tab.name}
-                                </TabsTrigger>
-                                ))}
-                            </TabsList>
 
-                            <Form {...form}>
-                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                                <TabsContent value="bio-data" className="space-y-6 animate-in fade-in-50">
-                                    <FormField control={form.control} name="photographFile" render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Passport Photograph (JPG, PNG - Max 2MB)</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="file"
-                                                    accept="image/jpeg,image/png,image/jpg"
-                                                    onChange={handlePhotographChange}
-                                                    className="file:text-accent file:font-semibold"
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )} />
-                                    {photographPreview && (
-                                        <div className="mt-2 text-center">
-                                            <Image src={photographPreview} alt="Photograph Preview" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="applicant passport"/>
-                                        </div>
-                                    )}
-                                    {!photographPreview && form.getValues("photograph")?.name && ( 
-                                         <div className="mt-2 text-center">
-                                            <Image src={`https://placehold.co/150x150.png?text=PHOTO`} alt="Photograph Placeholder" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="applicant passport photo"/>
-                                        </div>
-                                    )}
-                                    {!photographPreview && !form.getValues("photograph")?.name && ( 
-                                        <div className="mt-2 text-center">
-                                            <div className="w-[150px] h-[150px] bg-muted rounded-md border flex items-center justify-center mx-auto">
-                                                <UserIcon className="w-16 h-16 text-muted-foreground" data-ai-hint="photo placeholder" />
-                                            </div>
-                                        </div>
-                                    )}
-                                    <FormField control={form.control} name="fullName" render={({ field }) => (
-                                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="Your full name (Surname Firstname Othername)" {...field} disabled={!!applicantSession.fullName} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="email" render={({ field }) => (
-                                        <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="your.email@example.com" {...field} disabled={!!applicantSession.email} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="phoneNumber" render={({ field }) => (
-                                        <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" placeholder="08012345678" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
-                                        <FormItem className="flex flex-col"><FormLabel>Date of Birth</FormLabel>
-                                        <Popover><PopoverTrigger asChild>
-                                            <FormControl>
-                                            <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                            </Button></FormControl></PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={field.value}
-                                                onSelect={field.onChange}
-                                                disabled={(date) => date > new Date(new Date().setFullYear(new Date().getFullYear() - 15)) || date < new Date("1950-01-01")}
-                                                initialFocus
-                                                captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()-15}
-                                            />
-                                            </PopoverContent></Popover><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name="gender" render={({ field }) => (
-                                    <FormItem><FormLabel>Gender</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Select your gender" /></SelectTrigger></FormControl>
-                                        <SelectContent>{genderOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
-                                        </Select><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="address" render={({ field }) => (
-                                    <FormItem><FormLabel>Full Residential Address</FormLabel><FormControl><Textarea placeholder="Your current address" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        <FormField control={form.control} name="city" render={({ field }) => (
-                                            <FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="e.g. Zaria" {...field} /></FormControl><FormMessage /></FormItem>
-                                        )} />
-                                        <FormField control={form.control} name="stateOfOrigin" render={({ field }) => (
-                                            <FormItem><FormLabel>State of Origin</FormLabel><FormControl><Input placeholder="e.g. Kaduna" {...field} /></FormControl><FormMessage /></FormItem>
-                                        )} />
-                                    </div>
-                                    <FormField control={form.control} name="nationality" render={({ field }) => (
-                                    <FormItem><FormLabel>Nationality</FormLabel><FormControl><Input placeholder="e.g. Nigerian" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-
-                                    <h3 className="text-lg font-semibold text-primary pt-4 border-t">Next of Kin Information</h3>
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        <FormField control={form.control} name="nextOfKinName" render={({ field }) => (
-                                            <FormItem><FormLabel>Next of Kin Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                                        )} />
-                                        <FormField control={form.control} name="nextOfKinPhone" render={({ field }) => (
-                                            <FormItem><FormLabel>Next of Kin Phone</FormLabel><FormControl><Input type="tel" {...field} /></FormControl><FormMessage /></FormItem>
-                                        )} />
-                                    </div>
-                                    <FormField control={form.control} name="nextOfKinRelationship" render={({ field }) => (
-                                        <FormItem><FormLabel>Relationship to Next of Kin</FormLabel><FormControl><Input placeholder="e.g. Father, Sister" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                </TabsContent>
-
-                                <TabsContent value="o-level" className="space-y-6 animate-in fade-in-50">
-                                    <CardTitle className="text-xl text-primary">O-Level Qualifications</CardTitle>
-                                    {oLevelFields.map((item, oLevelIndex) => (
-                                    <OLevelSittingItem
-                                        key={item.id}
-                                        control={form.control}
-                                        oLevelIndex={oLevelIndex}
-                                        removeOLevelSitting={removeOLevel}
-                                        form={form}
-                                    />
+                                        const fieldsToValidate = formTabs[currentTabIndex].fields as FieldName[] | undefined;
+                                        if (fieldsToValidate) {
+                                            const isValid = await form.trigger(fieldsToValidate, { shouldFocus: true });
+                                            if (isValid) {
+                                                setCurrentTab(tab.id);
+                                            } else {
+                                                e.preventDefault(); 
+                                                toast({variant: "destructive", title:"Incomplete Section", description: `Please complete all required fields in the "${formTabs[currentTabIndex].name}" section before proceeding.`})
+                                            }
+                                        } else {
+                                            setCurrentTab(tab.id);
+                                        }
+                                    }}>
+                                        {tab.name}
+                                    </TabsTrigger>
                                     ))}
-                                    {oLevelFields.length < MAX_O_LEVEL_SITTINGS && (
-                                        <Button type="button" variant="outline" onClick={handleAddOLevel} className="text-accent border-accent hover:bg-accent/10">
-                                            <PlusCircle className="mr-2 h-4 w-4" /> Add O-Level Sitting
-                                        </Button>
-                                    )}
-                                    {(form.formState.errors.oLevels as any)?.root && oLevelFields.length === 0 && (
-                                        <FormMessage>{(form.formState.errors.oLevels as any).root.message}</FormMessage>
-                                    )}
-                                     {form.formState.errors.oLevels && !form.formState.errors.oLevels?.root && oLevelFields.length === 0 && (
-                                        <FormMessage>At least one O-Level sitting is required.</FormMessage>
-                                     )}
-                                </TabsContent>
+                                </TabsList>
 
-                                <TabsContent value="a-level" className="space-y-6 animate-in fade-in-50">
-                                    <CardTitle className="text-xl text-primary">A-Level / Other Qualifications (Optional)</CardTitle>
-                                    {aLevelFields.map((item, index) => (
-                                    <ALevelSittingItem
-                                        key={item.id}
-                                        control={form.control}
-                                        itemIndex={index}
-                                        removeItem={removeALevel}
-                                        form={form}
-                                        itemType="aLevel"
-                                    />
-                                    ))}
-                                    {(aLevelFields?.length || 0) < MAX_QUALIFICATIONS && (
-                                        <Button type="button" variant="outline" onClick={handleAddALevel} className="text-accent border-accent hover:bg-accent/10">
-                                            <PlusCircle className="mr-2 h-4 w-4" /> Add A-Level/Other Qualification
-                                        </Button>
-                                    )}
-                                    
-                                    <CardTitle className="text-xl text-primary pt-4 border-t">Work Experience (Optional)</CardTitle>
-                                    {experienceFields.map((item, index) => (
-                                    <ALevelSittingItem 
-                                        key={item.id}
-                                        control={form.control}
-                                        itemIndex={index} 
-                                        removeItem={removeExperience} 
-                                        form={form}
-                                        itemType="experience"
-                                    />
-                                    ))}
-                                    {(experienceFields?.length || 0) < MAX_EXPERIENCES && (
-                                        <Button type="button" variant="outline" onClick={handleAddExperience} className="text-accent border-accent hover:bg-accent/10">
-                                            <PlusCircle className="mr-2 h-4 w-4" /> Add Work Experience
-                                        </Button>
-                                    )}
-                                </TabsContent>
-
-                                <TabsContent value="program" className="space-y-6 animate-in fade-in-50">
-                                    <CardTitle className="text-xl text-primary">Program and Campus Selection</CardTitle>
-                                    <FormField control={form.control} name="preferredProgram" render={({ field }) => (
-                                        <FormItem><FormLabel>Preferred Program of Study</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
-                                            <SelectContent>{availablePrograms.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
-                                            </Select><FormMessage /></FormItem>
-                                        )} />
-                                    <FormField control={form.control} name="preferredCampus" render={({ field }) => (
-                                        <FormItem><FormLabel>Preferred Campus</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Select a campus" /></SelectTrigger></FormControl>
-                                            <SelectContent>{availableCampuses.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                                            </Select><FormMessage /></FormItem>
-                                        )} />
-                                    <FormField control={form.control} name="entryMode" render={({ field }) => (
-                                        <FormItem><FormLabel>Mode of Entry</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Select entry mode" /></SelectTrigger></FormControl>
-                                            <SelectContent>{entryModes.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                                            </Select><FormMessage /></FormItem>
-                                        )} />
-                                </TabsContent>
-
-                                <TabsContent value="preview" className="space-y-6 animate-in fade-in-50">
-                                    <CardTitle className="text-xl text-primary">Application Preview</CardTitle>
-                                    <CardDescription>Please review all your information carefully before submitting.</CardDescription>
-
-                                    <div className="space-y-4">
-                                        <h3 className="font-semibold text-lg text-primary border-b pb-1">Bio-data</h3>
-                                        <PreviewItemDisplay label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || form.getValues("photograph")?.name || "(Not uploaded)"} />
-                                        {photographPreview ? (
-                                            <div className="text-center">
-                                                <Image src={photographPreview} alt="Photograph Preview" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="application passport photo"/>
-                                            </div>
-                                        ) : form.getValues("photograph")?.name ? (
-                                             <div className="text-center">
-                                                <Image src={`https://placehold.co/100x100.png?text=PHOTO`} alt="Photograph" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="applicant passport photo"/>
-                                            </div>
-                                        ) : null}
-                                        <PreviewItemDisplay label="Full Name" value={form.getValues("fullName")} />
-                                        <PreviewItemDisplay label="Email" value={form.getValues("email")} />
-                                        <PreviewItemDisplay label="Phone Number" value={form.getValues("phoneNumber")} />
-                                        <PreviewItemDisplay label="Date of Birth" value={form.getValues("dateOfBirth") ? format(form.getValues("dateOfBirth")!, "PPP") : "(Data not provided)"} />
-                                        <PreviewItemDisplay label="Gender" value={form.getValues("gender")} />
-                                        <PreviewItemDisplay label="Address" value={form.getValues("address")} />
-                                        <PreviewItemDisplay label="City" value={form.getValues("city")} />
-                                        <PreviewItemDisplay label="State of Origin" value={form.getValues("stateOfOrigin")} />
-                                        <PreviewItemDisplay label="Nationality" value={form.getValues("nationality")} />
-
-
-                                        <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Next of Kin</h3>
-                                        <PreviewItemDisplay label="Full Name" value={form.getValues("nextOfKinName")} />
-                                        <PreviewItemDisplay label="Phone" value={form.getValues("nextOfKinPhone")} />
-                                        <PreviewItemDisplay label="Relationship" value={form.getValues("nextOfKinRelationship")} />
-
-                                        <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">O-Level Qualifications</h3>
-                                        {form.getValues("oLevels").map((ol, i) => (
-                                            <div key={ol.id} className="p-3 border rounded-md bg-muted/30">
-                                                <p className="font-medium">O-Level Sitting {i + 1}: {ol.examType} ({ol.examYear})</p>
-                                                <PreviewItemDisplay label="Exam No" value={ol.examNumber || "(Not provided)"}/>
-                                                <ul className="list-disc list-inside pl-4 text-sm">
-                                                    {(ol.subjects || []).map(sub => <li key={sub.id}>{sub.subject}: {sub.grade}</li>)}
-                                                </ul>
-                                                <PreviewItemDisplay label="Certificate" value={processFileUpload(ol.fileInput)?.name || ol.file?.name || "(Not uploaded)"} />
-                                            </div>
-                                        ))}
-
-                                        {form.getValues("aLevels") && form.getValues("aLevels")!.length > 0 && (
-                                            <>
-                                                <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">A-Level/Other Qualifications</h3>
-                                                {form.getValues("aLevels")!.map((al, i) => (
-                                                <div key={al.id} className="p-3 border rounded-md bg-muted/30">
-                                                    <p className="font-medium">Qualification {i + 1}: {al.type}</p>
-                                                    <PreviewItemDisplay label="Institution" value={al.institution} />
-                                                    <PreviewItemDisplay label="Course" value={al.courseOfStudy || "(Not provided)"} />
-                                                    <PreviewItemDisplay label="Grade/Class" value={al.gradeOrClass || "(Not provided)"} />
-                                                    <PreviewItemDisplay label="Year Awarded" value={al.yearAwarded} />
-                                                    <PreviewItemDisplay label="Certificate" value={processFileUpload(al.fileInput)?.name || al.file?.name || "(Not uploaded)"} />
-                                                </div>
-                                                ))}
-                                            </>
-                                        )}
-
-                                        {form.getValues("experiences") && form.getValues("experiences")!.length > 0 && (
-                                            <>
-                                                <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Work Experience</h3>
-                                                {form.getValues("experiences")!.map((exp, i) => (
-                                                <div key={exp.id} className="p-3 border rounded-md bg-muted/30">
-                                                    <p className="font-medium">Experience {i + 1}: {exp.role} at {exp.organization}</p>
-                                                    <PreviewItemDisplay label="Duration" value={`${exp.startDate || "(Not provided)"} to ${exp.endDate || "(Not provided)"}`} />
-                                                    <PreviewItemDisplay label="Document" value={processFileUpload(exp.fileInput)?.name || exp.file?.name || "(Not uploaded)"} />
-                                                </div>
-                                                ))}
-                                            </>
-                                        )}
-
-                                        <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Program Choice</h3>
-                                        <PreviewItemDisplay label="Preferred Program" value={form.getValues("preferredProgram")} />
-                                        <PreviewItemDisplay label="Preferred Campus" value={form.getValues("preferredCampus")} />
-                                        <PreviewItemDisplay label="Entry Mode" value={form.getValues("entryMode")} />
-                                    </div>
-                                    <FormField control={form.control} name="terms" render={({ field }) => (
-                                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow mt-6">
-                                            <FormControl><input type="checkbox" checked={field.value} onChange={field.onChange} className="h-4 w-4 rounded border-primary text-primary focus:ring-primary" /></FormControl>
-                                            <div className="space-y-1 leading-none">
-                                                <FormLabel>I confirm that all information provided is accurate and complete to the best of my knowledge.</FormLabel>
+                                <Form {...form}>
+                                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                                    <TabsContent value="bio-data" className="space-y-6 animate-in fade-in-50">
+                                        <FormField control={form.control} name="photographFile" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Passport Photograph (JPG, PNG - Max 2MB)</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="file"
+                                                        accept="image/jpeg,image/png,image/jpg"
+                                                        onChange={handlePhotographChange}
+                                                        className="file:text-accent file:font-semibold"
+                                                    />
+                                                </FormControl>
                                                 <FormMessage />
-                                            </div>
                                             </FormItem>
+                                        )} />
+                                        {photographPreview && (
+                                            <div className="mt-2 text-center">
+                                                <Image src={photographPreview} alt="Photograph Preview" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="applicant passport"/>
+                                            </div>
                                         )}
-                                    />
-                                </TabsContent>
+                                        {!photographPreview && form.getValues("photograph")?.name && ( 
+                                            <div className="mt-2 text-center">
+                                                <Image src={`https://placehold.co/150x150.png?text=PHOTO`} alt="Photograph Placeholder" width={150} height={150} className="rounded-md border object-cover mx-auto" data-ai-hint="applicant passport photo"/>
+                                            </div>
+                                        )}
+                                        {!photographPreview && !form.getValues("photograph")?.name && ( 
+                                            <div className="mt-2 text-center">
+                                                <div className="w-[150px] h-[150px] bg-muted rounded-md border flex items-center justify-center mx-auto">
+                                                    <UserIcon className="w-16 h-16 text-muted-foreground" data-ai-hint="photo placeholder" />
+                                                </div>
+                                            </div>
+                                        )}
+                                        <FormField control={form.control} name="fullName" render={({ field }) => (
+                                            <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="Your full name (Surname Firstname Othername)" {...field} disabled={!!applicantSession.fullName} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="email" render={({ field }) => (
+                                            <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" placeholder="your.email@example.com" {...field} disabled={!!applicantSession.email} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="phoneNumber" render={({ field }) => (
+                                            <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" placeholder="08012345678" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
+                                            <FormItem className="flex flex-col"><FormLabel>Date of Birth</FormLabel>
+                                            <Popover><PopoverTrigger asChild>
+                                                <FormControl>
+                                                <Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button></FormControl></PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={field.value}
+                                                    onSelect={field.onChange}
+                                                    disabled={(date) => date > new Date(new Date().setFullYear(new Date().getFullYear() - 15)) || date < new Date("1950-01-01")}
+                                                    initialFocus
+                                                    captionLayout="dropdown-buttons" fromYear={1950} toYear={new Date().getFullYear()-15}
+                                                />
+                                                </PopoverContent></Popover><FormMessage /></FormItem>
+                                        )}/>
+                                        <FormField control={form.control} name="gender" render={({ field }) => (
+                                        <FormItem><FormLabel>Gender</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue placeholder="Select your gender" /></SelectTrigger></FormControl>
+                                            <SelectContent>{genderOptions.map(g => <SelectItem key={g} value={g}>{g}</SelectItem>)}</SelectContent>
+                                            </Select><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField control={form.control} name="address" render={({ field }) => (
+                                        <FormItem><FormLabel>Full Residential Address</FormLabel><FormControl><Textarea placeholder="Your current address" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <FormField control={form.control} name="city" render={({ field }) => (
+                                                <FormItem><FormLabel>City</FormLabel><FormControl><Input placeholder="e.g. Zaria" {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="stateOfOrigin" render={({ field }) => (
+                                                <FormItem><FormLabel>State of Origin</FormLabel><FormControl><Input placeholder="e.g. Kaduna" {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                        </div>
+                                        <FormField control={form.control} name="nationality" render={({ field }) => (
+                                        <FormItem><FormLabel>Nationality</FormLabel><FormControl><Input placeholder="e.g. Nigerian" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
 
-                                <CardFooter className="flex justify-between mt-8 p-0">
-                                    {formTabs.findIndex(t => t.id === currentTab) > 0 && (
-                                        <Button type="button" variant="outline" onClick={prevTab} disabled={isLoading}>
-                                        <ArrowLeft className="mr-2 h-4 w-4" /> Previous
-                                        </Button>
+                                        <h3 className="text-lg font-semibold text-primary pt-4 border-t">Next of Kin Information</h3>
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <FormField control={form.control} name="nextOfKinName" render={({ field }) => (
+                                                <FormItem><FormLabel>Next of Kin Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                            <FormField control={form.control} name="nextOfKinPhone" render={({ field }) => (
+                                                <FormItem><FormLabel>Next of Kin Phone</FormLabel><FormControl><Input type="tel" {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
+                                        </div>
+                                        <FormField control={form.control} name="nextOfKinRelationship" render={({ field }) => (
+                                            <FormItem><FormLabel>Relationship to Next of Kin</FormLabel><FormControl><Input placeholder="e.g. Father, Sister" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                    </TabsContent>
+
+                                    <TabsContent value="o-level" className="space-y-6 animate-in fade-in-50">
+                                        <CardTitle className="text-xl text-primary">O-Level Qualifications</CardTitle>
+                                        {oLevelFields.map((item, oLevelIndex) => (
+                                        <OLevelSittingItem
+                                            key={item.id}
+                                            control={form.control}
+                                            oLevelIndex={oLevelIndex}
+                                            removeOLevelSitting={removeOLevel}
+                                            form={form}
+                                        />
+                                        ))}
+                                        {oLevelFields.length < MAX_O_LEVEL_SITTINGS && (
+                                            <Button type="button" variant="outline" onClick={handleAddOLevel} className="text-accent border-accent hover:bg-accent/10">
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Add O-Level Sitting
+                                            </Button>
+                                        )}
+                                        {(form.formState.errors.oLevels as any)?.root && oLevelFields.length === 0 && (
+                                            <FormMessage>{(form.formState.errors.oLevels as any).root.message}</FormMessage>
+                                        )}
+                                        {form.formState.errors.oLevels && !form.formState.errors.oLevels?.root && oLevelFields.length === 0 && (
+                                            <FormMessage>At least one O-Level sitting is required.</FormMessage>
+                                        )}
+                                    </TabsContent>
+
+                                    <TabsContent value="a-level" className="space-y-6 animate-in fade-in-50">
+                                        <CardTitle className="text-xl text-primary">A-Level / Other Qualifications (Optional)</CardTitle>
+                                        {aLevelFields.map((item, index) => (
+                                        <ALevelSittingItem
+                                            key={item.id}
+                                            control={form.control}
+                                            itemIndex={index}
+                                            removeItem={removeALevel}
+                                            form={form}
+                                            itemType="aLevel"
+                                        />
+                                        ))}
+                                        {(aLevelFields?.length || 0) < MAX_QUALIFICATIONS && (
+                                            <Button type="button" variant="outline" onClick={handleAddALevel} className="text-accent border-accent hover:bg-accent/10">
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Add A-Level/Other Qualification
+                                            </Button>
+                                        )}
+                                        
+                                        <CardTitle className="text-xl text-primary pt-4 border-t">Work Experience (Optional)</CardTitle>
+                                        {experienceFields.map((item, index) => (
+                                        <ALevelSittingItem 
+                                            key={item.id}
+                                            control={form.control}
+                                            itemIndex={index} 
+                                            removeItem={removeExperience} 
+                                            form={form}
+                                            itemType="experience"
+                                        />
+                                        ))}
+                                        {(experienceFields?.length || 0) < MAX_EXPERIENCES && (
+                                            <Button type="button" variant="outline" onClick={handleAddExperience} className="text-accent border-accent hover:bg-accent/10">
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Add Work Experience
+                                            </Button>
+                                        )}
+                                    </TabsContent>
+
+                                    <TabsContent value="program" className="space-y-6 animate-in fade-in-50">
+                                        <CardTitle className="text-xl text-primary">Program and Campus Selection</CardTitle>
+                                        <FormField control={form.control} name="preferredProgram" render={({ field }) => (
+                                            <FormItem><FormLabel>Preferred Program of Study</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Select a program" /></SelectTrigger></FormControl>
+                                                <SelectContent>{availablePrograms.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                                                </Select><FormMessage /></FormItem>
+                                            )} />
+                                        <FormField control={form.control} name="preferredCampus" render={({ field }) => (
+                                            <FormItem><FormLabel>Preferred Campus</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Select a campus" /></SelectTrigger></FormControl>
+                                                <SelectContent>{availableCampuses.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                                                </Select><FormMessage /></FormItem>
+                                            )} />
+                                        <FormField control={form.control} name="entryMode" render={({ field }) => (
+                                            <FormItem><FormLabel>Mode of Entry</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Select entry mode" /></SelectTrigger></FormControl>
+                                                <SelectContent>{entryModes.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                                                </Select><FormMessage /></FormItem>
+                                            )} />
+                                    </TabsContent>
+
+                                    <TabsContent value="preview" className="space-y-6 animate-in fade-in-50">
+                                        <CardTitle className="text-xl text-primary">Application Preview</CardTitle>
+                                        <CardDescription>Please review all your information carefully before submitting.</CardDescription>
+
+                                        <div className="space-y-4">
+                                            <h3 className="font-semibold text-lg text-primary border-b pb-1">Bio-data</h3>
+                                            <PreviewItemDisplay label="Photograph" value={processFileUpload(form.getValues("photographFile"))?.name || form.getValues("photograph")?.name || "(Not uploaded)"} />
+                                            {photographPreview ? (
+                                                <div className="text-center">
+                                                    <Image src={photographPreview} alt="Photograph Preview" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="application passport photo"/>
+                                                </div>
+                                            ) : form.getValues("photograph")?.name ? (
+                                                <div className="text-center">
+                                                    <Image src={`https://placehold.co/100x100.png?text=PHOTO`} alt="Photograph" width={100} height={100} className="rounded-md border object-cover mx-auto shadow-md" data-ai-hint="applicant passport photo"/>
+                                                </div>
+                                            ) : null}
+                                            <PreviewItemDisplay label="Full Name" value={form.getValues("fullName")} />
+                                            <PreviewItemDisplay label="Email" value={form.getValues("email")} />
+                                            <PreviewItemDisplay label="Phone Number" value={form.getValues("phoneNumber")} />
+                                            <PreviewItemDisplay label="Date of Birth" value={form.getValues("dateOfBirth") ? format(form.getValues("dateOfBirth")!, "PPP") : "(Data not provided)"} />
+                                            <PreviewItemDisplay label="Gender" value={form.getValues("gender")} />
+                                            <PreviewItemDisplay label="Address" value={form.getValues("address")} />
+                                            <PreviewItemDisplay label="City" value={form.getValues("city")} />
+                                            <PreviewItemDisplay label="State of Origin" value={form.getValues("stateOfOrigin")} />
+                                            <PreviewItemDisplay label="Nationality" value={form.getValues("nationality")} />
+
+
+                                            <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Next of Kin</h3>
+                                            <PreviewItemDisplay label="Full Name" value={form.getValues("nextOfKinName")} />
+                                            <PreviewItemDisplay label="Phone" value={form.getValues("nextOfKinPhone")} />
+                                            <PreviewItemDisplay label="Relationship" value={form.getValues("nextOfKinRelationship")} />
+
+                                            <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">O-Level Qualifications</h3>
+                                            {form.getValues("oLevels").map((ol, i) => (
+                                                <div key={ol.id} className="p-3 border rounded-md bg-muted/30">
+                                                    <p className="font-medium">O-Level Sitting {i + 1}: {ol.examType} ({ol.examYear})</p>
+                                                    <PreviewItemDisplay label="Exam No" value={ol.examNumber || "(Not provided)"}/>
+                                                    <ul className="list-disc list-inside pl-4 text-sm">
+                                                        {(ol.subjects || []).map(sub => <li key={sub.id}>{sub.subject}: {sub.grade}</li>)}
+                                                    </ul>
+                                                    <PreviewItemDisplay label="Certificate" value={processFileUpload(ol.fileInput)?.name || ol.file?.name || "(Not uploaded)"} />
+                                                </div>
+                                            ))}
+
+                                            {form.getValues("aLevels") && form.getValues("aLevels")!.length > 0 && (
+                                                <>
+                                                    <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">A-Level/Other Qualifications</h3>
+                                                    {form.getValues("aLevels")!.map((al, i) => (
+                                                    <div key={al.id} className="p-3 border rounded-md bg-muted/30">
+                                                        <p className="font-medium">Qualification {i + 1}: {al.type}</p>
+                                                        <PreviewItemDisplay label="Institution" value={al.institution} />
+                                                        <PreviewItemDisplay label="Course" value={al.courseOfStudy || "(Not provided)"} />
+                                                        <PreviewItemDisplay label="Grade/Class" value={al.gradeOrClass || "(Not provided)"} />
+                                                        <PreviewItemDisplay label="Year Awarded" value={al.yearAwarded} />
+                                                        <PreviewItemDisplay label="Certificate" value={processFileUpload(al.fileInput)?.name || al.file?.name || "(Not uploaded)"} />
+                                                    </div>
+                                                    ))}
+                                                </>
+                                            )}
+
+                                            {form.getValues("experiences") && form.getValues("experiences")!.length > 0 && (
+                                                <>
+                                                    <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Work Experience</h3>
+                                                    {form.getValues("experiences")!.map((exp, i) => (
+                                                    <div key={exp.id} className="p-3 border rounded-md bg-muted/30">
+                                                        <p className="font-medium">Experience {i + 1}: {exp.role} at {exp.organization}</p>
+                                                        <PreviewItemDisplay label="Duration" value={`${exp.startDate || "(Not provided)"} to ${exp.endDate || "(Not provided)"}`} />
+                                                        <PreviewItemDisplay label="Document" value={processFileUpload(exp.fileInput)?.name || exp.file?.name || "(Not uploaded)"} />
+                                                    </div>
+                                                    ))}
+                                                </>
+                                            )}
+
+                                            <h3 className="font-semibold text-lg text-primary border-b pb-1 mt-6">Program Choice</h3>
+                                            <PreviewItemDisplay label="Preferred Program" value={form.getValues("preferredProgram")} />
+                                            <PreviewItemDisplay label="Preferred Campus" value={form.getValues("preferredCampus")} />
+                                            <PreviewItemDisplay label="Entry Mode" value={form.getValues("entryMode")} />
+                                        </div>
+                                        <FormField control={form.control} name="terms" render={({ field }) => (
+                                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow mt-6">
+                                                <FormControl><input type="checkbox" checked={field.value} onChange={field.onChange} className="h-4 w-4 rounded border-primary text-primary focus:ring-primary" /></FormControl>
+                                                <div className="space-y-1 leading-none">
+                                                    <FormLabel>I confirm that all information provided is accurate and complete to the best of my knowledge.</FormLabel>
+                                                    <FormMessage />
+                                                </div>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </TabsContent>
+
+                                    <CardFooter className="flex justify-between mt-8 p-0">
+                                        {formTabs.findIndex(t => t.id === currentTab) > 0 && (
+                                            <Button type="button" variant="outline" onClick={prevTab} disabled={isLoading}>
+                                            <ArrowLeft className="mr-2 h-4 w-4" /> Previous
+                                            </Button>
+                                        )}
+                                        {formTabs.findIndex(t => t.id === currentTab) < formTabs.length - 1 && (
+                                            <Button type="button" onClick={nextTab} className="ml-auto bg-accent hover:bg-accent/90 text-accent-foreground">
+                                            Next <ArrowRight className="ml-2 h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        {currentTab === formTabs[formTabs.length - 1].id && (
+                                            <Button type="submit" className="ml-auto bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading || !form.watch("terms")}>
+                                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                                            {isLoading ? "Submitting..." : "Submit Application"}
+                                            </Button>
+                                        )}
+                                    </CardFooter>
+                                    </form>
+                                </Form>
+                            </Tabs>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        ) : completedApplicationData ? (
+            // Detailed Read-Only View for Submitted Applications
+            <Card className="w-full shadow-xl border-primary/10 mt-8">
+                <CardHeader>
+                    <CardTitle className="text-xl md:text-2xl font-bold text-primary">My Submitted Application</CardTitle>
+                    <CardDescription>
+                        This is a summary of the information you submitted. Application ID: <span className="font-semibold text-accent">{completedApplicationData.applicationId}</span>
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {/* Personal Information Section */}
+                    <section>
+                        <h3 className="font-semibold text-lg text-primary flex items-center gap-2 mb-3 border-b pb-2"><UserCog className="h-5 w-5"/>Personal Information</h3>
+                        {completedApplicationData.photograph && completedApplicationData.photograph.name && (
+                            <div className="my-3 flex flex-col items-center sm:items-start">
+                                <p className="text-sm font-medium text-muted-foreground mb-1">Photograph:</p>
+                                <Image 
+                                    src={`https://placehold.co/150x150.png?text=PHOTO`} // Placeholder as actual image not stored/retrieved this way
+                                    alt="Applicant Photograph" 
+                                    width={150} height={150} 
+                                    className="rounded-md border object-cover shadow-sm"
+                                    data-ai-hint="applicant photo"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">{completedApplicationData.photograph.name} ({completedApplicationData.photograph.size ? (completedApplicationData.photograph.size / 1024).toFixed(1) + 'KB' : 'Size N/A'})</p>
+                            </div>
+                        )}
+                         {!completedApplicationData.photograph && (
+                             <div className="my-3 flex flex-col items-center sm:items-start">
+                                <p className="text-sm font-medium text-muted-foreground mb-1">Photograph:</p>
+                                <div className="w-[150px] h-[150px] bg-muted rounded-md border flex items-center justify-center">
+                                    <UserIcon className="w-16 h-16 text-muted-foreground" data-ai-hint="photo placeholder" />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">(Photograph not provided or not loaded)</p>
+                            </div>
+                        )}
+                        <PreviewItemDisplay label="Full Name" value={completedApplicationData.fullName} />
+                        <PreviewItemDisplay label="Email" value={completedApplicationData.email} />
+                        <PreviewItemDisplay label="Phone Number" value={completedApplicationData.phoneNumber} />
+                        <PreviewItemDisplay label="Date of Birth" value={formatDateSafe(completedApplicationData.dateOfBirth)} />
+                        <PreviewItemDisplay label="Gender" value={completedApplicationData.gender} />
+                        <PreviewItemDisplay label="Address" value={completedApplicationData.address} />
+                        <PreviewItemDisplay label="City" value={completedApplicationData.city} />
+                        <PreviewItemDisplay label="State of Origin" value={completedApplicationData.stateOfOrigin} />
+                        <PreviewItemDisplay label="Nationality" value={completedApplicationData.nationality} />
+                    </section>
+                    <Separator/>
+
+                    {/* Next of Kin Section */}
+                    <section>
+                        <h3 className="font-semibold text-lg text-primary flex items-center gap-2 mb-3 border-b pb-2 pt-3"><HeartHandshake className="h-5 w-5"/>Next of Kin Information</h3>
+                        <PreviewItemDisplay label="Full Name" value={completedApplicationData.nextOfKinName} />
+                        <PreviewItemDisplay label="Phone Number" value={completedApplicationData.nextOfKinPhone} />
+                        <PreviewItemDisplay label="Relationship" value={completedApplicationData.nextOfKinRelationship} />
+                    </section>
+                    <Separator/>
+                    
+                    {/* Academic Qualifications Section */}
+                    <section>
+                        <h3 className="font-semibold text-lg text-primary flex items-center gap-2 mb-3 border-b pb-2 pt-3"><BookCopy className="h-5 w-5"/>Academic Qualifications</h3>
+                        
+                        <h4 className="font-medium text-md text-primary/90 mt-2 mb-1">O-Level Qualifications</h4>
+                        {(completedApplicationData.oLevels || []).length === 0 && <p className="text-sm text-muted-foreground">No O-Level qualifications provided.</p>}
+                        {(completedApplicationData.oLevels || []).map((ol, index) => (
+                            <Card key={ol.id || `ol-${index}`} className="p-3 my-2 bg-muted/30 border-muted-foreground/30">
+                                <CardHeader className="p-0 pb-2">
+                                    <CardTitle className="text-base font-medium">O-Level Sitting {index + 1}: {ol.examType}</CardTitle>
+                                    <CardDescription className="text-xs">{ol.examYear} {ol.examNumber ? `- Exam No: ${ol.examNumber}` : ''}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-0 space-y-1">
+                                    <p className="text-sm font-medium text-muted-foreground pt-1">Subjects & Grades:</p>
+                                    {(ol.subjects || []).length === 0 ? (
+                                        <p className="text-xs text-muted-foreground pl-4">No subjects listed for this sitting.</p>
+                                    ) : (
+                                        <ul className="list-disc list-inside pl-4 text-sm space-y-0.5">
+                                        {(ol.subjects || []).map(sub => <li key={sub.id || sub.subject}>{sub.subject}: <span className="font-semibold">{sub.grade}</span></li>)}
+                                        </ul>
                                     )}
-                                    {formTabs.findIndex(t => t.id === currentTab) < formTabs.length - 1 && (
-                                        <Button type="button" onClick={nextTab} className="ml-auto bg-accent hover:bg-accent/90 text-accent-foreground">
-                                        Next <ArrowRight className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    )}
-                                    {currentTab === formTabs[formTabs.length - 1].id && (
-                                        <Button type="submit" className="ml-auto bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading || !form.watch("terms")}>
-                                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-                                        {isLoading ? "Submitting..." : "Submit Application"}
-                                        </Button>
-                                    )}
-                                </CardFooter>
-                                </form>
-                            </Form>
-                        </Tabs>
-                    </CardContent>
-                </Card>
-            )}
-        </div>
-      </div>
+                                    <PreviewItemDisplay label="Certificate Uploaded" value={ol.file?.name ? `${ol.file.name} (${ol.file.size ? (ol.file.size / 1024).toFixed(1) + 'KB' : 'Size N/A'})` : "(Not uploaded)"} className="border-none pt-2"/>
+                                </CardContent>
+                            </Card>
+                        ))}
+
+                        {(completedApplicationData.aLevels || []).length > 0 && (
+                            <>
+                                <h4 className="font-medium text-md text-primary/90 mt-4 mb-1">A-Level / Other Qualifications</h4>
+                                {(completedApplicationData.aLevels || []).map((al, index) => (
+                                    <Card key={al.id || `al-${index}`} className="p-3 my-2 bg-muted/30 border-muted-foreground/30">
+                                         <CardHeader className="p-0 pb-2">
+                                            <CardTitle className="text-base font-medium">Qualification {index + 1}: {al.type}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-0 space-y-1">
+                                            <PreviewItemDisplay label="Institution" value={al.institution} className="border-none"/>
+                                            <PreviewItemDisplay label="Course of Study" value={al.courseOfStudy} className="border-none"/>
+                                            <PreviewItemDisplay label="Grade/Class" value={al.gradeOrClass} className="border-none"/>
+                                            <PreviewItemDisplay label="Year Awarded" value={al.yearAwarded} className="border-none"/>
+                                            <PreviewItemDisplay label="Certificate Uploaded" value={al.file?.name ? `${al.file.name} (${al.file.size ? (al.file.size / 1024).toFixed(1) + 'KB' : 'Size N/A'})` : "(Not uploaded)"} className="border-none pt-2"/>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </>
+                        )}
+                    </section>
+                    <Separator/>
+
+                    {/* Work Experience Section */}
+                    {(completedApplicationData.experiences || []).length > 0 && (
+                        <section>
+                            <h3 className="font-semibold text-lg text-primary flex items-center gap-2 mb-3 border-b pb-2 pt-3"><Briefcase className="h-5 w-5"/>Work Experience</h3>
+                            {(completedApplicationData.experiences || []).map((exp, index) => (
+                                 <Card key={exp.id || `exp-${index}`} className="p-3 my-2 bg-muted/30 border-muted-foreground/30">
+                                    <CardHeader className="p-0 pb-2">
+                                        <CardTitle className="text-base font-medium">Experience {index + 1}: {exp.role}</CardTitle>
+                                        <CardDescription className="text-xs">{exp.organization}</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="p-0 space-y-1">
+                                        <PreviewItemDisplay label="Start Date" value={exp.startDate ? formatDateSafe(exp.startDate) : "(Not provided)"} className="border-none"/>
+                                        <PreviewItemDisplay label="End Date" value={exp.endDate ? formatDateSafe(exp.endDate) : "(Not provided)"} className="border-none"/>
+                                         <PreviewItemDisplay label="Document Uploaded" value={exp.file?.name ? `${exp.file.name} (${exp.file.size ? (exp.file.size / 1024).toFixed(1) + 'KB' : 'Size N/A'})` : "(Not uploaded)"} className="border-none pt-2"/>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </section>
+                    )}
+                     <Separator/>
+
+                    {/* Program Choice Section */}
+                    <section>
+                        <h3 className="font-semibold text-lg text-primary flex items-center gap-2 mb-3 border-b pb-2 pt-3"><GraduationCap className="h-5 w-5"/>Program Choice</h3>
+                        <PreviewItemDisplay label="Preferred Program" value={completedApplicationData.preferredProgram} />
+                        <PreviewItemDisplay label="Preferred Campus" value={completedApplicationData.preferredCampus} />
+                        <PreviewItemDisplay label="Entry Mode" value={completedApplicationData.entryMode} />
+                    </section>
+                    
+                    {completedApplicationData.admissionStatus === "Not Admitted" && completedApplicationData.rejectionReason && (
+                      <>
+                        <Separator/>
+                        <section>
+                          <h3 className="font-semibold text-lg text-destructive flex items-center gap-2 mb-3 border-b border-destructive/30 pb-2 pt-3">
+                           Rejection Reason
+                          </h3>
+                          <PreviewItemDisplay label="Reason" value={completedApplicationData.rejectionReason} className="border-destructive/30"/>
+                        </section>
+                      </>
+                    )}
+
+                </CardContent>
+            </Card>
+        ) : null}
+
 
         {completedApplicationData && completedApplicationData.admissionStatus === "Admitted" && (
           <PrintDialog open={isAdmissionLetterDialogOpen} onOpenChange={setIsAdmissionLetterDialogOpen}>
@@ -1400,4 +1552,3 @@ export default function RegistrationDashboardPage() {
   );
 }
     
-
