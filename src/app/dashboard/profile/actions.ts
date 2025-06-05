@@ -1,48 +1,62 @@
 "use server";
 
 import { z } from "zod";
-import type { User } from "@/types";
+import type { User, NewIntakeApplicationData } from "@/types"; // Added NewIntakeApplicationData
 
 // Schema for profile update
-// Avatar handling is complex and typically involves file storage services.
-// For this mock, we'll just accept avatarUrl as a string or skip actual upload.
 const profileUpdateSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   email: z.string().email("Invalid email address"),
-  // studentId: z.string(), // Usually not editable by user
   department: z.string().optional(),
   level: z.string().optional(),
-  avatarUrl: z.string().url("Invalid URL for avatar").optional(), // If providing URL
-  // newAvatar: z.any().optional(), // For actual file upload, would need more complex handling
+  phoneNumber: z.string().optional(), // Added from NewIntakeApplicationData
+  address: z.string().optional(), // Added from NewIntakeApplicationData
+  avatarUrl: z.string().url("Invalid URL for avatar").optional(),
 });
 
 export type UpdateProfilePayload = z.infer<typeof profileUpdateSchema>;
 
+// Changed userId to applicationId to reflect what we'd use for DB lookup
 export async function updateProfileAction(
-  userId: string, 
+  applicationId: string, 
   payload: UpdateProfilePayload
-): Promise<{ success: boolean; message: string; user?: User }> {
+): Promise<{ success: boolean; message: string; user?: NewIntakeApplicationData }> { // Return NewIntakeApplicationData
   try {
     const validatedPayload = profileUpdateSchema.parse(payload);
 
     // Simulate database update
-    console.log(`Updating profile for user ${userId}:`, validatedPayload);
+    console.log(`Updating profile for applicant ${applicationId}:`, validatedPayload);
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
     // Mock updated user data. In a real app, fetch current user, update, then return.
-    const updatedUser: User = {
-      id: userId,
-      studentId: "SIAT/001", // This would come from the existing user data
-      name: validatedPayload.name,
+    // This would be a more complex merge with existing NewIntakeApplicationData
+    const updatedUser: NewIntakeApplicationData = {
+      applicationId: applicationId,
+      fullName: validatedPayload.name,
       email: validatedPayload.email,
-      department: validatedPayload.department || "Computer Science", // Fallback mock
-      level: validatedPayload.level || "300 Level", // Fallback mock
-      avatarUrl: validatedPayload.avatarUrl || "https://placehold.co/100x100.png", // Fallback mock
+      department: validatedPayload.department,
+      level: validatedPayload.level,
+      phoneNumber: validatedPayload.phoneNumber || "",
+      address: validatedPayload.address || "",
+      avatarUrl: validatedPayload.avatarUrl || "https://placehold.co/100x100.png",
+      // Fill in other NewIntakeApplicationData fields with defaults or existing data
+      // For this mock, we'll keep it simple
+      gender: "Male", // Placeholder
+      city: "", // Placeholder
+      stateOfOrigin: "", // Placeholder
+      nationality: "", // Placeholder
+      nextOfKinName: "", // Placeholder
+      nextOfKinPhone: "", // Placeholder
+      nextOfKinRelationship: "", // Placeholder
+      preferredProgram: "", // Placeholder
+      preferredCampus: "", // Placeholder
+      entryMode: "UTME", // Placeholder
+      admissionStatus: "Admitted", // Placeholder
     };
     
     return { 
       success: true, 
-      message: "Profile updated successfully!",
+      message: "Profile updated successfully! (Mocked)",
       user: updatedUser 
     };
 

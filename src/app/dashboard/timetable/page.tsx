@@ -1,16 +1,18 @@
+"use client"; // Added this
+import * as React from "react"; // Added this
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TimetableEntry, CalendarEvent } from "@/types";
-import type { Metadata } from 'next';
-import { Clock, MapPin, User } from "lucide-react";
+// import type { Metadata } from 'next'; // Metadata handled by useEffect for client components
+import { Clock, MapPin, User, Loader2 } from "lucide-react";
 
-export const metadata: Metadata = {
-  title: 'Timetable & Calendar - Arewa Scholar Hub',
-};
+// export const metadata: Metadata = { // Cannot be used like this in client component
+//   title: 'Timetable & Calendar - Arewa Scholar Hub',
+// };
 
-// Mock Data
+// Mock Data remains
 const mockTimetable: TimetableEntry[] = [
   { id: "t1", day: "Monday", startTime: "08:00", endTime: "10:00", courseCode: "CSC301", courseName: "Data Structures", location: "Lab 1", lecturer: "Dr. Aminu" },
   { id: "t2", day: "Monday", startTime: "10:00", endTime: "12:00", courseCode: "MAT305", courseName: "Calculus II", location: "Hall B", lecturer: "Prof. Bala" },
@@ -30,18 +32,42 @@ const mockCalendarEvents: CalendarEvent[] = [
 const daysOrder: TimetableEntry['day'][] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function TimetablePage() {
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [timetableData, setTimetableData] = React.useState<TimetableEntry[]>([]);
+  const [calendarEventsData, setCalendarEventsData] = React.useState<CalendarEvent[]>([]);
+  
+  React.useEffect(() => {
+    document.title = 'Timetable & Calendar - SIAT Institute';
+    // Simulate fetching data
+    const timer = setTimeout(() => {
+      setTimetableData(mockTimetable);
+      setCalendarEventsData(mockCalendarEvents);
+      setIsLoading(false);
+    }, 700); // Simulate network delay
+    return () => clearTimeout(timer);
+  }, []);
+
   const today = new Date();
   
-  const upcomingEvents = mockCalendarEvents
+  const upcomingEvents = calendarEventsData
     .filter(event => new Date(event.date) >= today)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 5);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-10rem)]">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="ml-3 text-muted-foreground">Loading timetable and calendar...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-primary">My Timetable & Academic Calendar</CardTitle>
+          <CardTitle className="text-2xl font-bold text-primary">My Timetable &amp; Academic Calendar</CardTitle>
           <CardDescription>View your course schedule and important academic dates.</CardDescription>
         </CardHeader>
       </Card>
@@ -70,7 +96,7 @@ export default function TimetablePage() {
                   </TableHeader>
                   <TableBody>
                     {daysOrder.map(day => {
-                      const dayEntries = mockTimetable.filter(entry => entry.day === day);
+                      const dayEntries = timetableData.filter(entry => entry.day === day);
                       if (dayEntries.length === 0) {
                         return (
                           <TableRow key={day}>
@@ -120,10 +146,9 @@ export default function TimetablePage() {
                 <Calendar
                   mode="single"
                   selected={today}
-                  // onSelect={...} // Add selection handler if needed
                   className="rounded-md border"
                   modifiers={{
-                    eventDays: mockCalendarEvents.map(e => new Date(e.date))
+                    eventDays: calendarEventsData.map(e => new Date(e.date))
                   }}
                   modifiersStyles={{
                     eventDays: { color: 'white', backgroundColor: 'hsl(var(--accent))' }

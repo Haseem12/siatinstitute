@@ -8,11 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { UploadCloud, FileText, CheckCircle, AlertCircle, Clock, Download } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle, Clock, Download, Loader2 } from "lucide-react";
 import type { Assignment } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { submitAssignmentAction, type SubmitAssignmentPayload } from "./actions";
@@ -35,7 +33,7 @@ import {
   DialogClose
 } from "@/components/ui/dialog";
 
-// Mock Data
+// Mock Data remains
 const mockAssignments: Assignment[] = [
   { id: "as1", courseCode: "CSC301", courseName: "Data Structures", title: "Implement Binary Search Tree", dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), description: "Implement BST operations: insert, delete, search. Submit source code and a report.", status: "Pending" },
   { id: "as2", courseCode: "MAT305", courseName: "Calculus II", title: "Solve Integration Problems", dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), description: "Solve the attached set of integration problems.", status: "Overdue" },
@@ -53,10 +51,21 @@ type SubmissionFormValues = z.infer<typeof submissionFormSchema>;
 
 export default function AssignmentsPage() {
   const { toast } = useToast();
-  const [assignments, setAssignments] = React.useState<Assignment[]>(mockAssignments);
+  const [assignmentsData, setAssignmentsData] = React.useState<Assignment[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [selectedAssignment, setSelectedAssignment] = React.useState<Assignment | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    document.title = 'Assignments - SIAT Institute';
+    // Simulate fetching data
+    const timer = setTimeout(() => {
+      setAssignmentsData(mockAssignments);
+      setIsLoading(false);
+    }, 500); // Simulate network delay
+    return () => clearTimeout(timer);
+  }, []);
 
   const form = useForm<SubmissionFormValues>({
     resolver: zodResolver(submissionFormSchema),
@@ -69,12 +78,8 @@ export default function AssignmentsPage() {
     const file = data.file[0];
     const payload: SubmitAssignmentPayload = {
       assignmentId: selectedAssignment.id,
-      studentId: "mockStudent123", // Replace with actual student ID
-      file: {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-      },
+      studentId: "mockStudent123", 
+      file: { name: file.name, size: file.size, type: file.type },
       submissionNotes: data.submissionNotes,
     };
 
@@ -82,8 +87,8 @@ export default function AssignmentsPage() {
 
     if (result.success && result.assignment) {
       toast({ title: "Success", description: result.message });
-      setAssignments(prev => prev.map(a => a.id === result.assignment!.id ? result.assignment! : a));
-      setIsDialogOpen(false); // Close dialog on success
+      setAssignmentsData(prev => prev.map(a => a.id === result.assignment!.id ? result.assignment! : a));
+      setIsDialogOpen(false); 
       form.reset();
     } else {
       toast({ variant: "destructive", title: "Error", description: result.message });
@@ -102,8 +107,8 @@ export default function AssignmentsPage() {
   };
 
   const filterAssignments = (status: Assignment["status"] | "All") => {
-    if (status === "All") return assignments;
-    return assignments.filter(a => a.status === status);
+    if (status === "All") return assignmentsData;
+    return assignmentsData.filter(a => a.status === status);
   };
   
   const formatDate = (dateString?: string) => {
@@ -118,6 +123,15 @@ export default function AssignmentsPage() {
     return `${days} day${days !== 1 ? 's' : ''} left`;
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-10rem)]">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="ml-3 text-muted-foreground">Loading assignments...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -129,7 +143,7 @@ export default function AssignmentsPage() {
 
       <Tabs defaultValue="all" className="w-full">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-          <TabsTrigger value="all">All ({assignments.length})</TabsTrigger>
+          <TabsTrigger value="all">All ({assignmentsData.length})</TabsTrigger>
           <TabsTrigger value="pending">Pending ({filterAssignments("Pending").length})</TabsTrigger>
           <TabsTrigger value="submitted">Submitted ({filterAssignments("Submitted").length})</TabsTrigger>
           <TabsTrigger value="graded">Graded ({filterAssignments("Graded").length})</TabsTrigger>
@@ -183,49 +197,20 @@ export default function AssignmentsPage() {
                         <DialogContent className="sm:max-w-[525px]">
                           <DialogHeader>
                             <DialogTitle className="text-primary">Submit: {selectedAssignment?.title}</DialogTitle>
-                            <DialogDescription>
-                              Upload your file for {selectedAssignment?.courseName}. Please ensure it meets all submission guidelines.
-                            </DialogDescription>
+                            <DialogDescription> Upload your file for {selectedAssignment?.courseName}. Ensure it meets guidelines.</DialogDescription>
                           </DialogHeader>
                           <Form {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                              <FormField
-                                control={form.control}
-                                name="file"
-                                render={({ field: { onChange, value, ...rest } }) => (
-                                  <FormItem>
-                                    <FormLabel>Assignment File</FormLabel>
-                                    <FormControl>
-                                      <Input 
-                                        type="file" 
-                                        onChange={(e) => onChange(e.target.files)}
-                                        {...rest} 
-                                        className="file:text-accent file:font-semibold"
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name="submissionNotes"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Submission Notes (Optional)</FormLabel>
-                                    <FormControl>
-                                      <Textarea placeholder="Any notes for your lecturer..." {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
+                              <FormField control={form.control} name="file" render={({ field: { onChange, value, ...rest } }) => (
+                                  <FormItem><FormLabel>Assignment File</FormLabel><FormControl><Input type="file" onChange={(e) => onChange(e.target.files)} {...rest} className="file:text-accent file:font-semibold" /></FormControl><FormMessage /></FormItem>
+                              )} />
+                              <FormField control={form.control} name="submissionNotes" render={({ field }) => (
+                                  <FormItem><FormLabel>Notes (Optional)</FormLabel><FormControl><Textarea placeholder="Notes for your lecturer..." {...field} /></FormControl><FormMessage /></FormItem>
+                              )} />
                               <DialogFooter>
-                                <DialogClose asChild>
-                                   <Button type="button" variant="outline">Cancel</Button>
-                                </DialogClose>
+                                <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
                                 <Button type="submit" className="bg-accent hover:bg-accent/80 text-accent-foreground" disabled={isSubmitting}>
-                                  {isSubmitting ? "Submitting..." : "Confirm Submission"}
+                                  {isSubmitting ? <Loader2 className="animate-spin mr-2"/> : null}{isSubmitting ? "Submitting..." : "Confirm Submission"}
                                 </Button>
                               </DialogFooter>
                             </form>
@@ -238,11 +223,7 @@ export default function AssignmentsPage() {
                           <Download className="mr-2 h-4 w-4" /> View Submission
                         </a>
                       </Button>
-                    ) : (
-                       <Button variant="outline" className="w-full" disabled>
-                          <FileText className="mr-2 h-4 w-4" /> View Details
-                       </Button>
-                    )}
+                    ) : ( <Button variant="outline" className="w-full" disabled> <FileText className="mr-2 h-4 w-4" /> View Details </Button> )}
                   </CardFooter>
                 </Card>
               ))}
