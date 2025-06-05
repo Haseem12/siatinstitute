@@ -108,7 +108,7 @@ export default function ViewApplicantsPage() {
 
   const fetchApplicants = React.useCallback(async () => {
     setIsLoading(true);
-    const apiUrl = 'https://sajfoods.net/api/siat/get-applicants.php'; // PLURAL - for all applicants
+    const apiUrl = 'https://sajfoods.net/api/siat/get-applicant-data.php'; // PLURAL - for all applicants
     try {
         const response = await fetch(apiUrl);
         

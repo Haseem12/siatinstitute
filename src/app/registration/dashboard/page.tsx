@@ -527,7 +527,7 @@ export default function RegistrationDashboardPage() {
     if (session.fullName) form.setValue("fullName", session.fullName);
     
     try {
-        const response = await fetch(`https://sajfoods.net/api/siat/get-applicants.php`); // Fetch all
+        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-data.php`); // Fetch all
         if (!response.ok) {
             const errorText = await response.text();
             let errorMsg = `Failed to fetch application list (${response.status}).`;
