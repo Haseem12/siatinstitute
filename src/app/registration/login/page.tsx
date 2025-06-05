@@ -71,7 +71,8 @@ export default function RegistrationLoginPage() {
     }
 
     try {
-      const response = await fetch('https://sajfoods.net/api/siat/role-login.php', {
+      // Use the new applicant-login.php endpoint
+      const response = await fetch('https://sajfoods.net/api/siat/applicant-login.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,29 +88,28 @@ export default function RegistrationLoginPage() {
       if (result.success && result.data) {
         const { email, role, appId, name, admissionStatus } = result.data;
 
-        // Ensure this login path is primarily for applicants/students accessing the registration dashboard
-        if (role !== 'student' && role !== 'applicant' && !appId) {
-            toast({ variant: "destructive", title: "Access Denied", description: "This login is for applicants. Admins/Instructors should use the main portal login." });
+        // This login is specifically for applicants to continue their registration
+        if (role !== 'applicant') { 
+            toast({ variant: "destructive", title: "Access Denied", description: "This login is for applicants only. Other users should use the main portal login." });
             setIsLoading(false);
             return;
         }
         
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && appId) { // Ensure appId is present for applicant session
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('userEmail', email);
-          localStorage.setItem('userRole', role); // Use role from API
-
-          if (appId) { // Ensure appId exists before setting applicant session
-            localStorage.setItem('currentApplicantSession', JSON.stringify({ 
-                appId: appId, 
-                email: email,
-                fullName: name, // Name from API
-                admissionStatus: admissionStatus || "Not Submitted"
-            }));
-          }
+          localStorage.setItem('userRole', role); 
+          localStorage.setItem('currentApplicantSession', JSON.stringify({ 
+              appId: appId, 
+              email: email,
+              fullName: name, 
+              admissionStatus: admissionStatus || "Not Submitted"
+          }));
+          toast({ title: "Login Successful", description: "Redirecting to your application dashboard..." });
+          router.push("/registration/dashboard");
+        } else {
+             toast({ variant: "destructive", title: "Login Error", description: "Required application ID not found in response." });
         }
-        toast({ title: "Login Successful", description: "Redirecting to your application dashboard..." });
-        router.push("/registration/dashboard");
       } else {
         toast({
           variant: "destructive",
@@ -118,7 +118,7 @@ export default function RegistrationLoginPage() {
         });
       }
     } catch (error: any) {
-      console.error("Error during login API call:", error);
+      console.error("Error during applicant login API call:", error);
       toast({
         variant: "destructive",
         title: "Login Error",
@@ -129,7 +129,7 @@ export default function RegistrationLoginPage() {
     }
   };
 
-  const currentStepId = 2;
+  const currentStepId = 2; // This page corresponds to step 2: Login & Continue
 
   return (
     <div className="min-h-screen bg-muted/30 py-8 md:py-12 flex flex-col items-center justify-center px-4">
@@ -198,7 +198,7 @@ export default function RegistrationLoginPage() {
               )} />
               <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isLoading}>
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {isLoading ? "Logging in..." : "Login & Continue"}
+                {isLoading ? "Logging in..." : "Login & Continue Application"}
               </Button>
             </form>
           </Form>
@@ -213,6 +213,4 @@ export default function RegistrationLoginPage() {
     </div>
   );
 }
-    
-
     
