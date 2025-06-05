@@ -11,13 +11,10 @@ import {
   UserCircle,
   FileText,
   GraduationCap,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
-import type { Metadata } from "next"; // Keep for reference, but not directly used in client component for title
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { NewIntakeApplicationData } from "@/types";
@@ -62,13 +59,15 @@ const recentAnnouncements = [
   { id: "2", title: "Library New Opening Hours", date: "5 days ago" },
 ];
 
-// Helper function to map raw API data (similar to admin/registration dashboards)
-// This should ideally be in a shared util file, but copied for this specific change.
+// Helper function to map raw API data
 const mapRawApplicantData = (app: any): NewIntakeApplicationData => {
     let fullNameConstructed = app.full_name || "";
     if (!fullNameConstructed && app.surname && app.firstname) {
         fullNameConstructed = `${app.surname} ${app.firstname}${app.othername ? ' ' + app.othername : ''}`.trim();
+    } else if (!fullNameConstructed && app.fullName) { // Handle if API already sends fullName
+        fullNameConstructed = app.fullName;
     }
+
     return {
         applicationId: String(app.application_id || app.applicationId || ""),
         fullName: fullNameConstructed,
@@ -162,54 +161,69 @@ export default function DashboardPage() {
       document.title = "Dashboard - Arewa Scholar Hub";
     }
 
-    const fetchProfileData = async (appId: string) => {
+    const fetchProfileData = async (email: string) => {
       setIsLoadingProfile(true);
       try {
-        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-data.php?appId=${appId}`);
+        // Use the new endpoint that fetches by email
+        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-details-by-email.php?email=${encodeURIComponent(email)}`);
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: `API Error: ${response.status}` }));
-          throw new Error(errorData.message || `Failed to fetch profile data. Status: ${response.status}`);
+          throw new Error(errorData.message || `Failed to fetch profile data by email. Status: ${response.status}`);
         }
         const result = await response.json();
         if (result.success && result.data) {
           const mappedData = mapRawApplicantData(result.data);
           setApplicantData(mappedData);
+           // Store/update currentApplicantSession if needed for other parts of the app (like registration dashboard)
+          if (mappedData.applicationId && mappedData.email) {
+            localStorage.setItem('currentApplicantSession', JSON.stringify({ 
+              appId: mappedData.applicationId, 
+              email: mappedData.email,
+              fullName: mappedData.fullName, 
+              admissionStatus: mappedData.admissionStatus || "Not Submitted" 
+            }));
+          }
         } else {
-          throw new Error(result.message || "Failed to retrieve valid profile data.");
+          // Handle case where API returns success:true but data is null (e.g. email found but no application record)
+          if (result.success && result.data === null) {
+            toast({
+              variant: "default",
+              title: "Application Information",
+              description: result.message || "No full application record found. Please complete your application via the registration portal.",
+              duration: 7000,
+            });
+          } else {
+            throw new Error(result.message || "Failed to retrieve valid profile data using email.");
+          }
+          setApplicantData(null);
         }
       } catch (error: any) {
-        console.error("Error fetching student profile data:", error);
+        console.error("Error fetching student profile data by email:", error);
         toast({
           variant: "destructive",
           title: "Profile Load Error",
           description: error.message || "Could not load your profile information.",
         });
-        setApplicantData(null); // Ensure it's reset on error
+        setApplicantData(null); 
       } finally {
         setIsLoadingProfile(false);
       }
     };
 
-    const sessionString = localStorage.getItem("currentApplicantSession");
-    if (sessionString) {
-      try {
-        const session = JSON.parse(sessionString);
-        if (session.appId) {
-          fetchProfileData(session.appId);
-        } else {
-          setIsLoadingProfile(false); // No App ID in session
-          setApplicantData(null);
-        }
-      } catch (error) {
-        console.error("Error parsing session for dashboard:", error);
-        setIsLoadingProfile(false);
-        setApplicantData(null);
-      }
-    } else {
-      setIsLoadingProfile(false); // No session
+    const userEmail = localStorage.getItem("userEmail");
+    const userRole = localStorage.getItem("userRole");
+
+    if (userEmail && userRole === 'student') { // Only fetch if logged in as student
+      fetchProfileData(userEmail);
+    } else if (userEmail && (userRole === 'admin' || userRole === 'instructor')) {
+      setIsLoadingProfile(false); // Admin/Instructor don't need this specific profile data on their student dashboard view
+      setApplicantData(null); 
+    }
+     else {
+      setIsLoadingProfile(false); // No email or not student role
       setApplicantData(null);
-      // Potentially redirect or show guest view if session is strictly required for this page
-      // For now, it will just not show personalized info.
+      // Consider redirecting if email is absolutely required for this page and not found
+      // router.push("/");
     }
   }, [toast]);
 
@@ -220,6 +234,8 @@ export default function DashboardPage() {
   }, [isAutoPlaying, goToNext]);
 
   const activeSlide = sliderImages[currentSlide];
+  const studentFirstName = applicantData?.fullName?.split(' ')[0] || "";
+
 
   return (
     <div className="space-y-6">
@@ -275,11 +291,11 @@ export default function DashboardPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
                 <CardDescription>Loading your details...</CardDescription>
               </div>
-            ) : applicantData && applicantData.fullName ? (
+            ) : studentFirstName ? (
               <>
                 <UserCircle className="h-12 w-12 text-primary mx-auto mb-2" />
                 <CardTitle className="text-xl font-bold text-primary">
-                  Welcome, {applicantData.fullName.split(' ')[0]}!
+                  Welcome, {studentFirstName}!
                 </CardTitle>
                 <CardDescription>Manage your academic journey</CardDescription>
               </>
