@@ -11,8 +11,6 @@ import {
   UserCircle,
   LogIn,
   GraduationCap,
-  ChevronLeft,
-  ChevronRight,
   Home,
   Info,
   Newspaper,
@@ -22,7 +20,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import ArewaLogo from "@/components/arewa-logo"
@@ -35,8 +33,8 @@ import {
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
-import { mockUsers as initialMockUsers } from "@/lib/mock-users";
-import type { User, NewIntakeApplicationData } from "@/types";
+// Removed: import { mockUsers as initialMockUsers } from "@/lib/mock-users";
+// Removed: import type { User, NewIntakeApplicationData } from "@/types";
 
 
 const carouselImages = [
@@ -65,92 +63,74 @@ export default function LandingPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoggingIn(true);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
-    // 1. Check against local mock users (admin, instructor, predefined students)
-    let foundUser: User | undefined = initialMockUsers.find(
-      (user) => user.email.toLowerCase() === loginInput.toLowerCase() && user.password === loginPassword
-    );
-
-    if (!foundUser && typeof window !== 'undefined') {
-      const storedUsers = localStorage.getItem("mockAddedUsers");
-      const addedUsers: User[] = storedUsers ? JSON.parse(storedUsers) : [];
-      foundUser = addedUsers.find(
-        (user) => user.email.toLowerCase() === loginInput.toLowerCase() && user.password === loginPassword
-      );
-    }
-
-    if (foundUser) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userEmail', foundUser.email);
-        localStorage.setItem('userRole', foundUser.role || 'student');
-         // For admin/instructor/mock students, we might not have an AppID in this flow.
-        // If they are also applicants, their AppID session might be set separately.
-        // For now, only set AppID if the user is a student from mock data with an ID that resembles an AppID.
-        if(foundUser.role === 'student' && foundUser.studentId?.startsWith('SIAT-APP-')) {
-            localStorage.setItem('currentApplicantSession', JSON.stringify({ appId: foundUser.studentId, email: foundUser.email, fullName: foundUser.name, admissionStatus: "Not Submitted" }));
-        }
-      }
-      toast({ title: `${(foundUser.role || 'User').charAt(0).toUpperCase() + (foundUser.role || 'User').slice(1)} Login Successful`, description: "Redirecting..." });
-      switch (foundUser.role) {
-        case "admin": router.push("/admin/dashboard"); break;
-        case "instructor": router.push("/instructor/dashboard"); break;
-        default: router.push("/dashboard"); break; // Default student dashboard
-      }
-      setIsLoggingIn(false);
-      return;
-    }
-
-    // 2. If not found in mock users, and input looks like an App ID, try fetching from API
-    //    This part is a SIMULATION and doesn't validate password against API.
-    if (loginInput.toUpperCase().includes("SIAT-APP-")) {
-      const appIdToFetch = loginInput;
-      try {
-        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-data.php?appId=${appIdToFetch}`);
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorMsg = `Could not verify Application ID (${response.status}).`;
-          try { const errorJson = JSON.parse(errorText); errorMsg = errorJson.message || errorMsg; } catch (parseErr) { /* ignore */ }
-          toast({ variant: "destructive", title: "Login Failed", description: errorMsg });
-          setIsLoggingIn(false);
-          return;
-        }
-        const result = await response.json();
-        if (result.success && result.data && result.data.application_id === appIdToFetch) {
-          // API returned data for the App ID, simulate successful student login
-          const applicantData = result.data as NewIntakeApplicationData; // Assuming types are aligned
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('isLoggedIn', 'true');
-            localStorage.setItem('userEmail', applicantData.email); // Use email from API
-            localStorage.setItem('userRole', 'student'); // Assume student role for API-verified App IDs
-            localStorage.setItem('currentApplicantSession', JSON.stringify({ 
-              appId: applicantData.applicationId, 
-              email: applicantData.email,
-              fullName: applicantData.fullName, // If API returns it
-              admissionStatus: applicantData.admissionStatus || "Not Submitted"
-            }));
-          }
-          toast({ title: "Applicant Login Successful", description: "Redirecting to your application dashboard..." });
-          router.push("/registration/dashboard"); // Redirect to applicant specific dashboard
-        } else {
-          toast({ variant: "destructive", title: "Login Failed", description: "Application ID not found or invalid." });
-        }
-      } catch (apiError) {
-        console.error("API login simulation error:", apiError);
-        toast({ variant: "destructive", title: "Login Error", description: "Could not connect to verify Application ID. Please try again." });
-      }
-      setIsLoggingIn(false);
-      return;
-    }
-
-    // 3. If all checks fail
     if (!loginInput || !loginPassword) {
       toast({ variant: "destructive", title: "Login Failed", description: "Please enter your credentials." });
-    } else {
-      toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or Application ID not found." });
+      setIsLoggingIn(false);
+      return;
     }
-    setIsLoggingIn(false);
+
+    try {
+      const response = await fetch('https://sajfoods.net/api/siat/role-login.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appIdOrEmail: loginInput, password: loginPassword }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const { email, role, appId, name, admissionStatus } = result.data;
+        
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('userEmail', email);
+          localStorage.setItem('userRole', role || 'student'); // Default to student if role is missing
+
+          if ((role === 'student' || role === 'applicant') && appId) {
+            localStorage.setItem('currentApplicantSession', JSON.stringify({ 
+              appId: appId, 
+              email: email,
+              fullName: name, // Name from API
+              admissionStatus: admissionStatus || "Not Submitted" 
+            }));
+          }
+        }
+
+        toast({ title: `${(role || 'User').charAt(0).toUpperCase() + (role || 'User').slice(1)} Login Successful`, description: "Redirecting..." });
+        
+        switch (role) {
+          case "admin": router.push("/admin/dashboard"); break;
+          case "instructor": router.push("/instructor/dashboard"); break;
+          case "student": 
+             // If it's a student, check if they have an appId to determine if they should go to registration or main dashboard
+            if (appId && (admissionStatus === "Not Submitted" || admissionStatus === "Pending" || !admissionStatus)) {
+                 router.push("/registration/dashboard");
+            } else {
+                 router.push("/dashboard"); 
+            }
+            break;
+          case "applicant": // Explicitly handle 'applicant' role if backend sends it
+             router.push("/registration/dashboard");
+             break;
+          default: 
+            // Fallback for unknown roles or if role implies student context
+            if (appId) {
+                router.push("/registration/dashboard");
+            } else {
+                router.push("/dashboard");
+            }
+            break; 
+        }
+      } else {
+        toast({ variant: "destructive", title: "Login Failed", description: result.message || "Invalid credentials or Application ID not found." });
+      }
+    } catch (error) {
+      console.error("Login API error:", error);
+      toast({ variant: "destructive", title: "Login Error", description: "Could not connect to the login service. Please try again." });
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const navItems = [
@@ -352,7 +332,7 @@ export default function LandingPage() {
             ].map(feature => (
               <Card key={feature.title} className="text-center p-6 shadow-lg hover:shadow-xl transition-shadow">
                 <div className="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden border-2 border-accent/50">
-                    <Image src={`https://placehold.co/100x100.png`} alt={feature.title} width={100} height={100} className="object-cover" data-ai-hint={feature.dataAiHint} />
+                    <Image src={'https://placehold.co/100x100.png'} alt={feature.title} width={100} height={100} className="object-cover" data-ai-hint={feature.dataAiHint} />
                 </div>
                 <CardTitle className="text-xl mb-2 text-primary">{feature.title}</CardTitle>
                 <CardDescription>{feature.desc}</CardDescription>
@@ -379,13 +359,13 @@ export default function LandingPage() {
               <CardContent className="p-6">
                 <p className="text-sm text-muted-foreground mb-1">{newsItem.date}</p>
                 <CardTitle className="text-xl mb-2 leading-tight text-primary hover:text-accent transition-colors">
-                  <Link href={`#`}>{newsItem.title}</Link>
+                  <Link href={'#'}>{newsItem.title}</Link>
                 </CardTitle>
                 <p className="text-muted-foreground line-clamp-3 mb-4">
                   {newsItem.excerpt}
                 </p>
                 <Button variant="link" asChild className="px-0 text-accent hover:text-accent/80 font-semibold">
-                  <Link href={`#`}>
+                  <Link href={'#'}>
                     Read More <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -435,3 +415,4 @@ export default function LandingPage() {
   )
 }
 
+    

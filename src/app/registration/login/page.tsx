@@ -63,13 +63,15 @@ export default function RegistrationLoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
-    let rawResponseText = "";
-    console.log("LOGIN PAYLOAD DEBUG:", JSON.stringify({
-        appIdOrEmail: data.appIdOrEmail,
-        password: data.password,
-    }));
+    
+    if (!data.appIdOrEmail || !data.password) {
+      toast({ variant: "destructive", title: "Login Failed", description: "Please enter your credentials." });
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('https://sajfoods.net/api/siat/login-applicant.php', {
+      const response = await fetch('https://sajfoods.net/api/siat/role-login.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,63 +82,47 @@ export default function RegistrationLoginPage() {
         }),
       });
 
-      rawResponseText = await response.text();
-      let result;
-      try {
-        result = JSON.parse(rawResponseText);
-      } catch (e) {
-        console.error("Failed to parse JSON response from login API:", rawResponseText);
-        toast({
-          variant: "destructive",
-          title: "Login Error",
-          description: `Received invalid response from server. Snippet: ${rawResponseText.substring(0,100)}...`,
-          duration: 10000,
-        });
-        setIsLoading(false);
-        return;
-      }
+      const result = await response.json();
 
-      if (!response.ok) {
-        const errorMsg = result.message || `Server error (${response.status}).`;
-        throw new Error(errorMsg);
-      }
-      
-      // Expecting appId, email, admissionStatus. FullName will be fetched on dashboard.
-      if (result.success && result.data?.appId && result.data?.email) {
-        const { appId, email, admissionStatus } = result.data;
+      if (result.success && result.data) {
+        const { email, role, appId, name, admissionStatus } = result.data;
+
+        // Ensure this login path is primarily for applicants/students accessing the registration dashboard
+        if (role !== 'student' && role !== 'applicant' && !appId) {
+            toast({ variant: "destructive", title: "Access Denied", description: "This login is for applicants. Admins/Instructors should use the main portal login." });
+            setIsLoading(false);
+            return;
+        }
         
-        // Store essential session info. fullName will be fetched by the dashboard.
-        localStorage.setItem("currentApplicantSession", JSON.stringify({ 
-            appId: appId, 
-            email: email,
-            // fullName is intentionally omitted here, will be fetched by dashboard
-            admissionStatus: admissionStatus || "Not Submitted"
-        }));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('userEmail', email);
+          localStorage.setItem('userRole', role); // Use role from API
+
+          if (appId) { // Ensure appId exists before setting applicant session
+            localStorage.setItem('currentApplicantSession', JSON.stringify({ 
+                appId: appId, 
+                email: email,
+                fullName: name, // Name from API
+                admissionStatus: admissionStatus || "Not Submitted"
+            }));
+          }
+        }
         toast({ title: "Login Successful", description: "Redirecting to your application dashboard..." });
         router.push("/registration/dashboard");
       } else {
-         let description = result.message || "Invalid Application ID/Email or Password.";
-         // Check if essential data (appId, email) is missing from a successful response
-         if (result.success && (!result.data?.email || !result.data?.appId)) {
-            description = "Login data incomplete from server. App ID or Email missing.";
-            console.error("Incomplete data from login API:", result.data);
-        }
         toast({
           variant: "destructive",
           title: "Login Failed",
-          description: description,
+          description: result.message || "Invalid Application ID/Email or Password.",
         });
       }
     } catch (error: any) {
       console.error("Error during login API call:", error);
-      let description = "Could not connect to the login service. Please try again later.";
-      if (error.message) {
-        description = error.message;
-      }
       toast({
         variant: "destructive",
         title: "Login Error",
-        description: description,
+        description: error.message || "Could not connect to the login service. Please try again later.",
       });
     } finally {
       setIsLoading(false);
@@ -227,4 +213,6 @@ export default function RegistrationLoginPage() {
     </div>
   );
 }
+    
+
     
