@@ -162,6 +162,7 @@ const registrationDashboardFormSchema = z.object({
   admissionStatus: z.enum(["Pending", "Admitted", "Not Admitted", "Not Submitted"]).optional(),
   rejectionReason: z.string().optional(),
   admission_number: z.string().optional(), 
+  submitted_at: z.date().optional(),
 });
 
 type FormValues = z.infer<typeof registrationDashboardFormSchema>;
@@ -389,6 +390,7 @@ interface ApplicantSessionData {
     fullName?: string; 
     admissionStatus?: string;
     admission_number?: string;
+    submitted_at?: Date; // Ensure this is part of the session if needed elsewhere
 }
 
 
@@ -423,6 +425,7 @@ export default function RegistrationDashboardPage() {
       admissionStatus: "Not Submitted",
       rejectionReason: undefined,
       admission_number: undefined,
+      submitted_at: undefined,
     },
   });
 
@@ -437,30 +440,100 @@ export default function RegistrationDashboardPage() {
   const [isAdmissionLetterDialogOpen, setIsAdmissionLetterDialogOpen] = useState(false);
   const admissionLetterContentRef = useRef<HTMLDivElement>(null);
 
-  const formatDateSafe = (date?: Date | string) => {
+  const formatDateSafe = (date?: Date | string | null, includeTime: boolean = false) => {
     if (!date) return "(Data not provided)";
     try {
-      return format(new Date(date), "PPP");
+      const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+      if (includeTime) {
+        options.hour = '2-digit';
+        options.minute = '2-digit';
+      }
+      return new Date(date).toLocaleDateString('en-GB', options);
     } catch (error) {
       console.error("Error formatting date:", date, error);
       return "Invalid Date";
     }
   };
+  
+  const mapRawApplicantData = useCallback((app: any): NewIntakeApplicationData => {
+    let fullNameConstructed = app.full_name || "";
+    if (!fullNameConstructed && app.surname && app.firstname) {
+        fullNameConstructed = `${app.surname} ${app.firstname}${app.othername ? ' ' + app.othername : ''}`.trim();
+    }
+
+    return {
+        applicationId: String(app.application_id || app.applicationId || ""),
+        fullName: fullNameConstructed,
+        email: app.email || "",
+        phoneNumber: app.phone_number || app.phoneNumber || "",
+        dateOfBirth: app.date_of_birth ? new Date(app.date_of_birth) : undefined,
+        gender: app.gender || "",
+        address: app.address || "",
+        city: app.city || "",
+        stateOfOrigin: app.state_of_origin || app.stateOfOrigin || "",
+        nationality: app.nationality || "",
+        photograph: app.photograph_name ? { name: app.photograph_name, type: app.photograph_type, size: parseInt(String(app.photograph_size || 0), 10) } : (app.photograph || null),
+        nextOfKinName: app.next_of_kin_name || app.nextOfKinName || "",
+        nextOfKinPhone: app.next_of_kin_phone || app.nextOfKinPhone || "",
+        nextOfKinRelationship: app.next_of_kin_relationship || app.nextOfKinRelationship || "",
+        preferredProgram: app.preferred_program || app.preferredProgram || "",
+        preferredCampus: app.preferred_campus || app.preferredCampus || "",
+        entryMode: app.entry_mode || app.entryMode || "",
+        admissionStatus: app.admission_status || app.admissionStatus || "Not Submitted",
+        rejectionReason: app.rejection_reason || app.rejectionReason,
+        admission_number: app.admission_number || undefined,
+        submitted_at: app.submitted_at ? new Date(app.submitted_at) : undefined,
+        
+        oLevels: (app.oLevels || []).map((ol: any) => ({
+            id: String(ol.id || crypto.randomUUID()),
+            examType: ol.exam_type || ol.examType || "", 
+            examYear: ol.exam_year || ol.examYear || "", 
+            examNumber: ol.exam_number || ol.examNumber || "",
+            subjects: (ol.subjects || []).map((s: any) => ({ 
+                id: String(s.id || crypto.randomUUID()),
+                subject: s.subject_name || s.subject || "",
+                grade: s.grade || ""
+            })),
+            file: ol.certificate_file_name ? { name: ol.certificate_file_name, type: ol.certificate_file_type, size: parseInt(String(ol.certificate_file_size || 0), 10) } : (ol.file || null),
+        })),
+        
+        aLevels: (app.aLevels || []).map((al: any) => ({
+            id: String(al.id || crypto.randomUUID()),
+            type: al.qualification_type || al.type || "", 
+            institution: al.institution || "",
+            courseOfStudy: al.course_of_study || al.courseOfStudy || "", 
+            gradeOrClass: al.grade_or_class || al.gradeOrClass || "",   
+            yearAwarded: al.year_awarded || al.yearAwarded || "",     
+            file: al.certificate_file_name ? { name: al.certificate_file_name, type: al.certificate_file_type, size: parseInt(String(al.certificate_file_size || 0), 10) } : (al.file || null),
+        })),
+        
+        experiences: (app.experiences || []).map((exp: any) => ({
+            id: String(exp.id || crypto.randomUUID()),
+            organization: exp.organization || "",
+            role: exp.role || "",
+            startDate: exp.start_date || exp.startDate || "",
+            endDate: exp.end_date || exp.endDate || "",
+            file: exp.document_file_name ? { name: exp.document_file_name, type: exp.document_file_type, size: parseInt(String(exp.document_file_size || 0), 10) } : (exp.file || null),
+        })),
+    };
+  }, []);
+
 
   const fetchAndSetInitialData = useCallback(async (session: ApplicantSessionData) => {
     setIsFetchingData(true);
+    // Set initially known values
     form.setValue("applicationId", session.appId);
     form.setValue("email", session.email); 
+    if (session.fullName) form.setValue("fullName", session.fullName);
     
     try {
-        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-data.php?appId=${session.appId}`);
+        const response = await fetch(`https://sajfoods.net/api/siat/get-applicants.php`); // Fetch all
         if (!response.ok) {
             const errorText = await response.text();
-            let errorMsg = `Failed to fetch application data (${response.status}).`;
+            let errorMsg = `Failed to fetch application list (${response.status}).`;
             try { const errorJson = JSON.parse(errorText); errorMsg = errorJson.message || errorMsg; } catch (e) { /* Ignore */ }
             toast({ variant: "destructive", title: "Fetch Error", description: errorMsg });
-            
-            form.reset({
+             form.reset({ // Fallback to session data for initial fields
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
@@ -470,69 +543,64 @@ export default function RegistrationDashboardPage() {
             });
             setCompletedApplicationData(null); 
             setCurrentTab(formTabs[0].id);
+            setIsFetchingData(false);
             return;
         }
 
         const result = await response.json();
-        if (result.success && result.data) {
-            const fetchedData = result.data as NewIntakeApplicationData & { surname?: string; firstname?: string; othername?: string; full_name?: string};
+        if (result.success && Array.isArray(result.data)) {
+            const foundApplicantRaw = result.data.find((app: any) => String(app.application_id || app.applicationId) === String(session.appId));
             
-            let finalFullName = fetchedData.full_name; 
-            if (!finalFullName && fetchedData.surname && fetchedData.firstname) { 
-                finalFullName = `${fetchedData.surname} ${fetchedData.firstname}${fetchedData.othername ? ' ' + fetchedData.othername : ''}`.trim();
-            } else if (!finalFullName && session.fullName) { 
-                finalFullName = session.fullName;
-            }
+            if (foundApplicantRaw) {
+                const mappedFetchedData = mapRawApplicantData(foundApplicantRaw);
+                
+                form.reset({
+                    ...form.formState.defaultValues, 
+                    ...mappedFetchedData,                   
+                    photographFile: null, // Always reset file inputs
+                    oLevels: mappedFetchedData.oLevels?.map(ol => ({ ...ol, fileInput: null, subjects: ol.subjects || [] })) || [],
+                    aLevels: mappedFetchedData.aLevels?.map(al => ({ ...al, fileInput: null })) || [],
+                    experiences: mappedFetchedData.experiences?.map(exp => ({ ...exp, fileInput: null })) || [],
+                    terms: !!mappedFetchedData.applicationId, // Set to true if application was submitted
+                });
+                setCompletedApplicationData(mappedFetchedData);
+
+                if (mappedFetchedData.photograph?.name) { 
+                     setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); 
+                }
+                // Update localStorage session with potentially more complete data
+                localStorage.setItem("currentApplicantSession", JSON.stringify({
+                    appId: mappedFetchedData.applicationId,
+                    email: mappedFetchedData.email,
+                    fullName: mappedFetchedData.fullName,
+                    admissionStatus: mappedFetchedData.admissionStatus,
+                    admission_number: mappedFetchedData.admission_number,
+                    submitted_at: mappedFetchedData.submitted_at,
+                }));
+                setApplicantSession(JSON.parse(localStorage.getItem("currentApplicantSession")!));
 
 
-            form.reset({
-                ...form.formState.defaultValues, 
-                ...fetchedData,                   
-                applicationId: fetchedData.applicationId || session.appId,
-                email: fetchedData.email || session.email,
-                fullName: finalFullName || "", 
-                dateOfBirth: fetchedData.dateOfBirth ? new Date(fetchedData.dateOfBirth) : undefined,
-                photographFile: null, 
-                oLevels: fetchedData.oLevels?.map(ol => ({ ...ol, fileInput: null, subjects: ol.subjects || [] })) || [],
-                aLevels: fetchedData.aLevels?.map(al => ({ ...al, fileInput: null })) || [],
-                experiences: fetchedData.experiences?.map(exp => ({ ...exp, fileInput: null })) || [],
-                terms: !!fetchedData.applicationId,
-                admissionStatus: fetchedData.admissionStatus || session.admissionStatus || "Not Submitted",
-                admission_number: fetchedData.admission_number || session.admission_number || undefined,
-            });
-            
-            const fullDataForState: NewIntakeApplicationData = {
-                ...fetchedData,
-                applicationId: fetchedData.applicationId || session.appId,
-                email: fetchedData.email || session.email,
-                fullName: finalFullName || "",
-                dateOfBirth: fetchedData.dateOfBirth ? new Date(fetchedData.dateOfBirth) : undefined,
-                 oLevels: fetchedData.oLevels?.map(ol => ({ ...ol, subjects: ol.subjects || [] })) || [],
-                 aLevels: fetchedData.aLevels || [],
-                 experiences: fetchedData.experiences || [],
-                 admissionStatus: fetchedData.admissionStatus || session.admissionStatus || "Not Submitted",
-                 admission_number: fetchedData.admission_number || session.admission_number || undefined,
-            };
-            setCompletedApplicationData(fullDataForState);
+                if (mappedFetchedData.admissionStatus === "Admitted" || mappedFetchedData.admissionStatus === "Not Admitted" || mappedFetchedData.admissionStatus === "Pending") {
+                    setCurrentTab("preview"); // Go to preview if already submitted
+                } else {
+                    setCurrentTab(formTabs[0].id);
+                }
 
-            if (fetchedData.photograph?.name) { 
-                 setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); 
-            }
-            localStorage.setItem("currentApplicantSession", JSON.stringify({
-                appId: fullDataForState.applicationId,
-                email: fullDataForState.email,
-                fullName: fullDataForState.fullName,
-                admissionStatus: fullDataForState.admissionStatus,
-                admission_number: fullDataForState.admission_number
-            }));
-
-            if (fullDataForState.admissionStatus === "Admitted" || fullDataForState.admissionStatus === "Not Admitted" || fullDataForState.admissionStatus === "Pending") {
-                setCurrentTab("preview"); 
-            } else {
+            } else { // Applicant not found in the list from get-applicants.php
+                form.reset({
+                    ...form.formState.defaultValues,
+                    applicationId: session.appId,
+                    email: session.email,
+                    fullName: session.fullName || "",
+                    admissionStatus: (session.admissionStatus as FormValues['admissionStatus']) || "Not Submitted",
+                     admission_number: session.admission_number || undefined,
+                });
+                setCompletedApplicationData(null);
+                toast({ title: "Application Data", description: `Your application (ID: ${session.appId}) was not found in the main list. Please fill the form if this is your first time.`, duration: 7000 });
                 setCurrentTab(formTabs[0].id);
             }
-        } else { 
-            form.reset({
+        } else { // API call was successful but data format was unexpected or result.success was false
+             form.reset({
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
@@ -541,13 +609,13 @@ export default function RegistrationDashboardPage() {
                 admission_number: session.admission_number || undefined,
             });
             setCompletedApplicationData(null);
-            toast({ title: "Application Data", description: result.message || "No previous application data found. Please fill the form." });
+            toast({ title: "Application Data", description: result.message || "Could not retrieve full application details. Please fill the form.", duration: 7000 });
             setCurrentTab(formTabs[0].id);
         }
     } catch (error: any) {
         console.error("Error fetching applicant data:", error);
         toast({ variant: "destructive", title: "Network Error", description: "Could not fetch your application data." });
-        form.reset({
+        form.reset({ // Fallback to session data for initial fields
             ...form.formState.defaultValues,
             applicationId: session.appId,
             email: session.email,
@@ -560,7 +628,7 @@ export default function RegistrationDashboardPage() {
     } finally {
         setIsFetchingData(false);
     }
-  }, [form, toast]);
+  }, [form, toast, mapRawApplicantData]);
 
 
   useEffect(() => {
@@ -694,7 +762,8 @@ export default function RegistrationDashboardPage() {
         file: processFileUpload(exp.fileInput) || exp.file 
       })) || [],
       admissionStatus: "Pending", 
-      admission_number: data.admission_number 
+      admission_number: data.admission_number,
+      submitted_at: new Date(), // Set submission date on client submission
     };
 
     delete (applicationDataToSubmit as any).photographFile;
@@ -722,17 +791,22 @@ export default function RegistrationDashboardPage() {
 
         if (result.success) {
             toast({ title: "Application Submitted Successfully!", description: `API: ${result.message}. Your application (ID: ${applicationDataToSubmit.applicationId}) is now under review.`, duration: 7000 });
-            setCompletedApplicationData(applicationDataToSubmit); 
+            // Update completedApplicationData to reflect the submitted data
+            const updatedDataForState = { ...applicationDataToSubmit, submitted_at: new Date() };
+            setCompletedApplicationData(updatedDataForState); 
              if (applicantSession) { 
                 localStorage.setItem("currentApplicantSession", JSON.stringify({
                     ...applicantSession,
-                    fullName: applicationDataToSubmit.fullName || applicantSession.fullName,
+                    fullName: updatedDataForState.fullName || applicantSession.fullName,
                     admissionStatus: "Pending",
-                    admission_number: applicationDataToSubmit.admission_number || applicantSession.admission_number
+                    admission_number: updatedDataForState.admission_number || applicantSession.admission_number,
+                    submitted_at: updatedDataForState.submitted_at
                 }));
+                setApplicantSession(JSON.parse(localStorage.getItem("currentApplicantSession")!));
              }
             setCurrentTab("preview"); 
-            fetchAndSetInitialData(applicantSession); // Refetch to get the latest, including any server-side changes
+            // No need to refetch immediately, as we've updated the state locally
+            // fetchAndSetInitialData(applicantSession); // Re-enable if server might make immediate changes
         } else {
             toast({ variant: "destructive", title: "API Submission Failed", description: result.message || "The application could not be submitted to the server." });
         }
@@ -867,7 +941,12 @@ export default function RegistrationDashboardPage() {
         <Card className="shadow-xl border-primary/10">
             <CardHeader>
                 <CardTitle className="text-xl md:text-2xl font-bold text-primary">Application Status</CardTitle>
-                <CardDescription>Application ID: <span className="font-semibold text-accent">{applicantSession.appId}</span></CardDescription>
+                <div className="text-sm text-muted-foreground">
+                    <p>Application ID: <span className="font-semibold text-accent">{applicantSession.appId}</span></p>
+                    {completedApplicationData?.submitted_at && (
+                        <p>Submitted On: <span className="font-semibold">{formatDateSafe(completedApplicationData.submitted_at, true)}</span></p>
+                    )}
+                </div>
             </CardHeader>
             <CardContent>
                 {appStatus === "Not Submitted" && (
@@ -880,10 +959,10 @@ export default function RegistrationDashboardPage() {
                     </div>
                 )}
                 {appStatus === "Pending" && (
-                    <div className="flex items-center p-4 bg-secondary/20 rounded-md">
-                        <Hourglass className="h-8 w-8 text-secondary-foreground mr-4" />
+                    <div className="flex items-center p-4 bg-yellow-500/10 rounded-md">
+                        <Hourglass className="h-8 w-8 text-yellow-600 mr-4" />
                         <div>
-                            <p className="font-semibold text-lg text-secondary-foreground">Status: Submitted - Under Review</p>
+                            <p className="font-semibold text-lg text-yellow-700">Status: Submitted - Under Review</p>
                             <p className="text-sm text-muted-foreground">Your application has been successfully submitted and is currently under review. You will be notified of any updates.</p>
                         </div>
                     </div>
@@ -894,7 +973,7 @@ export default function RegistrationDashboardPage() {
                         <div className="text-center sm:text-left">
                             <p className="font-semibold text-xl text-primary">Congratulations, {completedApplicationData.fullName || "Applicant"}! You have been Admitted!</p>
                             <p className="text-sm text-muted-foreground">You have been provisionally admitted to study <span className="font-semibold">{completedApplicationData.preferredProgram || "(Program not specified)"}</span>. 
-                            Your Admission Number is <span className="font-semibold text-accent">{completedApplicationData.admission_number || "(Not yet assigned by admin)"}</span>.
+                            Your Admission Number is <span className="font-semibold text-accent">{completedApplicationData.admission_number || "(Not yet assigned)"}</span>.
                             Further instructions will be communicated shortly.</p>
                             <Button className="mt-3 bg-accent hover:bg-accent/90 text-accent-foreground" onClick={() => setIsAdmissionLetterDialogOpen(true)}>
                                 <Printer className="mr-2 h-4 w-4" /> Print Provisional Admission Letter
@@ -921,8 +1000,11 @@ export default function RegistrationDashboardPage() {
             <CardFooter>
                 <Button variant="outline" onClick={() => { 
                     if(applicantSession) fetchAndSetInitialData(applicantSession);
-                }}>
-                    <RefreshCw className="mr-2 h-4 w-4"/> Refresh Status & Data
+                }}
+                disabled={isFetchingData}
+                >
+                    {isFetchingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>} 
+                    {isFetchingData ? "Refreshing..." : "Refresh Status & Data"}
                 </Button>
             </CardFooter>
         </Card>
@@ -1310,9 +1392,12 @@ export default function RegistrationDashboardPage() {
             <Card className="w-full shadow-xl border-primary/10 mt-8">
                 <CardHeader>
                     <CardTitle className="text-xl md:text-2xl font-bold text-primary">My Submitted Application</CardTitle>
-                    <CardDescription>
-                        This is a summary of the information you submitted. Application ID: <span className="font-semibold text-accent">{completedApplicationData.applicationId}</span>
-                    </CardDescription>
+                     <div className="text-sm text-muted-foreground">
+                        <p>Application ID: <span className="font-semibold text-accent">{completedApplicationData.applicationId}</span></p>
+                        {completedApplicationData.submitted_at && (
+                            <p>Submitted On: <span className="font-semibold">{formatDateSafe(completedApplicationData.submitted_at, true)}</span></p>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     {/* Personal Information Section */}
@@ -1494,7 +1579,7 @@ export default function RegistrationDashboardPage() {
                               to study <strong>{completedApplicationData.preferredProgram || "(Program not specified)"}</strong> for the {new Date().getFullYear()}/{new Date().getFullYear()+1} academic session.
                           </p>
                           <p>
-                            Your Admission Number for this program is: <strong style={{ color: 'hsl(var(--accent))' }}>{completedApplicationData.admission_number || "(Not yet assigned by admin)"}</strong>.
+                            Your Admission Number for this program is: <strong style={{ color: 'hsl(var(--accent))' }}>{completedApplicationData.admission_number || "(Not yet assigned)"}</strong>.
                           </p>
                           <p className="mt-2">
                             This admission is for the <strong>{completedApplicationData.preferredCampus || "(Campus not specified)"}</strong> via <strong>{completedApplicationData.entryMode || "(Entry mode not specified)"}</strong> entry mode.
