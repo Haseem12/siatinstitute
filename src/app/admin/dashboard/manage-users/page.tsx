@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
+// mockInitialUsers are still used for initial display, but new users are added via API
 const mockInitialUsers: User[] = [
   { id: "usr1", name: "Aisha Bello", email: "aisha.bello@siat.edu.ng", studentId: "SIAT/CSC/001", role: "student", department: "Computer Science", level: "300 Level" },
   { id: "usr2", name: "Dr. Ibrahim Musa", email: "instructor@siat.edu.ng", studentId: "STF/012", role: "instructor", department: "Mathematics" },
@@ -35,7 +36,7 @@ const newUserFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters."),
   email: z.string().email("Invalid email address."),
   password: z.string().min(6, "Password must be at least 6 characters."),
-  studentId: z.string().min(3, "User ID is required."), // Can be student or staff ID
+  studentId: z.string().min(3, "User ID is required (Student Matric/Staff ID)."), 
   role: z.enum(["student", "instructor", "admin"], { required_error: "Role is required." }),
   department: z.string().optional(),
   level: z.string().optional(),
@@ -44,20 +45,8 @@ type NewUserFormValues = z.infer<typeof newUserFormSchema>;
 
 export default function ManageUsersPage() {
   const { toast } = useToast();
-  const [users, setUsers] = React.useState<User[]>(() => {
-    if (typeof window !== 'undefined') {
-      const storedUsers = localStorage.getItem("mockAddedUsers");
-      const addedUsers = storedUsers ? JSON.parse(storedUsers) : [];
-      const combined = [...mockInitialUsers];
-      addedUsers.forEach((addedUser: User) => {
-        if (!combined.some(u => u.email === addedUser.email)) {
-          combined.push(addedUser);
-        }
-      });
-      return combined;
-    }
-    return mockInitialUsers;
-  });
+  // Users state will primarily be for display; actual user list should be fetched from backend in a real app
+  const [users, setUsers] = React.useState<User[]>(mockInitialUsers);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -66,6 +55,8 @@ export default function ManageUsersPage() {
     if (typeof document !== 'undefined') {
         document.title = 'Manage Users - Admin Dashboard';
     }
+    // In a real app, you would fetch users from the backend here
+    // and update the `users` state.
   }, []);
 
   const form = useForm<NewUserFormValues>({
@@ -83,49 +74,47 @@ export default function ManageUsersPage() {
 
   const handleAddUserSubmit = async (data: NewUserFormValues) => {
     setIsSubmitting(true);
-    const newUser: User = {
-      id: `usr${users.length + 1}_${Date.now()}`, 
-      ...data,
-    };
-
-    if (users.some(u => u.email === newUser.email) || initialMockUsers.some(u => u.email === newUser.email)) {
-        toast({ variant: "destructive", title: "Error", description: "User with this email already exists." });
-        form.setError("email", {message: "User with this email already exists."});
-        setIsSubmitting(false);
-        return;
-    }
-    if (users.some(u => u.studentId === newUser.studentId) || initialMockUsers.some(u => u.studentId === newUser.studentId)) {
-        toast({ variant: "destructive", title: "Error", description: "User with this ID already exists." });
-        form.setError("studentId", {message: "User with this ID already exists."});
-        setIsSubmitting(false);
-        return;
-    }
-
-    // Simulate short delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // 1. Update local state for immediate UI feedback
-    setUsers(prev => [newUser, ...prev]);
-
-    // 2. Add to localStorage for mock persistence across sessions (for login page)
-    if (typeof window !== 'undefined') {
-      const storedUsers = localStorage.getItem("mockAddedUsers");
-      const addedUsers = storedUsers ? JSON.parse(storedUsers) : [];
-      localStorage.setItem("mockAddedUsers", JSON.stringify([...addedUsers, newUser]));
-    }
-
-    toast({ title: "User Added Locally", description: `${newUser.name} has been added to the local list and localStorage.` });
     
-    setIsAddUserDialogOpen(false);
-    form.reset();
+    try {
+        const response = await fetch('https://sajfoods.net/api/siat/add-user.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            toast({ title: "User Added Successfully", description: result.message });
+            // Optionally, re-fetch users list from backend here to update display
+            // For now, we can add to local state for mock display
+            const newUserForDisplay: User = {
+                id: `usr_${Date.now()}`, // Temporary client-side ID for display
+                ...data,
+            };
+            setUsers(prev => [newUserForDisplay, ...prev]);
+            setIsAddUserDialogOpen(false);
+            form.reset();
+        } else {
+            toast({ variant: "destructive", title: "Failed to Add User", description: result.message || "An error occurred on the server." });
+             if (result.message && result.message.toLowerCase().includes("email")) {
+                form.setError("email", { type: "manual", message: result.message });
+            } else if (result.message && (result.message.toLowerCase().includes("staff id") || result.message.toLowerCase().includes("student matriculation"))) {
+                form.setError("studentId", { type: "manual", message: result.message });
+            }
+        }
+    } catch (error) {
+        console.error("Error submitting new user:", error);
+        toast({ variant: "destructive", title: "Network Error", description: "Could not connect to the server to add user." });
+    }
+
     setIsSubmitting(false);
   };
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role?.toLowerCase().includes(searchTerm.toLowerCase())
+    (user.studentId && user.studentId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (user.role && user.role.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -133,7 +122,7 @@ export default function ManageUsersPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-primary">Manage Users</CardTitle>
-          <CardDescription>View, add, edit, or remove users from the system.</CardDescription>
+          <CardDescription>View, add, edit, or remove users from the system. New users will be added to the central login table.</CardDescription>
         </CardHeader>
       </Card>
 
@@ -151,7 +140,7 @@ export default function ManageUsersPage() {
           </div>
           <Dialog open={isAddUserDialogOpen} onOpenChange={(isOpen) => {
             setIsAddUserDialogOpen(isOpen);
-            if (!isOpen) form.reset(); // Reset form when dialog closes
+            if (!isOpen) form.reset(); 
           }}>
             <DialogTrigger asChild>
               <Button className="bg-accent hover:bg-accent/90 text-accent-foreground">
@@ -161,7 +150,7 @@ export default function ManageUsersPage() {
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle className="text-primary">Add New User</DialogTitle>
-                <DialogDescription>Enter the details for the new user account. This will save to localStorage for this prototype.</DialogDescription>
+                <DialogDescription>Enter the details for the new user account. This will create an account in the system.</DialogDescription>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleAddUserSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
@@ -175,7 +164,7 @@ export default function ManageUsersPage() {
                     <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="studentId" render={({ field }) => (
-                    <FormItem><FormLabel>User ID (Student/Staff)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>User ID (Student Matric/Staff ID)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="role" render={({ field }) => (
                     <FormItem><FormLabel>Role</FormLabel>
@@ -198,7 +187,7 @@ export default function ManageUsersPage() {
                     <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
                     <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isSubmitting}>
                       {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      {isSubmitting ? "Adding User..." : "Add User"}
+                      {isSubmitting ? "Adding User..." : "Add User to System"}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -254,3 +243,5 @@ export default function ManageUsersPage() {
     </div>
   );
 }
+
+    
