@@ -36,7 +36,7 @@ import {
 import Autoplay from "embla-carousel-autoplay"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
 import { mockUsers as initialMockUsers } from "@/lib/mock-users";
-import type { User } from "@/types";
+import type { User, NewIntakeApplicationData } from "@/types";
 
 
 const carouselImages = [
@@ -57,7 +57,7 @@ const carouselImages = [
 export default function LandingPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [loginEmail, setLoginEmail] = useState("")
+  const [loginInput, setLoginInput] = useState("") // Can be email or App ID
   const [loginPassword, setLoginPassword] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -67,15 +67,16 @@ export default function LandingPage() {
     setIsLoggingIn(true);
     await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
 
+    // 1. Check against local mock users (admin, instructor, predefined students)
     let foundUser: User | undefined = initialMockUsers.find(
-      (user) => user.email.toLowerCase() === loginEmail.toLowerCase() && user.password === loginPassword
+      (user) => user.email.toLowerCase() === loginInput.toLowerCase() && user.password === loginPassword
     );
 
     if (!foundUser && typeof window !== 'undefined') {
       const storedUsers = localStorage.getItem("mockAddedUsers");
       const addedUsers: User[] = storedUsers ? JSON.parse(storedUsers) : [];
       foundUser = addedUsers.find(
-        (user) => user.email.toLowerCase() === loginEmail.toLowerCase() && user.password === loginPassword
+        (user) => user.email.toLowerCase() === loginInput.toLowerCase() && user.password === loginPassword
       );
     }
 
@@ -84,17 +85,70 @@ export default function LandingPage() {
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('userEmail', foundUser.email);
         localStorage.setItem('userRole', foundUser.role || 'student');
+         // For admin/instructor/mock students, we might not have an AppID in this flow.
+        // If they are also applicants, their AppID session might be set separately.
+        // For now, only set AppID if the user is a student from mock data with an ID that resembles an AppID.
+        if(foundUser.role === 'student' && foundUser.studentId?.startsWith('SIAT-APP-')) {
+            localStorage.setItem('currentApplicantSession', JSON.stringify({ appId: foundUser.studentId, email: foundUser.email, fullName: foundUser.name, admissionStatus: "Not Submitted" }));
+        }
       }
       toast({ title: `${(foundUser.role || 'User').charAt(0).toUpperCase() + (foundUser.role || 'User').slice(1)} Login Successful`, description: "Redirecting..." });
       switch (foundUser.role) {
         case "admin": router.push("/admin/dashboard"); break;
         case "instructor": router.push("/instructor/dashboard"); break;
-        default: router.push("/dashboard"); break;
+        default: router.push("/dashboard"); break; // Default student dashboard
       }
-    } else if (!loginEmail || !loginPassword) {
-      toast({ variant: "destructive", title: "Login Failed", description: "Please enter Email and Password." });
+      setIsLoggingIn(false);
+      return;
+    }
+
+    // 2. If not found in mock users, and input looks like an App ID, try fetching from API
+    //    This part is a SIMULATION and doesn't validate password against API.
+    if (loginInput.toUpperCase().includes("SIAT-APP-")) {
+      const appIdToFetch = loginInput;
+      try {
+        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-data.php?appId=${appIdToFetch}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMsg = `Could not verify Application ID (${response.status}).`;
+          try { const errorJson = JSON.parse(errorText); errorMsg = errorJson.message || errorMsg; } catch (parseErr) { /* ignore */ }
+          toast({ variant: "destructive", title: "Login Failed", description: errorMsg });
+          setIsLoggingIn(false);
+          return;
+        }
+        const result = await response.json();
+        if (result.success && result.data && result.data.application_id === appIdToFetch) {
+          // API returned data for the App ID, simulate successful student login
+          const applicantData = result.data as NewIntakeApplicationData; // Assuming types are aligned
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('userEmail', applicantData.email); // Use email from API
+            localStorage.setItem('userRole', 'student'); // Assume student role for API-verified App IDs
+            localStorage.setItem('currentApplicantSession', JSON.stringify({ 
+              appId: applicantData.applicationId, 
+              email: applicantData.email,
+              fullName: applicantData.fullName, // If API returns it
+              admissionStatus: applicantData.admissionStatus || "Not Submitted"
+            }));
+          }
+          toast({ title: "Applicant Login Successful", description: "Redirecting to your application dashboard..." });
+          router.push("/registration/dashboard"); // Redirect to applicant specific dashboard
+        } else {
+          toast({ variant: "destructive", title: "Login Failed", description: "Application ID not found or invalid." });
+        }
+      } catch (apiError) {
+        console.error("API login simulation error:", apiError);
+        toast({ variant: "destructive", title: "Login Error", description: "Could not connect to verify Application ID. Please try again." });
+      }
+      setIsLoggingIn(false);
+      return;
+    }
+
+    // 3. If all checks fail
+    if (!loginInput || !loginPassword) {
+      toast({ variant: "destructive", title: "Login Failed", description: "Please enter your credentials." });
     } else {
-      toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials." });
+      toast({ variant: "destructive", title: "Login Failed", description: "Invalid credentials or Application ID not found." });
     }
     setIsLoggingIn(false);
   };
@@ -238,15 +292,15 @@ export default function LandingPage() {
             <CardContent>
                 <form onSubmit={handleLogin} className="space-y-6">
                   <div className="space-y-2">
-                    <label htmlFor="loginEmailInput" className="text-sm font-medium text-foreground">
-                      Email Address
+                    <label htmlFor="loginInput" className="text-sm font-medium text-foreground">
+                      Application ID or Email Address
                     </label>
                     <Input
-                      id="loginEmailInput"
-                      type="email"
-                      placeholder="e.g., student@siat.edu.ng"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
+                      id="loginInput"
+                      type="text"
+                      placeholder="e.g., SIAT-APP-XXXXXX or student@siat.edu.ng"
+                      value={loginInput}
+                      onChange={(e) => setLoginInput(e.target.value)}
                       className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
                       required
                     />

@@ -119,7 +119,7 @@ export default function GenerateAdmissionLetterPage() {
 
     try {
       // Using the plural endpoint as established for admin views
-      const response = await fetch('https://sajfoods.net/api/siat/get-applicants.php');
+      const response = await fetch('https://sajfoods.net/api/siat/get-applicant-data.php');
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(JSON.parse(errorText)?.message || `API Error: ${response.status}`);
