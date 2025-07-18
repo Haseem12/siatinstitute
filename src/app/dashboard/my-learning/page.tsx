@@ -6,10 +6,13 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { CheckCircle, Circle, BookOpen, Loader2, PlayCircle, FileText } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { CheckCircle, Circle, BookOpen, Loader2, PlayCircle, FileText, Sparkles, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { NewIntakeApplicationData } from '@/types';
 import { mapRawApplicantData } from '@/lib/mapRawApplicantData';
+import { askTutorAction } from './actions';
 
 // Mock content for the self-paced learning modules
 const courseModules = [
@@ -54,6 +57,65 @@ const courseModules = [
     ],
   },
 ];
+
+// AI Tutor Component
+const AiTutorSection = ({ moduleTitle, program }: { moduleTitle: string; program: string }) => {
+    const [question, setQuestion] = useState('');
+    const [response, setResponse] = useState('');
+    const [isAsking, setIsAsking] = useState(false);
+
+    const handleAskTutor = async () => {
+        if (!question.trim()) return;
+        setIsAsking(true);
+        setResponse('');
+        const aiResponse = await askTutorAction({
+            program,
+            moduleTitle,
+            question,
+        });
+        setResponse(aiResponse);
+        setIsAsking(false);
+    };
+
+    return (
+        <div className="mt-6 border-t pt-6">
+            <h4 className="font-semibold text-lg flex items-center gap-2 text-primary">
+                <Sparkles className="h-5 w-5" />
+                Ask AI Tutor
+            </h4>
+            <p className="text-sm text-muted-foreground mb-4">
+                Have a question about this module? Ask the AI tutor for a quick explanation.
+            </p>
+            <div className="flex gap-2">
+                <Input 
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="e.g., Can you explain the main point of this module?"
+                    disabled={isAsking}
+                />
+                <Button onClick={handleAskTutor} disabled={isAsking || !question.trim()}>
+                    {isAsking ? <Loader2 className="animate-spin h-4 w-4" /> : <Send className="h-4 w-4" />}
+                    <span className="sr-only">Ask</span>
+                </Button>
+            </div>
+            {isAsking && (
+                <div className="mt-4 p-4 border rounded-lg bg-muted/50 flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <p className="ml-3 text-muted-foreground">Thinking...</p>
+                </div>
+            )}
+            {response && (
+                <Alert className="mt-4">
+                    <Sparkles className="h-4 w-4" />
+                    <AlertTitle>AI Tutor Response</AlertTitle>
+                    <AlertDescription className="prose prose-sm max-w-none text-foreground/90">
+                       <div dangerouslySetInnerHTML={{ __html: response.replace(/\n/g, '<br />') }} />
+                    </AlertDescription>
+                </Alert>
+            )}
+        </div>
+    );
+};
 
 
 export default function MyLearningPage() {
@@ -184,6 +246,9 @@ export default function MyLearningPage() {
                         {isCompleted ? 'Mark as Incomplete' : 'Mark as Complete'}
                     </Button>
                  </div>
+                 {applicantData?.preferredProgram && (
+                    <AiTutorSection moduleTitle={module.title} program={applicantData.preferredProgram} />
+                 )}
               </AccordionContent>
             </AccordionItem>
           );
