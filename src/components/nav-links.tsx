@@ -11,7 +11,8 @@ import {
   Megaphone,
   UserCircle,
   ClipboardList,
-  Video, // Added for Classes
+  Video, // For Classes
+  BookUser, // For My Learning
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -30,6 +31,7 @@ interface NavLink {
 
 const navLinks: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tooltip: "Dashboard Home" },
+  { href: "/dashboard/my-learning", label: "My Learning", icon: BookUser, tooltip: "Self-Paced Learning" },
   { href: "/dashboard/timetable", label: "Timetable", icon: CalendarDays, tooltip: "Timetable & Calendar" },
   { href: "/dashboard/classes", label: "Classes", icon: Video, tooltip: "Live & Recorded Classes" },
   { href: "/dashboard/assignments", label: "Assignments", icon: FileText, tooltip: "Assignments & Grades" },
