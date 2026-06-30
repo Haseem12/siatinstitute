@@ -15,7 +15,8 @@ import {
   Newspaper,
   Mail,
   Loader2,
-  Menu
+  Menu,
+  ShieldCheck
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -130,6 +131,7 @@ export default function LandingPage() {
   const navItems = [
     { href: "#hero", label: "Home" },
     { href: "#auth-section", label: "Portal Login" },
+    { href: "#staff-portal", label: "Staff Registration" },
     { href: "#features", label: "Why SIAT?" },
     { href: "#news", label: "News & Events" },
     { href: "#contact", label: "Contact Us" },
@@ -210,12 +212,20 @@ export default function LandingPage() {
                     <p className="mt-4 text-lg text-gray-200 sm:text-xl md:text-2xl leading-relaxed">
                       {item.subtitle}
                     </p>
-                    <Button asChild size="lg" className="mt-8 bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-4">
-                      <Link href="#auth-section">
-                        <GraduationCap className="mr-2 h-5 w-5" />
-                        Get Started
-                      </Link>
-                    </Button>
+                    <div className="flex flex-wrap gap-4 mt-8 justify-center md:justify-start">
+                        <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground text-lg px-8 py-4">
+                            <Link href="#auth-section">
+                                <GraduationCap className="mr-2 h-5 w-5" />
+                                Get Started
+                            </Link>
+                        </Button>
+                        <Button asChild size="lg" variant="outline" className="text-white border-white hover:bg-white/10 text-lg px-8 py-4">
+                            <Link href="/staff/register">
+                                <ShieldCheck className="mr-2 h-5 w-5" />
+                                Staff Portal
+                            </Link>
+                        </Button>
+                    </div>
                   </div>
                 </div>
               </CarouselItem>
@@ -235,33 +245,31 @@ export default function LandingPage() {
               <CardDescription>
                 Embark on your academic journey with us. Apply for admission to our various programs. 
                 Explore a diverse range of courses in a supportive and innovative learning environment. 
-                We are committed to nurturing talent and fostering future leaders.
-                <br/><br/>
-                <strong>The Admission Process:</strong>
-                <ol className="list-decimal list-inside text-left text-sm mt-2 space-y-1">
-                    <li>Ensure you meet the basic entry requirements for your desired program.</li>
-                    <li>Click the "Apply for Admission" button below.</li>
-                    <li>You will be directed to our multi-step application form.</li>
-                    <li>Complete your bio-data, academic qualifications, and program choices.</li>
-                    <li>Upload scanned copies of your relevant documents (e.g., SSCE, Diploma certificates).</li>
-                    <li>Preview your application details carefully before final submission.</li>
-                    <li>Upon successful submission, you will receive an application ID and further instructions via email.</li>
-                </ol>
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
-                <Link href="/registration/pre-register">
-                  Apply for Admission <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
+            <CardContent className="space-y-6">
+                <div className="text-sm space-y-2">
+                    <p><strong>The Admission Process:</strong></p>
+                    <ol className="list-decimal list-inside text-muted-foreground space-y-1">
+                        <li>Ensure you meet requirements.</li>
+                        <li>Click "Apply for Admission".</li>
+                        <li>Complete the application form.</li>
+                        <li>Upload scanned certificates.</li>
+                        <li>Submit and await processing.</li>
+                    </ol>
+                </div>
+                <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground py-3 px-8 text-base">
+                    <Link href="/registration/pre-register">
+                    Apply for Admission <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                </Button>
             </CardContent>
           </Card>
 
           <Card className="shadow-xl border-primary/10">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl font-bold text-primary">Student Portal Login</CardTitle>
-              <CardDescription>Welcome back! Access your dashboard.</CardDescription>
+              <CardTitle className="text-2xl font-bold text-primary">Portal Login</CardTitle>
+              <CardDescription>Enter credentials to access your dashboard.</CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleLogin} className="space-y-6">
@@ -272,24 +280,29 @@ export default function LandingPage() {
                     <Input
                       id="loginInput"
                       type="text"
-                      placeholder="e.g., SIAT-APP-XXXXXX or student@siat.edu.ng"
+                      placeholder="e.g., SIAT-APP-XXXXXX"
                       value={loginInput}
                       onChange={(e) => setLoginInput(e.target.value)}
-                      className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
+                      className="w-full"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="passwordLogin" className="text-sm font-medium text-foreground">
-                      Password
-                    </label>
+                    <div className="flex items-center justify-between">
+                        <label htmlFor="passwordLogin" className="text-sm font-medium text-foreground">
+                        Password
+                        </label>
+                        <Link href="/forgot-password" size="sm" className="text-xs text-primary hover:underline">
+                            Forgot password?
+                        </Link>
+                    </div>
                     <Input
                       id="passwordLogin"
                       type="password"
                       placeholder="••••••••"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
+                      className="w-full"
                       required
                     />
                   </div>
@@ -298,15 +311,28 @@ export default function LandingPage() {
                     {isLoggingIn ? "Logging in..." : "Login to Portal"}
                   </Button>
                   <p className="text-xs text-center text-muted-foreground">
-                    Forgot your password?{" "}
-                    <Link href="#contact" className="text-primary hover:underline">
-                      Contact support
-                    </Link>
-                    .
+                    For technical issues, please <Link href="#contact" className="text-primary hover:underline">Contact Support</Link>.
                   </p>
                 </form>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* Staff Portal Registration Section */}
+      <section id="staff-portal" className="bg-primary/5 py-16 scroll-mt-16">
+        <div className="container mx-auto px-4 text-center max-w-3xl">
+            <ShieldCheck className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h2 className="text-3xl font-bold text-primary mb-2">Instructor & Admin Portal</h2>
+            <p className="text-muted-foreground mb-8 text-lg">
+                Are you a member of our academic or administrative staff? 
+                Register your account here to manage courses, grade students, or oversee registry operations.
+            </p>
+            <Button asChild size="lg" className="bg-primary hover:bg-primary/90">
+                <Link href="/staff/register">
+                    Staff Registration Portal <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+            </Button>
         </div>
       </section>
 
@@ -374,6 +400,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-12">
           <div className="grid md:grid-cols-3 gap-8">
             <div>
+              <ArewaLogo className="h-10 w-10 text-primary-foreground mb-4" />
               <h3 className="text-xl font-semibold mb-3">SIAT-Institute, Zaria</h3>
               <p className="text-sm text-primary-foreground/80">Km 5, Zaria-Kano Road, Zaria, Kaduna State, Nigeria.</p>
             </div>
@@ -382,8 +409,8 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm">
                 <li><Link href="#hero" className="hover:underline text-primary-foreground/80">Home</Link></li>
                 <li><Link href="/registration/pre-register" className="hover:underline text-primary-foreground/80">Apply for Admission</Link></li>
-                <li><Link href="#news" className="hover:underline text-primary-foreground/80">News & Events</Link></li>
-                <li><Link href="#auth-section" className="hover:underline text-primary-foreground/80">Student Portal</Link></li>
+                <li><Link href="/staff/register" className="hover:underline text-primary-foreground/80">Staff Registration</Link></li>
+                <li><Link href="/forgot-password" className="hover:underline text-primary-foreground/80">Reset Password</Link></li>
               </ul>
             </div>
             <div>

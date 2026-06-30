@@ -182,7 +182,12 @@ export default function RegistrationLoginPage() {
               )} />
               <FormField control={form.control} name="password" render={({ field }) => (
                  <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <div className="flex justify-between items-center">
+                    <FormLabel>Password</FormLabel>
+                    <Link href="/forgot-password" size="sm" className="text-xs text-primary hover:underline">
+                        Forgot password?
+                    </Link>
+                  </div>
                   <FormControl>
                      <div className="relative">
                       <Input type={showPassword ? "text" : "password"} {...field} />
