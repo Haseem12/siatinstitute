@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,8 +17,9 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import type { NewIntakeApplicationData } from "@/types";
+import { mapRawApplicantData } from "@/lib/mapRawApplicantData";
 
-// Slider images and mock data remain the same as before
+// Slider images and mock data
 const sliderImages = [
   {
     src: "/assets/slider/slide-2.jpg",
@@ -59,80 +59,12 @@ const recentAnnouncements = [
   { id: "2", title: "Library New Opening Hours", date: "5 days ago" },
 ];
 
-// Helper function to map raw API data
-const mapRawApplicantData = (app: any): NewIntakeApplicationData => {
-    let fullNameConstructed = app.full_name || "";
-    if (!fullNameConstructed && app.surname && app.firstname) {
-        fullNameConstructed = `${app.surname} ${app.firstname}${app.othername ? ' ' + app.othername : ''}`.trim();
-    } else if (!fullNameConstructed && app.fullName) { // Handle if API already sends fullName
-        fullNameConstructed = app.fullName;
-    }
-
-    return {
-        applicationId: String(app.application_id || app.applicationId || ""),
-        fullName: fullNameConstructed,
-        email: app.email || "",
-        phoneNumber: app.phone_number || app.phoneNumber || "",
-        dateOfBirth: app.date_of_birth ? new Date(app.date_of_birth) : undefined,
-        gender: app.gender || "",
-        address: app.address || "",
-        city: app.city || "",
-        stateOfOrigin: app.state_of_origin || app.stateOfOrigin || "",
-        nationality: app.nationality || "",
-        photograph: app.photograph_name ? { name: app.photograph_name, type: app.photograph_type, size: parseInt(String(app.photograph_size || 0), 10) } : (app.photograph || null),
-        nextOfKinName: app.next_of_kin_name || app.nextOfKinName || "",
-        nextOfKinPhone: app.next_of_kin_phone || app.nextOfKinPhone || "",
-        nextOfKinRelationship: app.next_of_kin_relationship || app.nextOfKinRelationship || "",
-        preferredProgram: app.preferred_program || app.preferredProgram || "",
-        preferredCampus: app.preferred_campus || app.preferredCampus || "",
-        entryMode: app.entry_mode || app.entryMode || "",
-        admissionStatus: app.admission_status || app.admissionStatus || "Not Submitted",
-        rejectionReason: app.rejection_reason || app.rejectionReason,
-        admission_number: app.admission_number || undefined,
-        submitted_at: app.submitted_at ? new Date(app.submitted_at) : undefined,
-        
-        oLevels: (app.oLevels || []).map((ol: any) => ({
-            id: String(ol.id || crypto.randomUUID()),
-            examType: ol.exam_type || ol.examType || "", 
-            examYear: ol.exam_year || ol.examYear || "", 
-            examNumber: ol.exam_number || ol.examNumber || "",
-            subjects: (ol.subjects || []).map((s: any) => ({ 
-                id: String(s.id || crypto.randomUUID()),
-                subject: s.subject_name || s.subject || "",
-                grade: s.grade || ""
-            })),
-            file: ol.certificate_file_name ? { name: ol.certificate_file_name, type: ol.certificate_file_type, size: parseInt(String(ol.certificate_file_size || 0), 10) } : (ol.file || null),
-        })),
-        
-        aLevels: (app.aLevels || []).map((al: any) => ({
-            id: String(al.id || crypto.randomUUID()),
-            type: al.qualification_type || al.type || "", 
-            institution: al.institution || "",
-            courseOfStudy: al.course_of_study || al.courseOfStudy || "", 
-            gradeOrClass: al.grade_or_class || al.gradeOrClass || "",   
-            yearAwarded: al.year_awarded || al.yearAwarded || "",     
-            file: al.certificate_file_name ? { name: al.certificate_file_name, type: al.certificate_file_type, size: parseInt(String(al.certificate_file_size || 0), 10) } : (al.file || null),
-        })),
-        
-        experiences: (app.experiences || []).map((exp: any) => ({
-            id: String(exp.id || crypto.randomUUID()),
-            organization: exp.organization || "",
-            role: exp.role || "",
-            startDate: exp.start_date || exp.startDate || "",
-            endDate: exp.end_date || exp.endDate || "",
-            file: exp.document_file_name ? { name: exp.document_file_name, type: exp.document_file_type, size: parseInt(String(exp.document_file_size || 0), 10) } : (exp.file || null),
-        })),
-    };
-};
-
-
 export default function DashboardPage() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const { toast } = useToast();
   const [applicantData, setApplicantData] = useState<NewIntakeApplicationData | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-
 
   const AUTOPLAY_INTERVAL = 5000; 
   const USER_INTERACTION_PAUSE_DURATION = 10000; 
@@ -164,8 +96,7 @@ export default function DashboardPage() {
     const fetchProfileData = async (email: string) => {
       setIsLoadingProfile(true);
       try {
-        // Use the new endpoint that fetches by email
-        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-details-by-email.php?email=${encodeURIComponent(email)}`);
+        const response = await fetch(`https://sajfoods.com.ng/siat/get-applicant-details-by-email.php?email=${encodeURIComponent(email)}`);
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: `API Error: ${response.status}` }));
           throw new Error(errorData.message || `Failed to fetch profile data by email. Status: ${response.status}`);
@@ -174,7 +105,6 @@ export default function DashboardPage() {
         if (result.success && result.data) {
           const mappedData = mapRawApplicantData(result.data);
           setApplicantData(mappedData);
-           // Store/update currentApplicantSession if needed for other parts of the app (like registration dashboard)
           if (mappedData.applicationId && mappedData.email) {
             localStorage.setItem('currentApplicantSession', JSON.stringify({ 
               appId: mappedData.applicationId, 
@@ -184,7 +114,6 @@ export default function DashboardPage() {
             }));
           }
         } else {
-          // Handle case where API returns success:true but data is null (e.g. email found but no application record)
           if (result.success && result.data === null) {
             toast({
               variant: "default",
@@ -213,17 +142,15 @@ export default function DashboardPage() {
     const userEmail = localStorage.getItem("userEmail");
     const userRole = localStorage.getItem("userRole");
 
-    if (userEmail && userRole === 'student') { // Only fetch if logged in as student
+    if (userEmail && userRole === 'student') {
       fetchProfileData(userEmail);
     } else if (userEmail && (userRole === 'admin' || userRole === 'instructor')) {
-      setIsLoadingProfile(false); // Admin/Instructor don't need this specific profile data on their student dashboard view
+      setIsLoadingProfile(false); 
       setApplicantData(null); 
     }
      else {
-      setIsLoadingProfile(false); // No email or not student role
+      setIsLoadingProfile(false);
       setApplicantData(null);
-      // Consider redirecting if email is absolutely required for this page and not found
-      // router.push("/");
     }
   }, [toast]);
 
@@ -338,7 +265,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Dashboard Summary Cards (remain with mock data for now) */}
+      {/* Dashboard Summary Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

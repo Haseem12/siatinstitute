@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -126,7 +125,7 @@ export default function MyLearningPage() {
 
   const fetchProfileData = useCallback(async (email: string) => {
     try {
-      const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-details-by-email.php?email=${encodeURIComponent(email)}`);
+      const response = await fetch(`https://sajfoods.com.ng/siat/get-applicant-details-by-email.php?email=${encodeURIComponent(email)}`);
       if (!response.ok) throw new Error("Failed to fetch profile data.");
       const result = await response.json();
       if (result.success && result.data) {

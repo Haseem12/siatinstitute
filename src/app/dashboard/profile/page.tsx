@@ -21,8 +21,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import Image from "next/image"; // Keep for avatar preview if needed
-import { mapRawApplicantData } from "@/lib/mapRawApplicantData"; // Import a shared mapper
+import Image from "next/image";
+import { mapRawApplicantData } from "@/lib/mapRawApplicantData";
 
 // Schema for the profile form (subset of NewIntakeApplicationData)
 const profileFormSchema = z.object({
@@ -33,7 +33,6 @@ const profileFormSchema = z.object({
   phoneNumber: z.string().optional(),
   address: z.string().optional(),
   avatarUrl: z.string().url({ message: "Please enter a valid URL for avatar."}).optional(),
-  // avatarFile: typeof window !== 'undefined' ? z.instanceof(FileList).optional() : z.any().optional(),
 });
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
@@ -84,12 +83,11 @@ export default function ProfilePage() {
       if (!userEmail) {
         toast({ variant: "destructive", title: "Error", description: "User email not found. Please log in again." });
         setIsLoadingProfile(false);
-        // router.push("/"); // Optional: redirect to login
         return;
       }
 
       try {
-        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-details-by-email.php?email=${encodeURIComponent(userEmail)}`);
+        const response = await fetch(`https://sajfoods.com.ng/siat/get-applicant-details-by-email.php?email=${encodeURIComponent(userEmail)}`);
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ message: `API Error: ${response.status}` }));
           throw new Error(errorData.message || "Failed to fetch profile data.");
@@ -105,7 +103,7 @@ export default function ProfilePage() {
             level: mappedData.level,
             phoneNumber: mappedData.phoneNumber,
             address: mappedData.address,
-            avatarUrl: mappedData.photograph?.name ? `https://placehold.co/150x150.png?text=${mappedData.photograph.name.substring(0,3)}` : (mappedData as any).avatarUrl, // Use avatarUrl if directly available
+            avatarUrl: mappedData.photograph?.name ? `https://placehold.co/150x150.png?text=${mappedData.photograph.name.substring(0,3)}` : (mappedData as any).avatarUrl,
           });
           setAvatarPreview(mappedData.photograph?.name ? `https://placehold.co/150x150.png?text=PHOTO` : (mappedData as any).avatarUrl || null);
         } else {
@@ -126,9 +124,6 @@ export default function ProfilePage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string);
-        // For this example, we assume avatarUrl will be set if user types it, or this preview is for local display only before submitting a real file.
-        // If you were actually uploading the file, you'd use profileForm.setValue('avatarFile', event.target.files)
-        // and then process it in onProfileSubmit. For now, if user provides avatarUrl in form, that's used.
         toast({ title: "Avatar Preview Updated", description: "Save changes to apply. (URL input takes precedence if filled)." });
       };
       reader.readAsDataURL(file);
@@ -149,15 +144,15 @@ export default function ProfilePage() {
       level: data.level,
       phoneNumber: data.phoneNumber,
       address: data.address,
-      avatarUrl: data.avatarUrl || avatarPreview || applicantData.photograph?.name, // Logic for avatar URL
+      avatarUrl: data.avatarUrl || avatarPreview || applicantData.photograph?.name,
     };
 
     const result = await updateProfileAction(applicantData.applicationId, payload);
     setIsUpdatingProfile(false);
 
     if (result.success && result.user) {
-      setApplicantData(result.user); // Update local state with returned user data
-      profileForm.reset({ // Re-initialize form with potentially updated data
+      setApplicantData(result.user); 
+      profileForm.reset({
         fullName: result.user.fullName,
         email: result.user.email,
         department: result.user.department,
@@ -176,9 +171,9 @@ export default function ProfilePage() {
 
   async function onPasswordSubmit(data: PasswordFormValues) {
     setIsUpdatingPassword(true);
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000)); 
     setIsUpdatingPassword(false);
-    const success = Math.random() > 0.3; // Mock success
+    const success = Math.random() > 0.3; 
     if (success) {
         toast({ title: "Password Changed", description: "Your password has been updated successfully. (Mocked)" });
         passwordForm.reset();

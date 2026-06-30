@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
@@ -119,7 +118,7 @@ export default function GenerateAdmissionLetterPage() {
 
     try {
       // Using the plural endpoint as established for admin views
-      const response = await fetch('https://sajfoods.net/api/siat/get-applicant-data.php');
+      const response = await fetch('https://sajfoods.com.ng/siat/get-applicant-data.php');
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(JSON.parse(errorText)?.message || `API Error: ${response.status}`);

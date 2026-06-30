@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -108,7 +107,7 @@ export default function ViewApplicantsPage() {
 
   const fetchApplicants = React.useCallback(async () => {
     setIsLoading(true);
-    const apiUrl = 'https://sajfoods.net/api/siat/get-applicant-data.php'; // PLURAL - for all applicants
+    const apiUrl = 'https://sajfoods.com.ng/siat/get-applicant-data.php'; // Updated endpoint
     try {
         const response = await fetch(apiUrl);
         
@@ -228,7 +227,7 @@ export default function ViewApplicantsPage() {
     }
 
     try {
-        const response = await fetch('https://sajfoods.net/api/siat/update-applicant-status.php', {
+        const response = await fetch('https://sajfoods.com.ng/siat/update-applicant-status.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 

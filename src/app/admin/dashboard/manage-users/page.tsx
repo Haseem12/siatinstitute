@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -76,7 +75,7 @@ export default function ManageUsersPage() {
     setIsSubmitting(true);
     
     try {
-        const response = await fetch('https://sajfoods.net/api/siat/add-user.php', {
+        const response = await fetch('https://sajfoods.com.ng/siat/add-user.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
@@ -243,5 +242,3 @@ export default function ManageUsersPage() {
     </div>
   );
 }
-
-    

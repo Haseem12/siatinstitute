@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -55,7 +54,6 @@ export default function PreRegisterPage() {
 
   useEffect(() => {
     document.title = "Pre-register - SIAT Institute";
-    console.log("PreRegisterPage mounted successfully.");
   }, []);
 
   const form = useForm<PreRegisterFormValues>({
@@ -80,44 +78,26 @@ export default function PreRegisterPage() {
         password: data.password,
     };
 
-    const bodyString = JSON.stringify(payload);
-    console.log(
-        "PRE-REGISTER PAYLOAD DEBUG (handleProceedToVerification):\n",
-        "Type of payload:", typeof payload, "\n",
-        "Payload object:", payload, "\n",
-        "JSON.stringify(payload):", bodyString, "\n",
-        "Length of stringified body:", bodyString.length
-    );
-
     try {
-      const response = await fetch('https://sajfoods.net/api/siat/pre-register.php', {
+      const response = await fetch('https://sajfoods.com.ng/siat/pre-register.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: bodyString,
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         let errorText = await response.text();
         let errorJson = null;
-        try {
-          errorJson = JSON.parse(errorText);
-        } catch (e) {
-          // Not a JSON response, use raw text
-        }
-        const errorMessage = errorJson?.message || errorText.substring(0, 200) + (errorText.length > 200 ? "..." : "");
-        console.error(`Pre-registration API error response text (HTTP ${response.status}):`, errorText);
-
+        try { errorJson = JSON.parse(errorText); } catch (e) {}
+        const errorMessage = errorJson?.message || errorText.substring(0, 200);
         toast({
           variant: "destructive",
           title: `Pre-registration Server Error (${response.status})`,
-          description: `Server msg: ${errorMessage}. CHECK PHP SERVER LOGS on sajfoods.net for detailed errors (e.g., in api/siat/php-error.log). Simulating success for UI testing.`,
-          duration: 15000,
+          description: `Server msg: ${errorMessage}.`,
+          duration: 10000,
         });
-        // Simulate success for UI testing
-        setPendingRegistrationData(data);
-        setAwaitingVerification(true);
         setIsLoading(false);
         return;
       }
@@ -137,7 +117,7 @@ export default function PreRegisterPage() {
             setAwaitingVerification(true);
             toast({
                 title: "Check Your Email",
-                description: result.message || "A verification code has been sent. Please check your inbox (and spam folder).",
+                description: result.message || "A verification code has been sent. Please check your inbox.",
                 duration: 10000,
             });
         }
@@ -145,32 +125,24 @@ export default function PreRegisterPage() {
         toast({
           variant: "destructive",
           title: "Pre-registration Failed",
-          description: result.message || "Could not complete pre-registration. Please try again.",
+          description: result.message || "Could not complete pre-registration.",
           duration: 7000,
         });
       }
     } catch (error: any) {
       console.error("Error calling pre-register API:", error);
-      const errMessageForToast = error.message.includes("JSON.parse") ? "Received invalid (non-JSON) response from server." : error.message;
       toast({
         variant: "destructive",
-        title: "Pre-registration Network/Client Error",
-        description: `Error: ${errMessageForToast}. Simulating successful pre-registration for UI testing. Check PHP server logs.`,
-        duration: 15000,
+        title: "Pre-registration Error",
+        description: "Could not connect to the server.",
       });
-      // Simulate success for UI testing
-      setPendingRegistrationData(data);
-      setAwaitingVerification(true);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleVerifyCodeAndCompleteRegistration = async () => {
-    if (!pendingRegistrationData) {
-        toast({ variant: "destructive", title: "Error", description: "No registration data found. Please start over."});
-        return;
-    }
+    if (!pendingRegistrationData) return;
     if (verificationCodeInput.length !== 6) {
         toast({ variant: "destructive", title: "Invalid Code", description: "Verification code must be 6 digits."});
         return;
@@ -183,36 +155,24 @@ export default function PreRegisterPage() {
         originalPassword: pendingRegistrationData.password,
     };
 
-    const bodyString = JSON.stringify(payload);
-     console.log(
-        "VERIFY EMAIL PAYLOAD DEBUG (handleVerifyCodeAndCompleteRegistration):\n",
-        "Type of payload:", typeof payload, "\n",
-        "Payload object:", payload, "\n",
-        "JSON.stringify(payload):", bodyString, "\n",
-        "Length of stringified body:", bodyString.length
-    );
-
     try {
-      const response = await fetch('https://sajfoods.net/api/siat/verify-email.php', {
+      const response = await fetch('https://sajfoods.com.ng/siat/verify-email.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: bodyString,
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         let errorText = await response.text();
         let errorJson = null;
-        try { errorJson = JSON.parse(errorText); } catch (e) {/*ignore*/}
-        const errorMessage = errorJson?.message || errorText.substring(0, 200) + (errorText.length > 200 ? "..." : "");
-        console.error(`Verification API error response text (HTTP ${response.status}):`, errorText);
+        try { errorJson = JSON.parse(errorText); } catch (e) {}
+        const errorMessage = errorJson?.message || errorText.substring(0, 200);
         toast({
           variant: "destructive",
-          title: `Backend Verification Error (${response.status}) (UI Test Mode)`,
-          description: `Server msg: ${errorMessage}. Simulating successful verification. Check PHP server logs.`,
-          duration: 15000,
+          title: `Verification Error (${response.status})`,
+          description: `Server msg: ${errorMessage}.`,
+          duration: 10000,
         });
-        const simulatedAppId = `SIM-${Date.now().toString().slice(-6)}`;
-        router.push(`/registration/login?appId=${simulatedAppId}`);
         setIsLoading(false);
         return;
       }
@@ -230,21 +190,17 @@ export default function PreRegisterPage() {
         toast({
           variant: "destructive",
           title: "Verification Failed",
-          description: result.message || "Could not verify your code. Please try again or pre-register anew.",
+          description: result.message || "Could not verify your code.",
           duration: 10000
         });
       }
     } catch (error: any) {
       console.error("Error calling verify-email API:", error);
-      const errMessageForToast = error.message.includes("JSON.parse") ? "Received invalid (non-JSON) response from server." : error.message;
       toast({
         variant: "destructive",
-        title: "Verification Network/Client Error (UI Test Mode)",
-        description: `Error: ${errMessageForToast}. Simulating successful verification. Check PHP server logs.`,
-        duration: 15000,
+        title: "Verification Error",
+        description: "Could not connect to the server.",
       });
-      const simulatedAppId = `SIM-${Date.now().toString().slice(-6)}`;
-      router.push(`/registration/login?appId=${simulatedAppId}`);
     } finally {
       setIsLoading(false);
     }
@@ -298,7 +254,7 @@ export default function PreRegisterPage() {
             </h1>
             <p className="text-muted-foreground mt-1">
               {awaitingVerification
-                ? `A verification code was sent to ${pendingRegistrationData?.email}. Please enter it below to complete your pre-registration.`
+                ? `A verification code was sent to ${pendingRegistrationData?.email}.`
                 : "Create your application account to get started."}
             </p>
           </div>

@@ -9,11 +9,11 @@ This folder contains the PHP scripts for the Scholars Institute of Arts & Techno
     *   Execute the SQL commands in `schema.sql` to create the required tables.
 
 2.  **Server Upload:**
-    *   Upload all `.php` files in this folder to your server at `sajfoods.net/api/siat/`.
+    *   Upload all `.php` files in this folder to your server at `sajfoods.com.ng/siat/`.
 
 3.  **Connection Test:**
     *   The `db_connect.php` file is already pre-configured with your provided credentials. 
-    *   Try accessing `https://sajfoods.net/api/siat/role-login.php` in your browser. You should see a JSON error message (which is expected as it requires a POST request), proving the script is reachable and connected.
+    *   Try accessing `https://sajfoods.com.ng/siat/role-login.php` in your browser. You should see a JSON error message (which is expected as it requires a POST request), proving the script is reachable and connected.
 
 ## Security Note
 

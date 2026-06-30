@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -72,8 +71,7 @@ export default function RegistrationLoginPage() {
     }
 
     try {
-      // Use the new applicant-login.php endpoint
-      const response = await fetch('https://sajfoods.net/api/siat/applicant-login.php', {
+      const response = await fetch('https://sajfoods.com.ng/siat/applicant-login.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -89,14 +87,13 @@ export default function RegistrationLoginPage() {
       if (result.success && result.data) {
         const { email, role, appId, name, admissionStatus } = result.data;
 
-        // This login is specifically for applicants to continue their registration
         if (role !== 'applicant') { 
             toast({ variant: "destructive", title: "Access Denied", description: "This login is for applicants only. Other users should use the main portal login." });
             setIsLoading(false);
             return;
         }
         
-        if (typeof window !== 'undefined' && appId) { // Ensure appId is present for applicant session
+        if (typeof window !== 'undefined' && appId) { 
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('userEmail', email);
           localStorage.setItem('userRole', role); 
@@ -130,7 +127,7 @@ export default function RegistrationLoginPage() {
     }
   };
 
-  const currentStepId = 2; // This page corresponds to step 2: Login & Continue
+  const currentStepId = 2; 
 
   return (
     <div className="min-h-screen bg-muted/30 py-8 md:py-12 flex flex-col items-center justify-center px-4">
@@ -214,4 +211,3 @@ export default function RegistrationLoginPage() {
     </div>
   );
 }
-    

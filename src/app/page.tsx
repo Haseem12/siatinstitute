@@ -1,4 +1,3 @@
-
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -33,9 +32,6 @@ import {
 } from "@/components/ui/carousel"
 import Autoplay from "embla-carousel-autoplay"
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet"
-// Removed: import { mockUsers as initialMockUsers } from "@/lib/mock-users";
-// Removed: import type { User, NewIntakeApplicationData } from "@/types";
-
 
 const carouselImages = [
   { src: "/assets/slider/slide-1.jpg", alt: "SIAT Campus Main Gate", title: "Welcome to SIAT", subtitle: "Excellence in Education, Innovation in Learning", dataAiHint: "campus gate"},
@@ -55,7 +51,7 @@ const carouselImages = [
 export default function LandingPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const [loginInput, setLoginInput] = useState("") // Can be email or App ID
+  const [loginInput, setLoginInput] = useState("") 
   const [loginPassword, setLoginPassword] = useState("")
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -71,7 +67,7 @@ export default function LandingPage() {
     }
 
     try {
-      const response = await fetch('https://sajfoods.net/api/siat/role-login.php', {
+      const response = await fetch('https://sajfoods.com.ng/siat/role-login.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appIdOrEmail: loginInput, password: loginPassword }),
@@ -85,13 +81,13 @@ export default function LandingPage() {
         if (typeof window !== 'undefined') {
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('userEmail', email);
-          localStorage.setItem('userRole', role || 'student'); // Default to student if role is missing
+          localStorage.setItem('userRole', role || 'student');
 
           if ((role === 'student' || role === 'applicant') && appId) {
             localStorage.setItem('currentApplicantSession', JSON.stringify({ 
               appId: appId, 
               email: email,
-              fullName: name, // Name from API
+              fullName: name, 
               admissionStatus: admissionStatus || "Not Submitted" 
             }));
           }
@@ -103,18 +99,16 @@ export default function LandingPage() {
           case "admin": router.push("/admin/dashboard"); break;
           case "instructor": router.push("/instructor/dashboard"); break;
           case "student": 
-             // If it's a student, check if they have an appId to determine if they should go to registration or main dashboard
             if (appId && (admissionStatus === "Not Submitted" || admissionStatus === "Pending" || !admissionStatus)) {
                  router.push("/registration/dashboard");
             } else {
                  router.push("/dashboard"); 
             }
             break;
-          case "applicant": // Explicitly handle 'applicant' role if backend sends it
+          case "applicant": 
              router.push("/registration/dashboard");
              break;
           default: 
-            // Fallback for unknown roles or if role implies student context
             if (appId) {
                 router.push("/registration/dashboard");
             } else {
@@ -300,7 +294,7 @@ export default function LandingPage() {
                     />
                   </div>
                   <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-3 text-base" disabled={isLoggingIn}>
-                    {isLoggingIn ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
+                    {isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
                     {isLoggingIn ? "Logging in..." : "Login to Portal"}
                   </Button>
                   <p className="text-xs text-center text-muted-foreground">
@@ -414,5 +408,3 @@ export default function LandingPage() {
     </div>
   )
 }
-
-    

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -390,7 +389,7 @@ interface ApplicantSessionData {
     fullName?: string; 
     admissionStatus?: string;
     admission_number?: string;
-    submitted_at?: Date; // Ensure this is part of the session if needed elsewhere
+    submitted_at?: Date; 
 }
 
 
@@ -521,19 +520,18 @@ export default function RegistrationDashboardPage() {
 
   const fetchAndSetInitialData = useCallback(async (session: ApplicantSessionData) => {
     setIsFetchingData(true);
-    // Set initially known values
     form.setValue("applicationId", session.appId);
     form.setValue("email", session.email); 
     if (session.fullName) form.setValue("fullName", session.fullName);
     
     try {
-        const response = await fetch(`https://sajfoods.net/api/siat/get-applicant-data.php`); // Fetch all
+        const response = await fetch(`https://sajfoods.com.ng/siat/get-applicant-data.php`); 
         if (!response.ok) {
             const errorText = await response.text();
             let errorMsg = `Failed to fetch application list (${response.status}).`;
             try { const errorJson = JSON.parse(errorText); errorMsg = errorJson.message || errorMsg; } catch (e) { /* Ignore */ }
             toast({ variant: "destructive", title: "Fetch Error", description: errorMsg });
-             form.reset({ // Fallback to session data for initial fields
+             form.reset({ 
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
                 email: session.email,
@@ -557,19 +555,19 @@ export default function RegistrationDashboardPage() {
                 form.reset({
                     ...form.formState.defaultValues, 
                     ...mappedFetchedData,                   
-                    photographFile: null, // Always reset file inputs
+                    photographFile: null, 
                     oLevels: mappedFetchedData.oLevels?.map(ol => ({ ...ol, fileInput: null, subjects: ol.subjects || [] })) || [],
                     aLevels: mappedFetchedData.aLevels?.map(al => ({ ...al, fileInput: null })) || [],
                     experiences: mappedFetchedData.experiences?.map(exp => ({ ...exp, fileInput: null })) || [],
-                    terms: !!mappedFetchedData.applicationId, // Set to true if application was submitted
+                    terms: !!mappedFetchedData.applicationId, 
                 });
                 setCompletedApplicationData(mappedFetchedData);
 
                 if (mappedFetchedData.photograph?.name) { 
                      setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); 
                 }
-                // Update localStorage session with potentially more complete data
                 localStorage.setItem("currentApplicantSession", JSON.stringify({
+                    ...applicantSession,
                     appId: mappedFetchedData.applicationId,
                     email: mappedFetchedData.email,
                     fullName: mappedFetchedData.fullName,
@@ -581,12 +579,12 @@ export default function RegistrationDashboardPage() {
 
 
                 if (mappedFetchedData.admissionStatus === "Admitted" || mappedFetchedData.admissionStatus === "Not Admitted" || mappedFetchedData.admissionStatus === "Pending") {
-                    setCurrentTab("preview"); // Go to preview if already submitted
+                    setCurrentTab("preview"); 
                 } else {
                     setCurrentTab(formTabs[0].id);
                 }
 
-            } else { // Applicant not found in the list from get-applicants.php
+            } else { 
                 form.reset({
                     ...form.formState.defaultValues,
                     applicationId: session.appId,
@@ -599,7 +597,7 @@ export default function RegistrationDashboardPage() {
                 toast({ title: "Application Data", description: `Your application (ID: ${session.appId}) was not found in the main list. Please fill the form if this is your first time.`, duration: 7000 });
                 setCurrentTab(formTabs[0].id);
             }
-        } else { // API call was successful but data format was unexpected or result.success was false
+        } else { 
              form.reset({
                 ...form.formState.defaultValues,
                 applicationId: session.appId,
@@ -615,7 +613,7 @@ export default function RegistrationDashboardPage() {
     } catch (error: any) {
         console.error("Error fetching applicant data:", error);
         toast({ variant: "destructive", title: "Network Error", description: "Could not fetch your application data." });
-        form.reset({ // Fallback to session data for initial fields
+        form.reset({ 
             ...form.formState.defaultValues,
             applicationId: session.appId,
             email: session.email,
@@ -628,7 +626,7 @@ export default function RegistrationDashboardPage() {
     } finally {
         setIsFetchingData(false);
     }
-  }, [form, toast, mapRawApplicantData]);
+  }, [form, toast, mapRawApplicantData, applicantSession]);
 
 
   useEffect(() => {
@@ -763,7 +761,7 @@ export default function RegistrationDashboardPage() {
       })) || [],
       admissionStatus: "Pending", 
       admission_number: data.admission_number,
-      submitted_at: new Date(), // Set submission date on client submission
+      submitted_at: new Date(), 
     };
 
     delete (applicationDataToSubmit as any).photographFile;
@@ -774,7 +772,7 @@ export default function RegistrationDashboardPage() {
 
 
     try {
-        const response = await fetch('https://sajfoods.net/api/siat/submit-application.php', {
+        const response = await fetch('https://sajfoods.com.ng/siat/submit-application.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(applicationDataToSubmit),
@@ -791,7 +789,6 @@ export default function RegistrationDashboardPage() {
 
         if (result.success) {
             toast({ title: "Application Submitted Successfully!", description: `API: ${result.message}. Your application (ID: ${applicationDataToSubmit.applicationId}) is now under review.`, duration: 7000 });
-            // Update completedApplicationData to reflect the submitted data
             const updatedDataForState = { ...applicationDataToSubmit, submitted_at: new Date() };
             setCompletedApplicationData(updatedDataForState); 
              if (applicantSession) { 
@@ -805,8 +802,6 @@ export default function RegistrationDashboardPage() {
                 setApplicantSession(JSON.parse(localStorage.getItem("currentApplicantSession")!));
              }
             setCurrentTab("preview"); 
-            // No need to refetch immediately, as we've updated the state locally
-            // fetchAndSetInitialData(applicantSession); // Re-enable if server might make immediate changes
         } else {
             toast({ variant: "destructive", title: "API Submission Failed", description: result.message || "The application could not be submitted to the server." });
         }
@@ -865,7 +860,7 @@ export default function RegistrationDashboardPage() {
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
             .letter-container { max-width: 700px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0,0,0,0.05); }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid hsl(var(--primary)); padding-bottom: 15px; }
-            .header img { max-height: 70px; margin-bottom: 10px; } /* Use img for print */
+            .header img { max-height: 70px; margin-bottom: 10px; }
             .header h1 { margin: 0; font-size: 22px; color: hsl(var(--primary)); }
             .header h2 { margin: 5px 0; font-size: 18px; font-weight: normal; color: hsl(var(--foreground));}
             .applicant-details { margin-bottom: 20px; }
@@ -1407,7 +1402,7 @@ export default function RegistrationDashboardPage() {
                             <div className="my-3 flex flex-col items-center sm:items-start">
                                 <p className="text-sm font-medium text-muted-foreground mb-1">Photograph:</p>
                                 <Image 
-                                    src={`https://placehold.co/150x150.png?text=PHOTO`} // Placeholder as actual image not stored/retrieved this way
+                                    src={`https://placehold.co/150x150.png?text=PHOTO`} 
                                     alt="Applicant Photograph" 
                                     width={150} height={150} 
                                     className="rounded-md border object-cover shadow-sm"
@@ -1485,7 +1480,7 @@ export default function RegistrationDashboardPage() {
                                             <PreviewItemDisplay label="Course of Study" value={al.courseOfStudy} className="border-none"/>
                                             <PreviewItemDisplay label="Grade/Class" value={al.gradeOrClass} className="border-none"/>
                                             <PreviewItemDisplay label="Year Awarded" value={al.yearAwarded} className="border-none"/>
-                                            <PreviewItemDisplay label="Certificate Uploaded" value={al.file?.name ? `${al.file.name} (${al.file.size ? (al.file.size / 1024).toFixed(1) + 'KB' : 'Size N/A'})` : "(Not uploaded)"} className="border-none pt-2"/>
+                                            <PreviewItemDisplay label="Certificate Uploaded" value={al.file?.name ? `${al.file.name} (${al.file.size ? (ol.file.size / 1024).toFixed(1) + 'KB' : 'Size N/A'})` : "(Not uploaded)"} className="border-none pt-2"/>
                                         </CardContent>
                                     </Card>
                                 ))}
@@ -1636,4 +1631,3 @@ export default function RegistrationDashboardPage() {
     </div>
   );
 }
-    
