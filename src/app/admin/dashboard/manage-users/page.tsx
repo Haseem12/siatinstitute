@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle, Search, Edit, Trash2, Loader2 } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, Loader2, UserCheck } from "lucide-react";
 import type { User } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -23,15 +23,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-// mockInitialUsers are updated with requested instructors and admin
-const mockInitialUsers: User[] = [
-  { id: "usr1", name: "Aisha Bello", email: "aisha.bello@siat.edu.ng", studentId: "SIAT/CSC/001", role: "student", department: "Computer Science", level: "300 Level" },
-  { id: "usr2", name: "Dr. Ibrahim Musa", email: "instructor@siat.edu.ng", studentId: "STF/012", role: "instructor", department: "Mathematics" },
-  { id: "usr3", name: "Yusuf Ahmed", email: "yusuf.ahmed@siat.edu.ng", studentId: "SIAT/ENG/005", role: "student", department: "Engineering", level: "200 Level" },
+// Initial state updated to include the new registered users
+const initialUsers: User[] = [
   { id: "usr4", name: "Admin User", email: "admin@siat.edu.ng", studentId: "ADM/001", role: "admin" },
+  { id: "usr7", name: "Super Admin", email: "superadmin@siat.edu.ng", studentId: "ADM/002", role: "admin" },
   { id: "usr5", name: "Dr. Sani Mohammed", email: "sani.mohammed@siat.edu.ng", studentId: "STF/045", role: "instructor", department: "Computer Science" },
   { id: "usr6", name: "Mrs. Grace Bitrus", email: "grace.bitrus@siat.edu.ng", studentId: "STF/067", role: "instructor", department: "Business Administration" },
-  { id: "usr7", name: "Super Admin", email: "superadmin@siat.edu.ng", studentId: "ADM/002", role: "admin" },
+  { id: "usr1", name: "Aisha Bello", email: "aisha.bello@siat.edu.ng", studentId: "SIAT/CSC/001", role: "student", department: "Computer Science", level: "300 Level" },
+  { id: "usr2", name: "Dr. Ibrahim Musa", email: "instructor@siat.edu.ng", studentId: "STF/012", role: "instructor", department: "Mathematics" },
 ];
 
 const newUserFormSchema = z.object({
@@ -47,7 +46,7 @@ type NewUserFormValues = z.infer<typeof newUserFormSchema>;
 
 export default function ManageUsersPage() {
   const { toast } = useToast();
-  const [users, setUsers] = React.useState<User[]>(mockInitialUsers);
+  const [users, setUsers] = React.useState<User[]>(initialUsers);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -116,10 +115,15 @@ export default function ManageUsersPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg">
+      <Card className="shadow-lg border-primary/10">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-primary">Manage Users</CardTitle>
-          <CardDescription>View, add, edit, or remove users from the system. New users will be added to the central login table.</CardDescription>
+          <div className="flex items-center gap-3">
+            <UserCheck className="h-8 w-8 text-primary" />
+            <div>
+              <CardTitle className="text-2xl font-bold text-primary">Manage Users</CardTitle>
+              <CardDescription>View and register students, instructors, and administrators.</CardDescription>
+            </div>
+          </div>
         </CardHeader>
       </Card>
 
@@ -147,7 +151,7 @@ export default function ManageUsersPage() {
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle className="text-primary">Add New User</DialogTitle>
-                <DialogDescription>Enter the details for the new user account. This will create an account in the system.</DialogDescription>
+                <DialogDescription>Enter account details. This user will be able to log in immediately.</DialogDescription>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(handleAddUserSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
@@ -158,10 +162,10 @@ export default function ManageUsersPage() {
                     <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                    <FormField control={form.control} name="password" render={({ field }) => (
-                    <FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="studentId" render={({ field }) => (
-                    <FormItem><FormLabel>User ID (Student Matric/Staff ID)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>User ID (Staff or Matric No.)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="role" render={({ field }) => (
                     <FormItem><FormLabel>Role</FormLabel>
@@ -184,7 +188,7 @@ export default function ManageUsersPage() {
                     <DialogClose asChild><Button type="button" variant="outline" disabled={isSubmitting}>Cancel</Button></DialogClose>
                     <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isSubmitting}>
                       {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      {isSubmitting ? "Adding User..." : "Add User to System"}
+                      {isSubmitting ? "Registering..." : "Register User"}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -202,7 +206,6 @@ export default function ManageUsersPage() {
                   <TableHead>User ID</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Department</TableHead>
-                  <TableHead>Level</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -210,25 +213,28 @@ export default function ManageUsersPage() {
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.studentId}</TableCell>
-                    <TableCell className="capitalize">{user.role}</TableCell>
-                    <TableCell>{user.department || "N/A"}</TableCell>
-                    <TableCell>{user.level || "N/A"}</TableCell>
+                    <TableCell className="text-xs">{user.email}</TableCell>
+                    <TableCell className="font-mono text-xs">{user.studentId}</TableCell>
+                    <TableCell>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                        user.role === 'admin' ? "bg-primary/10 text-primary" : 
+                        user.role === 'instructor' ? "bg-accent/10 text-accent" : "bg-muted text-muted-foreground"
+                      )}>
+                        {user.role}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs">{user.department || "N/A"}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="hover:text-primary" title="Edit user">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="hover:text-destructive" title="Delete user">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary"><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                     </TableCell>
                   </TableRow>
                 ))}
                 {filteredUsers.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No users found matching your search criteria.
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No users found.
                     </TableCell>
                   </TableRow>
                 )}
