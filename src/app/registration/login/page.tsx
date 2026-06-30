@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import ArewaLogo from "@/components/arewa-logo";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, Check, MailWarning } from "lucide-react";
+export const dynamic = 'force-dynamic';
 
 const registrationSteps = [
   { id: 1, title: "Pre-register Account" },
