@@ -17,7 +17,7 @@ const mockAvailableCourses: Course[] = [
   { id: "gst101", code: "GST101", name: "Use of English I", credits: 2 }, { id: "mat101", code: "MAT101", name: "Algebra", credits: 3 }, { id: "phy101", code: "PHY101", name: "Mechanics & Properties of Matter", credits: 3 }, { id: "chm101", code: "CHM101", name: "General Chemistry I", credits: 3 }, { id: "bio101", code: "BIO101", name: "General Biology I", credits: 3 }, { id: "csc101", code: "CSC101", name: "Intro to Computer Science", credits: 3 }, { id: "gst102", code: "GST102", name: "Nigerian Peoples & Culture", credits: 2 }, { id: "mat102", code: "MAT102", name: "Trigonometry & Geometry", credits: 3 }, { id: "phy102", code: "PHY102", name: "Electricity & Magnetism", credits: 3 }, { id: "chm102", code: "CHM102", name: "General Chemistry II", credits: 3 }, { id: "bio102", code: "BIO102", name: "General Biology II", credits: 3 }, { id: "csc102", code: "CSC102", name: "Intro to Problem Solving", credits: 3 }, { id: "eco101", code: "ECO101", name: "Principles of Economics I", credits: 2 }, { id: "soc101", code: "SOC101", name: "Introduction to Sociology", credits: 2 },
 ];
 
-const mockStudentDetails: Pick<User, "name" | "studentId" | "department" | "level"> &; { session: string } = {
+const mockStudentDetails: Pick<User, "name" | "studentId" | "department" | "level"> & { session: string } = {
   name: "Aisha Bello", studentId: "SIAT/CSC/001", department: "Computer Science", level: "100 Level", session: "2023/2024 Academic Session",
 };
 
