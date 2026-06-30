@@ -28,10 +28,17 @@ export default function InstructorLayout({ children }: { children: React.ReactNo
   React.useEffect(() => {
     setIsClient(true);
     const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const userEmail = localStorage.getItem('userEmail');
-    // This is a mock check, real role check would be more secure
-    if (!isLoggedIn || userEmail?.toLowerCase() !== "instructor@siat.edu.ng") {
-      toast({ variant: "destructive", title: "Access Denied", description: "You are not authorized to view this page." });
+    const userRole = localStorage.getItem('userRole');
+    
+    // Check for instructor role specifically
+    if (!isLoggedIn || userRole !== "instructor") {
+      if (isLoggedIn) {
+        toast({ 
+          variant: "destructive", 
+          title: "Access Denied", 
+          description: "You do not have instructor access." 
+        });
+      }
       router.push('/');
     }
   }, [router, toast]);
@@ -40,6 +47,8 @@ export default function InstructorLayout({ children }: { children: React.ReactNo
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('currentApplicantSession');
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out.",

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import ArewaLogo from "@/components/arewa-logo";
 import AdminNavLinks from "@/components/admin-nav-links";
-import UserNav from "@/components/user-nav"; // Assuming UserNav can adapt or we make an AdminUserNav
+import UserNav from "@/components/user-nav";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
@@ -28,9 +28,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   React.useEffect(() => {
     setIsClient(true);
     const isLoggedIn = localStorage.getItem('isLoggedIn');
-    const userEmail = localStorage.getItem('userEmail');
-    if (!isLoggedIn || userEmail?.toLowerCase() !== "admin@siat.edu.ng") {
-      toast({ variant: "destructive", title: "Access Denied", description: "You are not authorized to view this page." });
+    const userRole = localStorage.getItem('userRole');
+    
+    // Check for admin role specifically
+    if (!isLoggedIn || userRole !== "admin") {
+      if (isLoggedIn) {
+        toast({ 
+          variant: "destructive", 
+          title: "Access Denied", 
+          description: "You do not have administrative privileges." 
+        });
+      }
       router.push('/');
     }
   }, [router, toast]);
@@ -38,6 +46,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleLogout = () => {
     localStorage.removeItem('isLoggedIn');
     localStorage.removeItem('userEmail');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('currentApplicantSession');
     toast({
       title: "Logged Out",
       description: "You have been successfully logged out.",
@@ -82,7 +92,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6">
           <SidebarTrigger className="md:hidden" />
           <div className="flex-1">
-            {/* Can add breadcrumbs or page title here */}
+            {/* Breadcrumbs or Page Title could go here */}
           </div>
           <UserNav />
         </header>
