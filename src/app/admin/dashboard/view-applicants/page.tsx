@@ -15,13 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { mapRawApplicantData } from "@/lib/mapRawApplicantData";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 // Helper component for displaying application details in the dialog
-const ApplicationDetailItem: React.FC<{ label: string; value?: string | number | null | React.ReactNode }> = ({ label, value }) => (
-  <div className="grid grid-cols-3 gap-2 py-1.5 border-b border-muted/50">
-    <dt className="text-sm font-medium text-muted-foreground col-span-1">{label}:</dt>
-    <dd className="text-sm text-foreground col-span-2 break-words">{value === undefined || value === null || String(value).trim() === '' ? "N/A" : value}</dd>
+const PreviewItemDisplay: React.FC<{ label: string; value?: string | number | null | React.ReactNode; className?: string }> = ({ label, value, className }) => (
+  <div className={cn("flex flex-col sm:flex-row sm:justify-between py-1.5 text-sm border-b border-muted/50", className)}>
+    <dt className="font-medium text-muted-foreground min-w-[120px]">{label}:</dt>
+    <dd className="text-foreground sm:text-right break-words mt-1 sm:mt-0">{value === undefined || value === null || String(value).trim() === '' ? "N/A" : value}</dd>
   </div>
 );
 
