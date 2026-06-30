@@ -6,6 +6,18 @@
  * for consistent JSON responses and email sending.
  */
 
+// --- GLOBAL CORS HANDLER ---
+// This allows your React app (running on a different domain) to talk to your PHP server.
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, DELETE, PUT");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+
+// Handle Preflight (OPTIONS) requests immediately
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
 // Database configuration
 $host = "localhost"; 
 $db_user = "sajfoods_siat";

@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from "@/components/ui/dialog";
-import { PlusCircle, Search, Edit, Trash2, Loader2, UserCheck, RefreshCw } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, Loader2, UserCheck, RefreshCw, AlertCircle } from "lucide-react";
 import type { User } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -42,11 +42,24 @@ export default function ManageUsersPage() {
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
 
   const fetchUsers = React.useCallback(async () => {
     setIsLoading(true);
+    setFetchError(null);
     try {
-      const response = await fetch('https://sajfoods.com.ng/siat/get-users.php');
+      // Added cache: 'no-store' to ensure we get fresh data and help bypass some proxy issues
+      const response = await fetch('https://sajfoods.com.ng/siat/get-users.php', {
+        cache: 'no-store',
+        headers: {
+            'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+          throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+      }
+
       const result = await response.json();
       if (result.success && Array.isArray(result.data)) {
         setUsers(result.data.map((u: any) => ({
@@ -59,11 +72,15 @@ export default function ManageUsersPage() {
             level: u.level
         })));
       } else {
-        toast({ variant: "destructive", title: "Fetch Error", description: result.message || "Could not load users." });
+        throw new Error(result.message || "Could not load users from database.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching users:", error);
-      toast({ variant: "destructive", title: "Network Error", description: "Failed to connect to the database API." });
+      const msg = error.message === "Failed to fetch" 
+        ? "Network error: The server might be down or blocking the request (CORS)." 
+        : error.message;
+      setFetchError(msg);
+      toast({ variant: "destructive", title: "Connection Error", description: msg });
     } finally {
       setIsLoading(false);
     }
@@ -140,6 +157,21 @@ export default function ManageUsersPage() {
         </CardHeader>
       </Card>
 
+      {fetchError && (
+        <Card className="border-destructive bg-destructive/10">
+            <CardContent className="pt-6 flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                <div className="flex-1">
+                    <p className="text-sm font-semibold text-destructive">Database Connection Issue</p>
+                    <p className="text-xs text-destructive/80">{fetchError}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchUsers} className="border-destructive text-destructive hover:bg-destructive hover:text-white">
+                    Retry
+                </Button>
+            </CardContent>
+        </Card>
+      )}
+
       <Card className="shadow-md">
         <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="relative flex-1 md:grow-0">
@@ -172,7 +204,7 @@ export default function ManageUsersPage() {
                     <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="email" render={({ field }) => (
-                    <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                    <FormField control={form.control} name="password" render={({ field }) => (
                     <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
@@ -250,7 +282,7 @@ export default function ManageUsersPage() {
                         </TableCell>
                     </TableRow>
                     ))}
-                    {filteredUsers.length === 0 && (
+                    {filteredUsers.length === 0 && !fetchError && (
                     <TableRow>
                         <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         No users found in the database.
