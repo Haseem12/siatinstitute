@@ -81,7 +81,7 @@ function send_verification_email($to_email, $name, $code) {
     $headers .= "Content-type:text/html;charset=UTF-8" . "\r\n";
     
     // Additional headers
-    $headers .= 'From: SIAT Institute <noreply@sajfoods.com.ng>' . "\r\n";
+    $headers .= 'From: SIAT Institute <noreply@siat.gov.ng>' . "\r\n";
     $headers .= 'Reply-To: info@sajfoods.com.ng' . "\r\n";
     $headers .= 'X-Mailer: PHP/' . phpversion();
 
