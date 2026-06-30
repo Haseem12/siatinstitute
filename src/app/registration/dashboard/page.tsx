@@ -398,6 +398,8 @@ interface ApplicantSessionData {
 export default function RegistrationDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const hasFetched = useRef(false);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(registrationDashboardFormSchema),
     defaultValues: {
@@ -457,11 +459,11 @@ export default function RegistrationDashboardPage() {
   };
 
 
-  const fetchAndSetInitialData = useCallback(async (session: ApplicantSessionData) => {
+  const fetchAndSetInitialData = useCallback(async (email: string, appId: string, fullName?: string) => {
     setIsFetchingData(true);
     
     try {
-        const response = await fetch(`https://sajfoods.com.ng/siat/get-applicant-details-by-email.php?email=${encodeURIComponent(session.email)}`); 
+        const response = await fetch(`https://sajfoods.com.ng/siat/get-applicant-details-by-email.php?email=${encodeURIComponent(email)}`); 
         if (!response.ok) {
             throw new Error(`Failed to fetch application details (${response.status}).`);
         }
@@ -492,22 +494,22 @@ export default function RegistrationDashboardPage() {
                  setPhotographPreview(`https://placehold.co/150x150.png?text=PHOTO`); 
             }
 
-            localStorage.setItem("currentApplicantSession", JSON.stringify({
-                ...applicantSession,
+            const updatedSession = {
                 appId: mappedFetchedData.applicationId,
                 email: mappedFetchedData.email,
                 fullName: mappedFetchedData.fullName,
                 admissionStatus: mappedFetchedData.admissionStatus,
                 admission_number: mappedFetchedData.admission_number,
                 submitted_at: mappedFetchedData.submitted_at,
-            }));
-            setApplicantSession(JSON.parse(localStorage.getItem("currentApplicantSession")!));
+            };
+            localStorage.setItem("currentApplicantSession", JSON.stringify(updatedSession));
+            setApplicantSession(updatedSession);
 
         } else { 
             toast({ title: "Welcome!", description: "Please complete the application form below to begin.", duration: 7000 });
-            form.setValue("applicationId", session.appId);
-            form.setValue("email", session.email);
-            if (session.fullName) form.setValue("fullName", session.fullName);
+            form.setValue("applicationId", appId);
+            form.setValue("email", email);
+            if (fullName) form.setValue("fullName", fullName);
             setCurrentTab(formTabs[0].id);
         }
     } catch (error: any) {
@@ -516,7 +518,7 @@ export default function RegistrationDashboardPage() {
     } finally {
         setIsFetchingData(false);
     }
-  }, [form, toast, applicantSession]);
+  }, [form, toast]);
 
 
   useEffect(() => {
@@ -527,7 +529,10 @@ export default function RegistrationDashboardPage() {
         const parsedSession = JSON.parse(sessionString) as ApplicantSessionData;
         if (parsedSession.appId && parsedSession.email) {
           setApplicantSession(parsedSession);
-          fetchAndSetInitialData(parsedSession); 
+          if (!hasFetched.current) {
+            hasFetched.current = true;
+            fetchAndSetInitialData(parsedSession.email, parsedSession.appId, parsedSession.fullName); 
+          }
         } else {
           throw new Error("Incomplete session data.");
         }
@@ -538,6 +543,7 @@ export default function RegistrationDashboardPage() {
     } else {
       router.push("/registration/login");
     }
+    setIsFetchingData(false);
   }, [router, toast, fetchAndSetInitialData]);
 
 
@@ -649,7 +655,9 @@ export default function RegistrationDashboardPage() {
 
         if (result.success) {
             toast({ title: "Application Submitted!", description: "Your details have been saved successfully and are now under review." });
-            await fetchAndSetInitialData(applicantSession!); 
+            if (applicantSession) {
+              await fetchAndSetInitialData(applicantSession.email, applicantSession.appId, applicantSession.fullName); 
+            }
         } else {
             toast({ variant: "destructive", title: "Submission Failed", description: result.message });
         }
@@ -786,7 +794,7 @@ export default function RegistrationDashboardPage() {
                 )}
             </CardContent>
             <CardFooter>
-                <Button variant="outline" onClick={() => fetchAndSetInitialData(applicantSession)} disabled={isFetchingData}>
+                <Button variant="outline" onClick={() => applicantSession && fetchAndSetInitialData(applicantSession.email, applicantSession.appId, applicantSession.fullName)} disabled={isFetchingData}>
                     {isFetchingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <RefreshCw className="mr-2 h-4 w-4"/>} 
                     Refresh Application Data
                 </Button>
@@ -1007,3 +1015,14 @@ export default function RegistrationDashboardPage() {
     </div>
   );
 }
+
+interface PreviewItemProps {
+  label: string;
+  value?: string | number | null;
+}
+const PreviewItem: React.FC<PreviewItemProps> = ({ label, value }) => (
+  <div className="flex flex-col sm:flex-row sm:justify-between py-1 text-sm">
+    <dt className="font-medium text-muted-foreground">{label}:</dt>
+    <dd className="text-foreground sm:text-right">{value || "N/A"}</dd>
+  </div>
+);
