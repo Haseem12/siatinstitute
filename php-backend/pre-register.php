@@ -2,7 +2,7 @@
 /**
  * PRE-REGISTER APPLICANT
  * 
- * Creates a record in 'pre_registered_users' and generates a verification code.
+ * Creates a record in 'pre_registered_users', generates a code, and sends an email.
  */
 
 require_once 'db_connect.php';
@@ -42,12 +42,18 @@ if ($user = $res->fetch_assoc()) {
     if ($user['is_email_verified']) {
         send_json_response(true, "Email already verified. Please login.", ["appId" => $user['app_id'], "emailVerified" => true], 200);
     } else {
-        $code = str_pad(rand(0, 999999), 6, '0', PAD_LEFT);
+        // Resend logic
+        $code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
         $up_sql = "UPDATE pre_registered_users SET verification_code = ? WHERE email = ?";
         $up_stmt = $conn->prepare($up_sql);
         $up_stmt->bind_param("ss", $code, $email);
-        $up_stmt->execute();
-        send_json_response(true, "A verification code has been resent to your email.", ["appId" => $user['app_id']]);
+        
+        if ($up_stmt->execute()) {
+            $sent = send_verification_email($email, $firstname, $code);
+            send_json_response(true, "A verification code has been resent to your email." . ($sent ? "" : " (Warning: Email delivery failed)"), ["appId" => $user['app_id']]);
+        } else {
+            send_json_response(false, "Failed to update verification code.", null, 500);
+        }
     }
 }
 
@@ -61,8 +67,8 @@ $ins_stmt = $conn->prepare($ins_sql);
 $ins_stmt->bind_param("sssssss", $app_id, $surname, $firstname, $othername, $email, $hash, $code);
 
 if ($ins_stmt->execute()) {
-    // In production, send code via email here
-    send_json_response(true, "Pre-registration successful. A verification code has been sent to your email.", ["appId" => $app_id]);
+    $sent = send_verification_email($email, $firstname, $code);
+    send_json_response(true, "Pre-registration successful. A 6-digit verification code has been sent to your email." . ($sent ? "" : " (Warning: Email delivery failed)"), ["appId" => $app_id]);
 } else {
     send_json_response(false, "Registration failed: " . $conn->error, null, 500);
 }
