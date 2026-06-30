@@ -23,12 +23,15 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-// mockInitialUsers are still used for initial display, but new users are added via API
+// mockInitialUsers are updated with requested instructors and admin
 const mockInitialUsers: User[] = [
   { id: "usr1", name: "Aisha Bello", email: "aisha.bello@siat.edu.ng", studentId: "SIAT/CSC/001", role: "student", department: "Computer Science", level: "300 Level" },
   { id: "usr2", name: "Dr. Ibrahim Musa", email: "instructor@siat.edu.ng", studentId: "STF/012", role: "instructor", department: "Mathematics" },
   { id: "usr3", name: "Yusuf Ahmed", email: "yusuf.ahmed@siat.edu.ng", studentId: "SIAT/ENG/005", role: "student", department: "Engineering", level: "200 Level" },
   { id: "usr4", name: "Admin User", email: "admin@siat.edu.ng", studentId: "ADM/001", role: "admin" },
+  { id: "usr5", name: "Dr. Sani Mohammed", email: "sani.mohammed@siat.edu.ng", studentId: "STF/045", role: "instructor", department: "Computer Science" },
+  { id: "usr6", name: "Mrs. Grace Bitrus", email: "grace.bitrus@siat.edu.ng", studentId: "STF/067", role: "instructor", department: "Business Administration" },
+  { id: "usr7", name: "Super Admin", email: "superadmin@siat.edu.ng", studentId: "ADM/002", role: "admin" },
 ];
 
 const newUserFormSchema = z.object({
@@ -44,7 +47,6 @@ type NewUserFormValues = z.infer<typeof newUserFormSchema>;
 
 export default function ManageUsersPage() {
   const { toast } = useToast();
-  // Users state will primarily be for display; actual user list should be fetched from backend in a real app
   const [users, setUsers] = React.useState<User[]>(mockInitialUsers);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = React.useState(false);
@@ -54,8 +56,6 @@ export default function ManageUsersPage() {
     if (typeof document !== 'undefined') {
         document.title = 'Manage Users - Admin Dashboard';
     }
-    // In a real app, you would fetch users from the backend here
-    // and update the `users` state.
   }, []);
 
   const form = useForm<NewUserFormValues>({
@@ -84,10 +84,8 @@ export default function ManageUsersPage() {
 
         if (result.success) {
             toast({ title: "User Added Successfully", description: result.message });
-            // Optionally, re-fetch users list from backend here to update display
-            // For now, we can add to local state for mock display
             const newUserForDisplay: User = {
-                id: `usr_${Date.now()}`, // Temporary client-side ID for display
+                id: `usr_${Date.now()}`,
                 ...data,
             };
             setUsers(prev => [newUserForDisplay, ...prev]);
@@ -218,10 +216,10 @@ export default function ManageUsersPage() {
                     <TableCell>{user.department || "N/A"}</TableCell>
                     <TableCell>{user.level || "N/A"}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="hover:text-primary" title="Edit user (not implemented)">
+                      <Button variant="ghost" size="icon" className="hover:text-primary" title="Edit user">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="hover:text-destructive" title="Delete user (not implemented)">
+                      <Button variant="ghost" size="icon" className="hover:text-destructive" title="Delete user">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>

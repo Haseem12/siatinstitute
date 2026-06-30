@@ -185,14 +185,14 @@ const applicationCompletionSteps = [
 
 
 const availablePrograms = [
-    "Computer Science", "Software Engineering", "Mass Communication", "Business Administration",
-    "Accounting", "Electrical Engineering Technology", "Public Administration", "Science Laboratory Technology"
+    "Cyber Security", "Software Development", "Data Analysis", "UI/UX Design",
+    "Graphics and Brand Design", "Electrical Installation Technology", "Adults ICT Literacy", "Women in Tech (WiT)", "Application Packages"
 ];
 const availableCampuses = ["Main Campus - Zaria", "Kaduna City Campus", "Kano Extension Center"];
 const aLevelQualificationTypes = ["A-Level (IJMB/JUPEB)", "National Diploma (ND)", "Higher National Diploma (HND)", "NCE", "Bachelor's Degree", "Other"];
 const experienceTypes = ["Work Experience", "Internship", "Volunteer Work"];
 const genderOptions = ["Male", "Female", "Other"];
-const entryModes = ["UTME", "Direct Entry", "Transfer"];
+const entryModes = ["Scholarship", "Direct", "Organization", "Individual", "Government"];
 const oLevelExamTypes = ["WAEC", "NECO", "NABTEB", "GCE"];
 const oLevelSubjectsList = ["Mathematics", "English Language", "Physics", "Chemistry", "Biology", "Computer Studies", "Economics", "Government", "Literature in English", "CRK/IRK", "Geography", "Agricultural Science", "Further Mathematics", "Technical Drawing", "Commerce", "Financial Accounting", "Civic Education", "Data Processing"];
 const oLevelGrades = ["A1", "B2", "B3", "C4", "C5", "C6", "D7", "E8", "F9"];
@@ -1021,7 +1021,6 @@ export default function RegistrationDashboardPage() {
                   <div ref={admissionLetterContentRef}>
                       <div className="header">
                           <h1>SCHOLARS INSTITUTE OF ARTS & TECHNOLOGY, ZARIA</h1>
-                          <p>Km 5, Zaria-Kano Road, Zaria, Kaduna State, Nigeria.</p>
                           <h2 style={{marginTop: '20px'}}>PROVISIONAL ADMISSION LETTER</h2>
                       </div>
                       <p><strong>Date:</strong> {format(new Date(), "PPP")}</p>
