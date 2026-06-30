@@ -571,6 +571,7 @@ export default function ViewApplicantsPage() {
         </Dialog>
       )}
     </div>
-  );
 
-    
+
+);
+}
